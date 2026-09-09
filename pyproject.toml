@@ -1,0 +1,10 @@
+[project]
+name = "ha-charge-tally"
+version = "0.1.0"
+description = "Charging measurement and billing for Home Assistant"
+requires-python = ">=3.13"
+dependencies = ["tzdata>=2025.2; sys_platform == 'win32'"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
