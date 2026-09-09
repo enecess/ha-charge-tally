@@ -37,12 +37,14 @@ class Accounting:
     def __init__(self, ledger):
         self.ledger = ledger
 
-    def _references(self, point_id, identity_id):
+    def _references(self, point_id, identity_id, original=None):
         point, identity = self.ledger.get_point(point_id), self.ledger.get_identity(identity_id)
         if point is None or identity is None:
             raise ValueError('Unknown point or identity')
-        if point.get('active', True) is False or identity.get('active', True) is False:
-            raise ValueError('Point or identity is disabled')
+        for key, snapshot in (('point_id', point), ('identity_id', identity)):
+            retained = original is not None and original[key] == snapshot['id']
+            if not retained and snapshot.get('active', True) is False:
+                raise ValueError('Point or identity is disabled')
 
     def _request(self, request_id, payload, operation):
         if not request_id:
@@ -142,18 +144,19 @@ class Accounting:
 
     def _historical_prices(self, point_id, start, end):
         versions = self.ledger.list_price_versions(point_id)
-        timeline = {p['at']: p['price'] for p in versions if 'price' in p}
+        timeline = {p['at']: p['price'] for p in versions if 'price' in p and instant(p['at']) < end}
+        for gap in self.ledger.get_checkpoint('_price_gaps:' + point_id) or []:
+            timeline.setdefault(gap['start'], None)
         for observation in self.ledger.list_intervals(point_id, start.isoformat(), end.isoformat()):
             left, right = observation['start'], observation['end']
-            current = None
             for at, price in observation['prices']:
-                if at <= left:
-                    current = price
-                elif at < right:
-                    timeline[at] = price
-            timeline[left] = current
-            timeline.setdefault(right, None)
-        return sorted(timeline.items())
+                if at < right:
+                    timeline.setdefault(at, price)
+            if not any(p['at'] <= right for p in versions):
+                timeline.setdefault(right, None)
+        ordered = sorted(timeline.items())
+        anchor = [(at, price) for at, price in ordered if instant(at) <= start]
+        return anchor[-1:] + [(at, price) for at, price in ordered if start < instant(at) < end]
 
     def start(self, point_id, identity_id, at: datetime, request_id: str, source='manual', timezone='Asia/Shanghai'):
         at = instant(at).isoformat()
@@ -221,7 +224,7 @@ class Accounting:
     def reassign(self, record_id, identity_id, expected_revision: int):
         with self.ledger.transaction():
             record = self._record(record_id, expected_revision)
-            self._references(record['point_id'], identity_id)
+            self._references(record['point_id'], identity_id, record)
             record.update(identity_id=identity_id, revision=record['revision'] + 1)
             self.ledger.save_record(record, self.ledger.list_segments(record_id))
             return record
@@ -232,6 +235,17 @@ class Accounting:
             record.update(status='void', revision=record['revision'] + 1)
             self.ledger.save_record(record, self.ledger.list_segments(record_id))
             return record
+
+    def _basis_fingerprint(self, record, dependencies):
+        current = self.ledger.get_record(record['id'])
+        basis = {'point': self.ledger.get_point(record['point_id']),
+                 'identity': self.ledger.get_identity(record['identity_id']),
+                 'record_revision': current['revision'] if current else None}
+        if dependencies.get('intervals'):
+            basis['intervals'] = self.ledger.list_intervals(record['point_id'], record['start'], record['end'])
+        if dependencies.get('prices'):
+            basis['prices'] = self._historical_prices(record['point_id'], instant(record['start']), instant(record['end']))
+        return sha256(encode(basis).encode()).hexdigest()
 
     def preview(self, data: dict):
         with self.ledger.transaction():
@@ -244,12 +258,13 @@ class Accounting:
                 raise ValueError('Historical end must follow start and not be in the future')
             timezone = merged.get('timezone', 'Asia/Shanghai')
             ZoneInfo(timezone)
-            self._references(merged['point_id'], merged['identity_id'])
+            self._references(merged['point_id'], merged['identity_id'], original)
             record = dict(id=original['id'] if original else uuid4().hex,
                           point_id=merged['point_id'], identity_id=merged['identity_id'], start=start.isoformat(), end=end.isoformat(),
                           timezone=timezone, source='history', status='ended', revision=original['revision'] + 1 if original else 1,
                           note=merged.get('note', ''))
             basis_changed = bool(set(data) & {'start', 'end', 'point_id', 'timezone', 'energy_kwh', 'cost', 'prices'})
+            dependencies = {'intervals': False, 'prices': False}
             if original and not basis_changed:
                 record = {**original, **record, 'source': original['source']}
                 segments = self.ledger.list_segments(original['id'])
@@ -259,7 +274,8 @@ class Accounting:
                 record.update(source='manual', manual_override=True, manual_energy=str(energy))
                 explicit_cost = 'cost' in data or (original and 'manual_cost' in original)
                 prices = data.get('prices', [])
-                if not prices:
+                if not prices and not explicit_cost:
+                    dependencies['prices'] = True
                     prices = self._historical_prices(record['point_id'], start, end)
                 prices = [(instant(at), None if price is None else decimal_value(price)) for at, price in prices]
                 segments = split_interval(start, end, energy, timezone, [] if explicit_cost else prices)
@@ -281,6 +297,7 @@ class Accounting:
                 record = totals(record, segments)
                 coverage = []
             else:
+                dependencies['intervals'] = True
                 if 'cost' in data or (original and original.get('manual_fee_override')):
                     cost = data.get('cost', original.get('manual_cost') if original else None)
                     record.update(manual_fee_override=True, manual_cost=None if cost is None else str(decimal_value(cost)))
@@ -290,7 +307,8 @@ class Accounting:
                     span['quality'] = sorted(set(span['quality']) - {'pending_settlement'})
             overlaps = self.ledger.overlaps(record['point_id'], record['start'], record['end'], record['id'])
             result = dict(record=record, segments=segments, coverage=coverage, overlaps=overlaps,
-                          basis_version=self.ledger.data_version(), expected_revision=original['revision'] if original else None)
+                          basis_version=self.ledger.data_version(), expected_revision=original['revision'] if original else None,
+                          basis_dependencies=dependencies, basis_fingerprint=self._basis_fingerprint(record, dependencies))
             token = uuid4().hex
             stored = {'payload': result, 'digest': sha256(encode(result).encode()).hexdigest()}
             self.ledger.put_preview(token, stored)
@@ -302,12 +320,15 @@ class Accounting:
             if not stored:
                 raise ValueError('Unknown preview')
             data = stored['payload']
-            if stored['digest'] != sha256(encode(data).encode()).hexdigest() or data['basis_version'] != self.ledger.data_version():
+            if stored['digest'] != sha256(encode(data).encode()).hexdigest():
                 raise ValueError('Preview is stale; refresh it')
             record = data['record']
-            self._references(record['point_id'], record['identity_id'])
+            if data.get('basis_fingerprint') != self._basis_fingerprint(record, data.get('basis_dependencies', {})):
+                raise ValueError('Preview is stale; refresh it')
+            original = None
             if data['expected_revision'] is not None:
-                self._record(record['id'], data['expected_revision'])
+                original = self._record(record['id'], data['expected_revision'])
+            self._references(record['point_id'], record['identity_id'], original)
             if instant(record['end']) > datetime.now(dt_timezone.utc):
                 raise ValueError('Historical end is in the future')
             self.ledger.save_record(record, data['segments'])

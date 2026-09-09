@@ -43,3 +43,17 @@ class QueryTests(unittest.TestCase):
         missing = summarize(self.ledger, T + timedelta(seconds=10), T + timedelta(seconds=20))
         self.assertFalse(missing['cost_complete'])
         self.assertIn('missing_energy', missing['quality'])
+
+    def test_buckets_include_pending_and_entirely_missing_local_dates(self):
+        start = T - timedelta(seconds=10)
+        record = self.app.start('home', 'personal', start, 'start', timezone='UTC')
+        self.app.add_interval('home', start, T, Decimal(1), [(start, Decimal(1))])
+        active = summarize(self.ledger, None, None)
+        self.assertIn('provisional', active['buckets'][0]['quality'])
+        self.app.end(record['id'], T + timedelta(days=1), 'end')
+        result = summarize(self.ledger, T - timedelta(seconds=5), T + timedelta(days=1))
+        self.assertEqual([b['local_date'] for b in result['buckets']], ['2025-12-31', '2026-01-01'])
+        self.assertTrue(result['buckets'][0]['cost_complete'])
+        self.assertFalse(result['buckets'][1]['cost_complete'])
+        self.assertIn('pending_settlement', result['buckets'][1]['quality'])
+        self.assertEqual(Decimal(result['buckets'][1]['energy_kwh']), 0)

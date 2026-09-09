@@ -2,6 +2,7 @@
 from decimal import Decimal, localcontext
 
 from .accounting import instant
+from .core.segments import split_interval
 from .core.tariffs import elapsed
 
 
@@ -11,6 +12,10 @@ def summarize(ledger, start, end, identity_id=None, point_id=None):
         raise ValueError('Query end must follow start')
     result = dict(energy_kwh='0', known_cost='0', cost_complete=True, active_count=0, completed_count=0, quality=[], buckets=[])
     energy, cost, quality, buckets = Decimal(0), Decimal(0), set(), {}
+
+    def daily(date):
+        return buckets.setdefault(date, dict(local_date=date, energy=Decimal(0), cost=Decimal(0), cost_complete=True, quality=set()))
+
     with ledger.transaction(), localcontext() as ctx:
         ctx.prec = 36
         for record in ledger.list_records(point_id, identity_id):
@@ -25,9 +30,17 @@ def summarize(ledger, start, end, identity_id=None, point_id=None):
             if record['status'] == 'active':
                 quality.add('provisional')
             for span in record.get('quality_spans', []):
-                if (end is None or instant(span['start']) < end) and (start is None or instant(span['end']) > start):
+                a = max(instant(span['start']), start) if start else instant(span['start'])
+                b = min(instant(span['end']), end) if end else instant(span['end'])
+                if a < b:
                     quality.update(span['quality'])
                     result['cost_complete'] = False
+                    for part in split_interval(a, b, Decimal(0), record['timezone'], []):
+                        bucket = daily(part['local_date'])
+                        bucket['cost_complete'] = False
+                        bucket['quality'].update(span['quality'])
+                        if record['status'] == 'active':
+                            bucket['quality'].add('provisional')
             for part in ledger.list_segments(record['id']):
                 left, right = instant(part['start']), instant(part['end'])
                 a, b = max(left, start) if start else left, min(right, end) if end else right
@@ -37,6 +50,8 @@ def summarize(ledger, start, end, identity_id=None, point_id=None):
                 amount = Decimal(part['energy_kwh']) * weight
                 fee = Decimal(part['cost']) * weight if part['cost'] is not None else Decimal(0)
                 marks = set(part['quality'])
+                if record['status'] == 'active':
+                    marks.add('provisional')
                 if a != left or b != right:
                     marks.add('estimated')
                 if part['cost'] is None:
@@ -46,7 +61,7 @@ def summarize(ledger, start, end, identity_id=None, point_id=None):
                 quality.update(marks)
                 energy += amount
                 cost += fee
-                bucket = buckets.setdefault(part['local_date'], dict(local_date=part['local_date'], energy=Decimal(0), cost=Decimal(0), cost_complete=True, quality=set()))
+                bucket = daily(part['local_date'])
                 bucket['energy'] += amount
                 bucket['cost'] += fee
                 bucket['cost_complete'] &= part['cost'] is not None

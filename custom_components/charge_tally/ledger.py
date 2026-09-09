@@ -72,7 +72,7 @@ class Ledger:
 
     def put_identity(self, data: dict):
         with self.transaction():
-            if any(item.get('name') == data.get('name') and item['id'] != data['id'] for item in self.list_identities()):
+            if data.get('active', True) and any(item.get('active', True) and item.get('name') == data.get('name') and item['id'] != data['id'] for item in self.list_identities()):
                 raise ValueError('Identity name must be unique')
             self._put('identities', data['id'], data)
             self._bump()
@@ -209,8 +209,16 @@ class Ledger:
         removed = 0
         with self.transaction():
             revision_references = set()
+            retained_ranges = {}
             for row in self._db.execute('SELECT data FROM revisions'):
-                revision_references.update(s.get('observation_id') for s in json.loads(row[0])['segments'])
+                revision = json.loads(row[0])
+                revision_references.update(s.get('observation_id') for s in revision['segments'])
+                record = revision['record']
+                if record['end']:
+                    retained_ranges.setdefault(record['point_id'], []).append((record['start'], record['end']))
+            for record in self.list_records():
+                if record['status'] == 'active':
+                    retained_ranges.setdefault(record['point_id'], []).append((record['start'], None))
             for item in self._list('observations'):
                 if removed >= limit:
                     break
@@ -219,14 +227,29 @@ class Ledger:
                     self._db.execute('DELETE FROM observations WHERE id=?', (item['id'],))
                     removed += 1
             for point in self.list_points():
-                if self.list_records(point_id=point['id'], include_void=True) or self.list_intervals(point['id'], include_superseded=True):
-                    continue
-                old_prices = [p for p in self.list_price_versions(point['id']) if p['at'] < cutoff]
-                for price in old_prices[:-1]:
+                ranges = retained_ranges.get(point['id'], []) + [(i['start'], i['end']) for i in self.list_intervals(point['id'], include_superseded=True)]
+                prices = self.list_price_versions(point['id'])
+                old_prices = [p for p in prices if p['at'] < cutoff]
+                anchor = old_prices[-1]['id'] if old_prices else None
+                pruned = self.get_checkpoint('_price_gaps:' + point['id']) or []
+                for index, price in enumerate(prices):
                     if removed >= limit:
                         break
+                    right = prices[index + 1]['at'] if index + 1 < len(prices) else None
+                    referenced = any((end is None or price['at'] < end) and (right is None or right > start) for start, end in ranges)
+                    if price['at'] >= cutoff or price['id'] == anchor or referenced:
+                        continue
                     self._db.execute('DELETE FROM price_versions WHERE id=?', (price['id'],))
+                    pruned.append({'start': price['at'], 'end': right})
                     removed += 1
+                if pruned:
+                    merged = []
+                    for span in sorted(pruned, key=lambda s: s['start']):
+                        if merged and merged[-1]['end'] == span['start']:
+                            merged[-1]['end'] = span['end']
+                        else:
+                            merged.append(span)
+                    self._put('checkpoints', '_price_gaps:' + point['id'], merged)
             if removed:
                 self._bump()
         return removed

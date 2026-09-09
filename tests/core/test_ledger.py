@@ -45,3 +45,34 @@ class LedgerTests(unittest.TestCase):
                 self.assertEqual([p['id'] for p in ledger.list_price_versions('home')], ['1', '2'])
             finally:
                 ledger.close()
+
+    def test_archived_identity_name_can_be_reused_without_reassigning_history(self):
+        ledger = Ledger(':memory:')
+        self.addCleanup(ledger.close)
+        ledger.put_identity({'id': 'old', 'name': 'Personal', 'active': False})
+        ledger.put_identity({'id': 'new', 'name': 'Personal'})
+        self.assertFalse(ledger.get_identity('old')['active'])
+        self.assertEqual(ledger.get_identity('new')['name'], 'Personal')
+        with self.assertRaises(ValueError):
+            ledger.put_identity({'id': 'third', 'name': 'Personal'})
+        with self.assertRaises(ValueError):
+            ledger.put_identity({'id': 'old', 'name': 'Personal', 'active': True})
+
+    def test_price_prune_protects_actual_record_range_and_anchor_only(self):
+        from custom_components.charge_tally.accounting import Accounting
+        ledger = Ledger(':memory:')
+        self.addCleanup(ledger.close)
+        ledger.put_identity({'id': 'personal', 'name': 'Personal'})
+        ledger.put_point({'id': 'home', 'name': 'Home'})
+        for day in (1, 2, 3):
+            ledger.put_price_version({'id': str(day), 'point_id': 'home', 'at': f'2026-01-0{day}T00:00:00+00:00', 'price': str(day)})
+        app = Accounting(ledger)
+        preview = app.preview({'point_id': 'home', 'identity_id': 'personal', 'start': '2026-01-01T00:00:00+00:00',
+                               'end': '2026-01-01T01:00:00+00:00', 'energy_kwh': '1'})
+        app.commit_preview(preview['token'], 'save')
+        self.assertEqual(ledger.prune(datetime(2026, 8, 1, tzinfo=timezone.utc)), 1)
+        self.assertEqual([p['id'] for p in ledger.list_price_versions('home')], ['1', '3'])
+        missing = app.preview({'point_id': 'home', 'identity_id': 'personal', 'start': '2026-01-02T00:00:00+00:00',
+                               'end': '2026-01-02T01:00:00+00:00', 'energy_kwh': '1'})
+        self.assertFalse(missing['record']['cost_complete'])
+        self.assertIsNone(missing['segments'][0]['cost'])

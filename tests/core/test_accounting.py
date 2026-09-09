@@ -202,3 +202,56 @@ class AccountingTests(unittest.TestCase):
         changed = self.app.commit_preview(edit['token'], 'edit')
         self.assertEqual(D(changed['energy_kwh']), D('.060'))
         self.assertEqual(D(changed['known_cost']), 5)
+
+    def test_static_price_outlives_meter_observation_coverage(self):
+        self.ledger.put_price_version({'id': 'static', 'point_id': 'home', 'at': T.isoformat(), 'price': '2'})
+        self.app.add_interval('home', T, T + timedelta(seconds=10), D('1'), [(T, D('2'))])
+        data = self.manual(end=T + timedelta(seconds=30), energy_kwh='3')
+        del data['cost']
+        result = self.app.preview(data)['record']
+        self.assertEqual(D(result['known_cost']), 6)
+        self.assertTrue(result['cost_complete'])
+
+    def test_manual_preview_ignores_unrelated_observations_and_prices(self):
+        preview = self.app.preview(self.manual(cost='6'))
+        self.app.add_interval('work', T, T + timedelta(seconds=10), D(1), [])
+        self.interval(start=T + timedelta(days=1), end=T + timedelta(days=1, seconds=30))
+        self.ledger.put_price_version({'id': 'later', 'point_id': 'home', 'at': (T + timedelta(days=1)).isoformat(), 'price': '2'})
+        record = self.app.commit_preview(preview['token'], 'save')
+        self.assertEqual(D(record['known_cost']), 6)
+
+    def test_history_preview_rejects_changed_relevant_interval(self):
+        data = self.manual(end=T + timedelta(seconds=30))
+        del data['energy_kwh']
+        del data['cost']
+        preview = self.app.preview(data)
+        self.interval()
+        with self.assertRaises(ValueError):
+            self.app.commit_preview(preview['token'], 'stale')
+
+    def test_manual_price_preview_rejects_relevant_price_change_only(self):
+        data = self.manual(end=T + timedelta(seconds=30))
+        del data['cost']
+        preview = self.app.preview(data)
+        self.ledger.put_price_version({'id': 'later', 'point_id': 'home', 'at': (T + timedelta(days=1)).isoformat(), 'price': '2'})
+        self.app.commit_preview(preview['token'], 'unrelated-price')
+        data['point_id'] = 'work'
+        preview = self.app.preview(data)
+        self.ledger.put_price_version({'id': 'inside', 'point_id': 'work', 'at': T.isoformat(), 'price': '2'})
+        with self.assertRaises(ValueError):
+            self.app.commit_preview(preview['token'], 'relevant-price')
+
+    def test_inactive_references_allow_existing_history_metadata(self):
+        record = self.app.commit_preview(self.app.preview(self.manual())['token'], 'save')
+        self.ledger.put_identity({'id': 'personal', 'name': 'personal', 'active': False})
+        self.ledger.put_point({'id': 'home', 'name': 'home', 'active': False})
+        preview = self.app.preview({'record_id': record['id'], 'expected_revision': record['revision'], 'note': 'archived note'})
+        changed = self.app.commit_preview(preview['token'], 'note')
+        self.assertEqual(changed['note'], 'archived note')
+        with self.assertRaises(ValueError):
+            self.app.start('home', 'company', T + timedelta(days=1), 'disabled-point')
+        with self.assertRaises(ValueError):
+            self.app.start('work', 'personal', T + timedelta(days=1), 'disabled-identity')
+        other = self.app.start('work', 'company', T + timedelta(days=1), 'other')
+        with self.assertRaises(ValueError):
+            self.app.reassign(other['id'], 'personal', other['revision'])
