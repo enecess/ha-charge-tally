@@ -225,3 +225,32 @@ async def test_disabled_owned_entry_requires_repair(hass):
     with pytest.raises(HelperRepairRequired):
         await NativeHelpers(hass, entry).async_ensure("point1", point)
     assert len(hass.config_entries.async_entries("integration")) == 1
+
+
+async def test_kw_integral_added_prefix_requires_repair_and_restores_kwh(hass, freezer):
+    from custom_components.charge_tally.native_helpers import NativeHelpers, HelperRepairRequired
+    sources(hass, "kW")
+    entry = owner(hass)
+    point = {"name": "Garage", "input_mode": "power", "power_entity": "sensor.power", "periods": []}
+    result = await NativeHelpers(hass, entry).async_ensure("point1", point)
+    native = hass.config_entries.async_entries("integration")[0]
+    hass.config_entries.async_update_entry(native, options={**native.options, "unit_prefix": "k"})
+    assert await hass.config_entries.async_reload(native.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get(result["integral_entity_id"]).attributes["unit_of_measurement"] != "kWh"
+
+    with pytest.raises(HelperRepairRequired, match="changed_owned_helper"):
+        await NativeHelpers(hass, entry).async_ensure("point1", point)
+    assert len(hass.config_entries.async_entries("integration")) == 1
+
+    repaired = await NativeHelpers(hass, entry).async_repair("point1")
+    current = hass.config_entries.async_entries("integration")
+    assert len(current) == 1
+    assert current[0].entry_id != native.entry_id
+    assert current[0].options.get("unit_prefix") is None
+    freezer.move_to(dt_util.utcnow() + timedelta(seconds=60))
+    async_fire_time_changed_exact(hass, dt_util.utcnow())
+    await hass.async_block_till_done()
+    measured = hass.states.get(repaired["integral_entity_id"])
+    assert measured.attributes["unit_of_measurement"] == "kWh"
+    assert abs(Decimal(measured.state) - Decimal(".016667")) < Decimal(".000002")

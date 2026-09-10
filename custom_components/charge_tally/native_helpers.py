@@ -113,7 +113,10 @@ class NativeHelpers:
             raise HelperRepairRequired("invalid_helper_ownership")
         if entry.disabled_by is not None:
             raise HelperRepairRequired("disabled_owned_helper")
-        for key, value in owned["payload"].items():
+        # Omitted optional prefixes have measurement semantics, too.
+        expected_options = {"unit_prefix": None} if owned["domain"] == "integration" else {}
+        expected_options.update(owned["payload"])
+        for key, value in expected_options.items():
             if key != "name" and entry.options.get(key) != value:
                 raise HelperRepairRequired("changed_owned_helper")
         return entry
