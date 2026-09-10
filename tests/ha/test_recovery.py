@@ -149,3 +149,20 @@ async def test_home_assistant_stop_closes_worker_and_cancels_pending_timers(hass
     assert not runtime._timers
     with pytest.raises(ValueError, match="closed"):
         await runtime.async_command("select_identity", {"point_id": "point", "identity_id": "car"})
+
+
+async def test_removing_point_clears_only_its_own_stale_helper_issue(hass, tmp_path):
+    from homeassistant.helpers import issue_registry as ir
+    entry, runtime = await setup_runtime(hass, tmp_path, periods=["daily"])
+    await hass.config_entries.async_remove(hass.config_entries.async_entries("utility_meter")[0].entry_id)
+    await hass.async_block_till_done()
+    issue_id = entry.entry_id + ":point"
+    registry = ir.async_get(hass)
+    assert registry.async_get_issue("charge_tally", issue_id) is not None
+    ir.async_create_issue(hass, "charge_tally", "other_issue", is_fixable=False,
+        severity=ir.IssueSeverity.WARNING, translation_key="other")
+    hass.config_entries.async_remove_subentry(entry, "point")
+    await hass.async_block_till_done()
+    assert registry.async_get_issue("charge_tally", issue_id) is None
+    assert registry.async_get_issue("charge_tally", "other_issue") is not None
+    assert await hass.config_entries.async_unload(entry.entry_id)

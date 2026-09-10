@@ -10,7 +10,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             return [Energy(runtime, sub), Status(runtime, sub), RecordSensor(runtime, sub, "energy"), RecordSensor(runtime, sub, "cost")]
         return [IdentitySensor(runtime, sub.subentry_id, sub.data["name"], period, metric)
                 for period in ("daily", "monthly", "yearly", "total") for metric in ("energy", "cost")]
-    setup_entities(hass, entry, async_add_entities, factory)
+    await setup_entities(hass, entry, async_add_entities, factory)
     async_add_entities([IdentitySensor(entry.runtime_data, "unassigned", "Unassigned", period, metric)
                         for period in ("daily", "monthly", "yearly", "total") for metric in ("energy", "cost")])
 
@@ -50,12 +50,14 @@ class RecordSensor(TallyEntity, SensorEntity):
     @property
     def native_value(self):
         record = self.point.get("active_record") if self.point else None
+        if record and self.metric == "cost" and not record["cost_complete"]:
+            return None
         return record["energy_kwh" if self.metric == "energy" else "known_cost"] if record else None
 
     @property
     def extra_state_attributes(self):
         record = self.point.get("active_record") if self.point else None
-        return {"cost_complete": record["cost_complete"], "quality": record["quality"]} if record else {}
+        return {"known_cost": record["known_cost"], "cost_complete": record["cost_complete"], "quality": record["quality"]} if record else {}
 
 
 class IdentitySensor(TallyEntity, SensorEntity):
@@ -72,8 +74,10 @@ class IdentitySensor(TallyEntity, SensorEntity):
 
     @property
     def native_value(self):
+        if self.summary and self.metric == "cost" and not self.summary["cost_complete"]:
+            return None
         return self.summary["energy_kwh" if self.metric == "energy" else "known_cost"] if self.summary else None
 
     @property
     def extra_state_attributes(self):
-        return {"cost_complete": self.summary["cost_complete"], "quality": self.summary["quality"]} if self.summary else {}
+        return {"known_cost": self.summary["known_cost"], "cost_complete": self.summary["cost_complete"], "quality": self.summary["quality"]} if self.summary else {}

@@ -213,3 +213,26 @@ async def test_automatic_end_backdates_record_without_reducing_normalized_energy
     assert Decimal(snapshot["records"][0]["energy_kwh"]) == Decimal(".060")
     assert Decimal(snapshot["points"][0]["normalized_energy_kwh"]) == Decimal(".090")
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_snapshot_failure_rolls_back_without_publication_and_next_reading_recovers(hass, tmp_path, freezer, monkeypatch):
+    entry, runtime = await setup_runtime(hass, tmp_path)
+    await runtime.async_command("start", {"point_id": "point", "request_id": "r1"})
+    before = await runtime.async_snapshot()
+    start = dt_util.utcnow()
+    def fail_snapshot(*args):
+        raise OSError("snapshot read failed")
+    with monkeypatch.context() as scoped:
+        scoped.setattr(runtime._store, "snapshot", fail_snapshot)
+        with pytest.raises(OSError, match="snapshot read"):
+            await runtime._apply("energy", "point", start + timedelta(seconds=30), Decimal("100.060"))
+    assert await runtime.async_snapshot() == before
+    checkpoint = await runtime._read(runtime._store.ledger.get_checkpoint, "runtime")
+    assert Decimal(checkpoint["point"]["normalized_energy_kwh"]) == 0
+    await runtime._apply("energy", "point", start + timedelta(seconds=60), Decimal("100.070"))
+    snapshot = await runtime.async_snapshot()
+    assert Decimal(snapshot["points"][0]["normalized_energy_kwh"]) == Decimal(".070")
+    assert Decimal(snapshot["records"][0]["energy_kwh"]) == Decimal(".070")
+    intervals = await runtime._read(runtime._store.ledger.list_intervals, "point")
+    assert len(intervals) == 1
+    assert await hass.config_entries.async_unload(entry.entry_id)

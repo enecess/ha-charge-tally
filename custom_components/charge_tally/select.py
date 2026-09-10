@@ -5,7 +5,7 @@ from .entity import TallyEntity, setup_entities
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    setup_entities(hass, entry, async_add_entities, lambda runtime, sub: [IdentitySelect(runtime, sub)] if sub.subentry_type == "point" else [])
+    await setup_entities(hass, entry, async_add_entities, lambda runtime, sub: [IdentitySelect(runtime, sub)] if sub.subentry_type == "point" else [])
 
 
 class IdentitySelect(TallyEntity, SelectEntity):

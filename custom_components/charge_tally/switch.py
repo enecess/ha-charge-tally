@@ -5,7 +5,7 @@ from .entity import TallyEntity, setup_entities
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    setup_entities(hass, entry, async_add_entities, lambda runtime, sub: [DetectionSwitch(runtime, sub)] if sub.subentry_type == "point" and sub.data["input_mode"] != "energy" else [])
+    await setup_entities(hass, entry, async_add_entities, lambda runtime, sub: [DetectionSwitch(runtime, sub)] if sub.subentry_type == "point" and sub.data["input_mode"] != "energy" else [])
 
 
 class DetectionSwitch(TallyEntity, SwitchEntity):

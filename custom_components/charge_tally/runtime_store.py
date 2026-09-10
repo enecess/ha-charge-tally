@@ -52,13 +52,16 @@ class RuntimeStore:
     def apply(self, method, *args):
         previous = deepcopy(self.states)
         points = deepcopy(self.points)
+        timezone = self.timezone
         try:
             with self.ledger.transaction():
                 result = getattr(self, method)(*args)
                 self.ledger.put_checkpoint("runtime", self.states)
-            return result, self.snapshot()
+                snapshot = self.snapshot()
+            return result, snapshot
         except BaseException:
             self.states, self.points = previous, points
+            self.timezone = timezone
             raise
 
     def configure(self, points, identities, at, timezone):

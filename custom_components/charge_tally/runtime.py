@@ -121,6 +121,8 @@ class Runtime:
         await self._apply("configure", points, identities, dt_util.utcnow(), self.hass.config.time_zone)
         self.points = points
         for point_id in removed:
+            from homeassistant.helpers import issue_registry as ir
+            ir.async_delete_issue(self.hass, "charge_tally", self.entry.entry_id + ":" + point_id)
             try:
                 await self._helpers.async_remove(point_id)
             except (ValueError, OSError, HelperSetupError) as err:

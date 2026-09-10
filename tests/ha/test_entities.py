@@ -2,6 +2,8 @@
 from decimal import Decimal
 from types import MappingProxyType
 
+import pytest
+
 from homeassistant.config_entries import ConfigSubentry
 from homeassistant.helpers import entity_registry as er
 
@@ -67,4 +69,52 @@ async def test_parallel_points_and_scoped_queries_do_not_mix_identity_totals(has
     assert result["total"] == 1
     assert result["records"][0]["point_id"] == "second"
     assert (await runtime.async_query("summary", {}, point_ids=[]))["active_count"] == 0
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_detection_switch_tracks_reconfigured_point_capabilities(hass, tmp_path):
+    entry, runtime = await setup_runtime(hass, tmp_path, mode="energy")
+    registry = er.async_get(hass)
+    unique_id = entry.entry_id + ":point:detection"
+    assert registry.async_get_entity_id("switch", "charge_tally", unique_id) is None
+    original = dict(entry.subentries["point"].data)
+    for mode in ("energy_power", "energy", "power", "energy"):
+        subentry = entry.subentries["point"]
+        hass.config_entries.async_update_subentry(entry, subentry, data={**original, "input_mode": mode})
+        await hass.async_block_till_done()
+        entity_id = registry.async_get_entity_id("switch", "charge_tally", unique_id)
+        if mode == "energy":
+            assert entity_id is None
+        else:
+            assert entity_id is not None
+            assert hass.states.get(entity_id).state == "off"
+            assert registry.async_get(entity_id).config_subentry_id == "point"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.parametrize("known_first", [False, True])
+async def test_incomplete_cost_entities_are_unknown_with_known_subtotal(hass, tmp_path, freezer, known_first):
+    hass.states.async_set("sensor.price", "2" if known_first else "unavailable", {"unit_of_measurement": "CNY/kWh"})
+    entry, runtime = await setup_runtime(hass, tmp_path, price={"mode": "dynamic", "entity_id": "sensor.price", "unit": "CNY/kWh"})
+    await runtime.async_command("start", {"point_id": "point", "identity_id": "car", "request_id": "r1"})
+    await tick(hass, freezer, 30)
+    hass.states.async_set("sensor.energy", "100.060", ENERGY)
+    await hass.async_block_till_done()
+    if known_first:
+        hass.states.async_set("sensor.price", "unavailable", {"unit_of_measurement": "CNY/kWh"})
+        await hass.async_block_till_done()
+        await tick(hass, freezer, 30)
+        hass.states.async_set("sensor.energy", "100.120", ENERGY)
+        await hass.async_block_till_done()
+    registry = er.async_get(hass)
+    for id_, key in (("point", "record_cost"), ("car", "daily_cost"), ("car", "monthly_cost"), ("car", "yearly_cost"), ("car", "total_cost")):
+        entity_id = registry.async_get_entity_id("sensor", "charge_tally", entry.entry_id + ":" + id_ + ":" + key)
+        state = hass.states.get(entity_id)
+        assert state.state == "unknown"
+        assert state.attributes["cost_complete"] is False
+        assert Decimal(state.attributes["known_cost"]) == (Decimal(".120") if known_first else Decimal(0))
+        assert "missing_price" in state.attributes["quality"]
+    record = (await runtime.async_snapshot())["records"][0]
+    assert Decimal(record["known_cost"]) == (Decimal(".120") if known_first else Decimal(0))
+    assert record["cost_complete"] is False
     assert await hass.config_entries.async_unload(entry.entry_id)
