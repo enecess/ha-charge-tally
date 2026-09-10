@@ -4,6 +4,12 @@ from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, Sen
 from .entity import TallyEntity, setup_entities
 
 
+def current_record_attributes(point):
+    record = point.get("active_record") if point else None
+    return {"record_id": record["id"], "record_revision": record["revision"],
+            "identity_id": record["identity_id"], "start": record["start"]} if record else {}
+
+
 async def async_setup_entry(hass, entry, async_add_entities):
     def factory(runtime, sub):
         if sub.subentry_type == "point":
@@ -38,7 +44,8 @@ class Status(TallyEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        return {"quality": self.point["quality"], "error": self.point.get("error")} if self.point else {}
+        return {"quality": self.point["quality"], "error": self.point.get("error"),
+                **current_record_attributes(self.point)} if self.point else {}
 
 
 class RecordSensor(TallyEntity, SensorEntity):
@@ -57,7 +64,8 @@ class RecordSensor(TallyEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         record = self.point.get("active_record") if self.point else None
-        return {"known_cost": record["known_cost"], "cost_complete": record["cost_complete"], "quality": record["quality"]} if record else {}
+        return {"known_cost": record["known_cost"], "cost_complete": record["cost_complete"], "quality": record["quality"],
+                **current_record_attributes(self.point)} if record else {}
 
 
 class IdentitySensor(TallyEntity, SensorEntity):

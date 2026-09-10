@@ -35,6 +35,34 @@ async def test_entities_publish_live_record_and_identity_totals(hass, tmp_path, 
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
+async def test_current_record_attributes_allow_automation_to_end_with_revision(hass, tmp_path, freezer):
+    entry, runtime = await setup_runtime(hass, tmp_path)
+    registry = er.async_get(hass)
+    status_id = registry.async_get_entity_id("sensor", "charge_tally", entry.entry_id + ":point:status")
+    energy_id = registry.async_get_entity_id("sensor", "charge_tally", entry.entry_id + ":point:record_energy")
+    assert hass.states.get(status_id).attributes.get("record_id") is None
+    record = await runtime.async_command("start", {"point_id": "point", "identity_id": "car", "request_id": "auto-start"})
+    await tick(hass, freezer, 30)
+    hass.states.async_set("sensor.energy", "100.060", ENERGY)
+    await hass.async_block_till_done()
+    for entity_id in (status_id, energy_id):
+        attributes = hass.states.get(entity_id).attributes
+        assert attributes["record_id"] == record["id"]
+        assert attributes["record_revision"] > record["revision"]
+        assert attributes["identity_id"] == "car"
+        assert attributes["start"] == record["start"]
+        assert "records" not in attributes
+    attrs = hass.states.get(status_id).attributes
+    ended = await hass.services.async_call("charge_tally", "end", {
+        "record_id": attrs["record_id"], "expected_revision": attrs["record_revision"], "request_id": "auto-end"
+    }, blocking=True, return_response=True)
+    assert ended["status"] == "ended"
+    await hass.async_block_till_done()
+    assert hass.states.get(status_id).attributes.get("record_id") is None
+    assert hass.states.get(energy_id).attributes.get("record_revision") is None
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
 async def test_empty_point_scope_returns_no_global_counts(hass, tmp_path):
     entry, runtime = await setup_runtime(hass, tmp_path)
     await runtime.async_command("start", {"point_id": "point", "request_id": "r1"})

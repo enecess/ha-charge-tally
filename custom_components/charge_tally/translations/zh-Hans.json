@@ -212,5 +212,87 @@
         }
       }
     }
+  },
+  "services": {
+    "start": {
+      "name": "开始记账",
+      "description": "按服务器当前时间开始一笔记录。",
+      "fields": {
+        "point_id": {
+          "name": "充电点 ID",
+          "description": "稳定充电点 ID，或选择该点当前身份 select 作为目标。"
+        },
+        "identity_id": {
+          "name": "身份 ID",
+          "description": "稳定身份 ID；开始时默认使用该点当前选择的身份。"
+        },
+        "request_id": {
+          "name": "请求 ID",
+          "description": "本次操作的唯一 ID；重试时保持 ID 和所有字段不变。"
+        }
+      }
+    },
+    "end": {
+      "name": "结束记账",
+      "description": "按服务器当前时间结束记录。",
+      "fields": {
+        "point_id": {
+          "name": "充电点 ID",
+          "description": "稳定充电点 ID，或选择该点当前身份 select 作为目标。"
+        },
+        "record_id": {
+          "name": "记录 ID",
+          "description": "要修改的记录；未指定时使用目标充电点的活动记录。"
+        },
+        "expected_revision": {
+          "name": "预期记录版本",
+          "description": "从快照或记录详情读取的当前记录版本。"
+        },
+        "request_id": {
+          "name": "请求 ID",
+          "description": "本次操作的唯一 ID；重试时保持 ID 和所有字段不变。"
+        }
+      }
+    },
+    "reassign": {
+      "name": "修改记录身份",
+      "description": "整笔修改记录身份，不重新计算价格。",
+      "fields": {
+        "point_id": {
+          "name": "充电点 ID",
+          "description": "稳定充电点 ID，或选择该点当前身份 select 作为目标。"
+        },
+        "record_id": {
+          "name": "记录 ID",
+          "description": "要修改的记录；未指定时使用目标充电点的活动记录。"
+        },
+        "identity_id": {
+          "name": "身份 ID",
+          "description": "稳定身份 ID；开始时默认使用该点当前选择的身份。"
+        },
+        "expected_revision": {
+          "name": "预期记录版本",
+          "description": "从快照或记录详情读取的当前记录版本。"
+        },
+        "request_id": {
+          "name": "请求 ID",
+          "description": "本次操作的唯一 ID；重试时保持 ID 和所有字段不变。"
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "invalid_request": {
+      "message": "请求无法应用，请检查输入和充电点状态。"
+    },
+    "conflict": {
+      "message": "记录或请求已改变，请刷新后重试。"
+    },
+    "stale_preview": {
+      "message": "预览已过期，请重新预览。"
+    },
+    "overlap": {
+      "message": "该时段与此充电点的另一条记录重叠。"
+    }
   }
 }

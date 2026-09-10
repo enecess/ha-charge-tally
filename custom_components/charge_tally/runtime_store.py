@@ -278,6 +278,36 @@ class RuntimeStore:
         self.ledger.put_checkpoint(key, {"command": command, "payload": payload, "result": result})
         return result
 
+    def bind_preview(self, token, principal, point_id, expected_revision):
+        self.ledger.put_checkpoint("api_preview:" + token, {"principal": principal, "point_id": point_id,
+            "expected_revision": expected_revision})
+
+    def public_command(self, command, payload, principal, now):
+        from hashlib import sha256
+        key = sha256((principal + ":" + payload["request_id"]).encode()).hexdigest()
+        previous = self.ledger.get_checkpoint("api_request:" + key)
+        if previous:
+            if previous["command"] != command or previous["payload"] != payload:
+                raise ValueError("Request ID reused with different content")
+            return previous["result"]
+        data = dict(payload)
+        if command == "start" and self.states[data["point_id"]].get("helper_error"):
+            raise ValueError("Repair the point helpers before starting")
+        if command in ("end", "reassign", "void"):
+            self.accounting._record(data["record_id"], data["expected_revision"])
+            data.pop("point_id", None)
+        if command == "end":
+            data.pop("expected_revision")
+        if command in ("reassign", "void"):
+            data.pop("request_id")
+        else:
+            data["request_id"] = "api:" + key
+        if command == "commit":
+            data.pop("expected_revision", None)
+        result = self.command("commit_preview" if command == "commit" else command, data, now)
+        self.ledger.put_checkpoint("api_request:" + key, {"command": command, "payload": payload, "result": result})
+        return result
+
     def _command(self, command, payload, now):
         data = dict(payload)
         if command == "start":
@@ -328,6 +358,8 @@ class RuntimeStore:
             return getattr(self.accounting, command)(**data)
         if command == "preview":
             existing = self.ledger.get_record(data["record_id"]) if data.get("record_id") else {}
+            if not existing:
+                data.setdefault("timezone", self.timezone)
             if any(key in data for key in ("start", "end", "energy_kwh")):
                 basis = {**(existing or {}), **data}
                 data.setdefault("prices", self.prices(basis["point_id"], instant(basis["start"]), instant(basis["end"])))
@@ -368,7 +400,7 @@ class RuntimeStore:
             identity["summaries"] = {period: summarize(scoped, start, None, identity_id=identity["id"]) for period, start in starts.items()}
         archived = [{**point, "identity_entity_id": None} for point in self.ledger.list_points()
                     if not point.get("active", True) and (point_ids is None or point["id"] in point_ids)]
-        return {"currency": self.currency, "identities": identities, "points": points, "archived_points": archived,
+        return {"currency": self.currency, "timezone": self.timezone, "identities": identities, "points": points, "archived_points": archived,
                 "records": scoped.list_records(), "summary": summarize(scoped, None, None),
                 "revision": self.ledger.data_version()}
 

@@ -10,6 +10,10 @@ async def async_setup_entry(hass, entry):
         await runtime.async_start()
         await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "select", "switch"])
         await runtime.async_finish_helpers()
+        from .api import async_register
+        async_register(hass)
+        from .frontend import async_setup
+        await async_setup(hass)
     except BaseException:
         await runtime.async_close()
         raise

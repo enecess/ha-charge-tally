@@ -212,5 +212,87 @@
         }
       }
     }
+  },
+  "services": {
+    "start": {
+      "name": "Start accounting",
+      "description": "Start a record at the server current time.",
+      "fields": {
+        "point_id": {
+          "name": "Charging point ID",
+          "description": "Stable point ID, or target its current identity select."
+        },
+        "identity_id": {
+          "name": "Identity ID",
+          "description": "Stable identity ID. Start defaults to the point selected identity."
+        },
+        "request_id": {
+          "name": "Request ID",
+          "description": "Unique ID for this operation. Reuse the same ID and fields when retrying."
+        }
+      }
+    },
+    "end": {
+      "name": "End accounting",
+      "description": "End a record at the server current time.",
+      "fields": {
+        "point_id": {
+          "name": "Charging point ID",
+          "description": "Stable point ID, or target its current identity select."
+        },
+        "record_id": {
+          "name": "Record ID",
+          "description": "Record to change. Without a record ID, use the target point active record."
+        },
+        "expected_revision": {
+          "name": "Expected record revision",
+          "description": "Current record revision from the snapshot or record details."
+        },
+        "request_id": {
+          "name": "Request ID",
+          "description": "Unique ID for this operation. Reuse the same ID and fields when retrying."
+        }
+      }
+    },
+    "reassign": {
+      "name": "Reassign record identity",
+      "description": "Move the whole record to an identity without repricing.",
+      "fields": {
+        "point_id": {
+          "name": "Charging point ID",
+          "description": "Stable point ID, or target its current identity select."
+        },
+        "record_id": {
+          "name": "Record ID",
+          "description": "Record to change. Without a record ID, use the target point active record."
+        },
+        "identity_id": {
+          "name": "Identity ID",
+          "description": "Stable identity ID. Start defaults to the point selected identity."
+        },
+        "expected_revision": {
+          "name": "Expected record revision",
+          "description": "Current record revision from the snapshot or record details."
+        },
+        "request_id": {
+          "name": "Request ID",
+          "description": "Unique ID for this operation. Reuse the same ID and fields when retrying."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "invalid_request": {
+      "message": "The request could not be applied. Check the input and point status."
+    },
+    "conflict": {
+      "message": "The record or request has changed. Refresh and retry."
+    },
+    "stale_preview": {
+      "message": "The preview is stale. Create a new preview."
+    },
+    "overlap": {
+      "message": "The interval overlaps another record at this point."
+    }
   }
 }

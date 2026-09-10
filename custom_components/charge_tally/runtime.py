@@ -54,7 +54,7 @@ class Runtime:
     async def _worker(self, function, *args):
         return await self.hass.loop.run_in_executor(self.executor, partial(function, *args))
 
-    async def _apply(self, method, *args):
+    async def _apply(self, method, *args, authorize=None):
         while True:
             await self._gate.wait()
             async with self._lock:
@@ -62,6 +62,8 @@ class Runtime:
                     continue
                 if self._closed:
                     raise ValueError("Runtime is closed")
+                if authorize is not None:
+                    authorize()
                 result, snapshot = await self._worker(self._store.apply, method, *args)
                 self._publish(snapshot)
                 return result
@@ -292,6 +294,15 @@ class Runtime:
     async def async_query(self, command, payload, *, point_ids=None):
         """The API supplies an already authorized point allowlist separately."""
         return await self._read(self._store.query, command, payload, point_ids)
+
+    async def async_api_metadata(self, kind, key):
+        return await self._read(self._store.ledger.get_checkpoint, "api_" + kind + ":" + key)
+
+    async def async_bind_preview(self, token, principal, point_id, expected_revision):
+        return await self._apply("bind_preview", token, principal, point_id, expected_revision)
+
+    async def async_public_command(self, command, payload, principal, authorize):
+        return await self._apply("public_command", command, payload, principal, dt_util.utcnow(), authorize=authorize)
 
     async def async_command(self, command, payload):
         if command == "preview" and "energy_kwh" not in payload:

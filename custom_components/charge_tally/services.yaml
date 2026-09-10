@@ -1,0 +1,64 @@
+start:
+  target:
+    entity:
+      integration: charge_tally
+      domain: select
+  fields:
+    point_id:
+      selector:
+        text:
+    identity_id:
+      selector:
+        text:
+    request_id:
+      required: true
+      selector:
+        text:
+end:
+  target:
+    entity:
+      integration: charge_tally
+      domain: select
+  fields:
+    point_id:
+      selector:
+        text:
+    record_id:
+      selector:
+        text:
+    expected_revision:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    request_id:
+      required: true
+      selector:
+        text:
+reassign:
+  target:
+    entity:
+      integration: charge_tally
+      domain: select
+  fields:
+    point_id:
+      selector:
+        text:
+    record_id:
+      selector:
+        text:
+    identity_id:
+      required: true
+      selector:
+        text:
+    expected_revision:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    request_id:
+      required: true
+      selector:
+        text:
