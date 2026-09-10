@@ -4,8 +4,8 @@ import {formatCost, validateRange, localCandidates, localInput, resolveLocal, va
   queryRequest, recordsRequest, previewRequest, commitRequest, liveRequest, identityRequest,
   errorMessage, Latest, Subscription, periodRange} from '../../custom_components/charge_tally/www/card-state.js';
 
-test('unknown cost preserves decimal known subtotal, including negative prices', () => {
-  assert.equal(formatCost({known_cost:'2.500000000000000001',cost_complete:false},'CNY','zh-Hans'), 'CNY 2.500000000000000001（已知小计 · 待补充）');
+test('unknown cost formats the known subtotal, including negative prices', () => {
+  assert.equal(formatCost({known_cost:'2.500000000000000001',cost_complete:false},'CNY','zh-Hans'), 'CNY 2.50（已知小计 · 待补充）');
   assert.equal(formatCost({known_cost:'-2.50',cost_complete:true},'CNY','en'), 'CNY -2.50');
   assert.match(formatCost({},'USD','en'), /pending/);
 });
@@ -132,4 +132,89 @@ test('subscription failures back off to 30 seconds and disconnect clears pending
   for(let i=0;i<6;i++){timers.at(-1).fn();await Promise.resolve();await Promise.resolve();}
   assert.deepEqual(timers.map(t=>t.delay),[1000,2000,4000,8000,16000,30000,30000]);
   c.listeners.get('disconnected')();assert.equal(timers.at(-1).canceled,true);s.disconnect();
+});
+
+// Only DOM plumbing is replaced; controller requests, callbacks and dialogs are real.
+class TestNode extends EventTarget {
+  constructor(){super();this.children=[];this.dataset={};}
+  append(...nodes){this.children.push(...nodes);}
+  setAttribute(){}
+  showModal(){}
+  close(){this.dispatchEvent(new Event('close'));}
+  remove(){}
+}
+globalThis.HTMLElement=class {attachShadow(){this.shadowRoot=new TestNode();}};
+globalThis.document={createElement:()=>new TestNode()};
+globalThis.window={customCards:[]};
+globalThis.customElements={get:()=>undefined,define:()=>{}};
+const {ChargeTallyCard}=await import('../../custom_components/charge_tally/www/charge-tally-card.js');
+const {RecordDialog}=await import('../../custom_components/charge_tally/www/card-dialog.js?v=0.1.0');
+const state=await import('../../custom_components/charge_tally/www/card-state.js');
+const {tr,summaryView,segmentTable}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.0');
+test('long server decimals are formatted for display without changing payloads',()=>{
+  const summary={energy_kwh:'0.285887930259482529870184281103830795',known_cost:'0.142943965129741264935092140551915398',cost_complete:false};
+  const original=structuredClone(summary);
+  assert.equal(typeof state.formatDecimal,'function');
+  assert.equal(state.formatDecimal(summary.energy_kwh,'zh-Hans'),'0.286');
+  assert.equal(state.formatDecimal('9007199254740993.125','en'),'9,007,199,254,740,993.125');
+  assert.equal(formatCost(summary,'CNY','zh-Hans'),'CNY 0.14（已知小计 · 待补充）');
+  assert.equal(formatCost({...summary,known_cost:'-2.555',cost_complete:true},'CNY','en'),'CNY -2.56');
+  const view=summaryView(summary,'CNY','zh-Hans');
+  assert.equal(view.children[0].children[1].textContent,'0.286 kWh');
+  assert.equal(view.children[1].children[1].textContent,'CNY 0.14（已知小计 · 待补充）');
+  const table=segmentTable([{energy_kwh:summary.energy_kwh,cost:summary.known_cost}], 'en','CNY');
+  assert.equal(table.children[0].children[1].children[1].textContent,'0.286 kWh');
+  assert.equal(table.children[0].children[1].children[2].textContent,'CNY 0.14');
+  assert.deepEqual(summary,original);
+  const request=previewRequest({...form,energy_kwh:summary.energy_kwh,cost:summary.known_cost},'Asia/Shanghai');
+  assert.equal(request.energy_kwh,summary.energy_kwh);assert.equal(request.cost,summary.known_cost);
+  assert.equal(tr('reset','zh-Hans'),'电表重置');
+});
+const tick=()=>new Promise(resolve=>setImmediate(resolve));
+function controller(callWS){
+  const card=new ChargeTallyCard();card.render=()=>{};card.refresh=()=>{};
+  card.snapshot={points:[],archived_points:[],identities:[],timezone:'Asia/Shanghai',currency:'CNY'};
+  card._hass={connection:{connected:true},callWS};return card;
+}
+for(const service of ['start','end'])test(`live ${service} retries the original operation after an unconfirmed result`,async()=>{
+  const sent=[];let fail=true;
+  const card=controller(async request=>{sent.push(structuredClone(request));if(fail)throw new Error('Response lost');return {response:{id:'confirmed'}};});
+  const point={id:'p',identity_entity_id:'select.p',available:true,selected_identity_id:'i',active_record:service==='end'?{id:'r',revision:9}:null};
+  card.live(service,point);await tick();
+  if(service==='end')point.active_record.revision=10;
+  card.live(service,point);await tick();
+  assert.deepEqual(sent[1],sent[0]);
+  fail=false;card.live(service,point);await tick();assert.deepEqual(sent[2],sent[0]);
+  assert.equal(card.lastRecord.id,'confirmed');
+  card.live(service,point);await tick();assert.notEqual(sent[3].service_data.request_id,sent[0].service_data.request_id);
+  fail=true;card.live(service,point);await tick();
+  card.live(service,{...point,id:'other',active_record:service==='end'?{id:'other-r',revision:1}:null});await tick();
+  assert.notEqual(sent.at(-1).service_data.request_id,sent.at(-2).service_data.request_id);
+  const snapshot=card.snapshot;card.onSnapshot(null);card.snapshot=snapshot;
+  card.live(service,{...point,id:'other',active_record:service==='end'?{id:'other-r',revision:2}:null});await tick();
+  assert.deepEqual(sent.at(-1),sent.at(-2));
+  card.snapshot=null;ChargeTallyCard.prototype.refresh.call(card,true);card.snapshot=snapshot;
+  card.live(service,{...point,id:'other',active_record:service==='end'?{id:'other-r',revision:2}:null});await tick();
+  assert.notEqual(sent.at(-1).service_data.request_id,sent.at(-2).service_data.request_id);
+});
+for(const mode of ['create','reassign'])for(const outcome of ['success','failure'])test(`new ${mode} dialog intent suppresses older detail ${outcome}`,async t=>{
+  t.mock.method(RecordDialog.prototype,'render',()=>{});
+  let resolve,reject;const card=controller(()=>new Promise((yes,no)=>{resolve=yes;reject=no;}));
+  card.details({id:'old'});card.openDialog(mode,{record:{id:'current'}});const newer=card.dialog;
+  if(outcome==='success')resolve({record:{id:'old'}});else reject({code:'conflict'});
+  await tick();assert.equal(card.dialog,newer);assert.equal(card.dialog.mode,mode);assert.equal(card.error,undefined);
+  card.dialog.close();
+});
+test('closing a dialog or disconnecting invalidates pending detail intent',async t=>{
+  t.mock.method(RecordDialog.prototype,'render',()=>{});
+  let resolve;const card=controller(()=>new Promise(yes=>{resolve=yes;}));
+  card.openDialog('create');card.details({id:'old'});card.dialog.close();resolve({record:{id:'old'}});await tick();assert.equal(card.dialog,null);
+  card.details({id:'another'});card.onSnapshot(null);resolve({record:{id:'another'}});await tick();assert.equal(card.dialog,null);
+});
+test('note-only editing preserves a valid record entirely within one second',()=>{
+  const record={id:'r',revision:4,timezone:'Asia/Shanghai',start:'2026-09-09T02:00:00.100000Z',end:'2026-09-09T02:00:00.900000Z'};
+  const values={...form,start:'2026-09-09T10:00:00',end:'2026-09-09T10:00:00',note:'Only changed note',cost_mode:'auto',energy_kwh:''};
+  const request=previewRequest(values,'Asia/Shanghai',record);
+  assert.equal(request.note,values.note);assert.equal('start' in request,false);assert.equal('end' in request,false);
+  assert.throws(()=>previewRequest({...values,end:'2026-09-09T09:59:59'},'Asia/Shanghai',record),/range/);
 });

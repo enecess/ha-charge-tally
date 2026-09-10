@@ -1,5 +1,5 @@
 import {styles} from './card-styles.js?v=0.1.0';
-import {Latest,Subscription,formatCost,errorMessage,periodRange,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.0';
+import {Latest,Subscription,formatCost,formatDecimal,errorMessage,periodRange,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.0';
 import {el,button,field,select,input,tr,metric,summaryView,quality,dateText} from './card-ui.js?v=0.1.0';
 import {RecordDialog} from './card-dialog.js?v=0.1.0';
 import './card-editor.js?v=0.1.0';
@@ -9,7 +9,7 @@ export class ChargeTallyCard extends HTMLElement {
   static getStubConfig(){return {type:'custom:charge-tally-card',show_records:true,show_chart:true};}
   constructor(){
     super();this.attachShadow({mode:'open'});this.body=el('ha-card');this.shadowRoot.append(el('style',styles),this.body);
-    this.config={};this.filters={};this.period='daily';this.offset=0;this.latest=new Latest();this.actions=new Latest();
+    this.config={};this.filters={};this.period='daily';this.offset=0;this.latest=new Latest();this.actions=new Latest();this.dialogEpoch=0;this.pendingLive=null;
     this.subscription=new Subscription(snapshot=>this.onSnapshot(snapshot),error=>{this.error=error;this.render();});
   }
   setConfig(config){
@@ -21,11 +21,11 @@ export class ChargeTallyCard extends HTMLElement {
   set hass(hass){this._hass=hass;const language=hass.language||'en';if(language!==this.language){this.language=language;this.render();}if(this.isConnected)this.subscription.connect(hass.connection);}
   getCardSize(){return this.config.show_records===false?6:10;}
   connectedCallback(){if(this._hass)this.subscription.connect(this._hass.connection);}
-  disconnectedCallback(){this.subscription.disconnect();this.latest.invalidate();this.actions.invalidate();this.dialog?.close();}
+  disconnectedCallback(){this.dialogEpoch++;this.subscription.disconnect();this.latest.invalidate();this.actions.invalidate();this.dialog?.close();}
   t(key){return tr(key,this.language||'en');}
   onSnapshot(snapshot){
     this.snapshot=snapshot;this.error=null;this.latest.invalidate();this.summary=null;this.page=null;
-    if(!snapshot){this.actions.invalidate();this.busy=false;this.notice=null;this.dialog?.close();}
+    if(!snapshot){this.dialogEpoch++;this.actions.invalidate();this.busy=false;this.notice=null;this.dialog?.close();}
     this.render();if(snapshot)this.refresh();
   }
   call(request){if(!this.snapshot||this._hass.connection.connected===false)throw Object.assign(new Error('unavailable'),{code:'unavailable'});return this._hass.callWS(request);}
@@ -36,7 +36,8 @@ export class ChargeTallyCard extends HTMLElement {
     if(this.period==='custom')return {start:resolveLocal(this.rangeStart+'T00:00',this.snapshot.timezone),end:resolveLocal(this.rangeEnd+'T00:00',this.snapshot.timezone)};
     return periodRange(this.period,this.snapshot.timezone);
   }
-  refresh(){
+  refresh(newLiveIntent=false){
+    if(newLiveIntent)this.pendingLive=null;
     if(!this.snapshot)return;this.error=null;
     let request;
     try{
@@ -54,16 +55,30 @@ export class ChargeTallyCard extends HTMLElement {
     if(this.busy)return;this.busy=true;this.error=null;this.render();
     this.actions.run('write',()=>this.call(request),result=>{
       // HA call_service wraps the business record in result.response.
+      if(this.pendingLive?.request===request)this.pendingLive=null;
       this.lastRecord=request.return_response?result.response:result;this.busy=false;this.notice=this.t('saved');this.refresh();this.render();
     },error=>{this.busy=false;this.error=error;this.render();});
   }
-  live(service,point){try{this.mutate(liveRequest(service,point,crypto.randomUUID()));}catch(error){this.error=error;this.render();}}
+  live(service,point){
+    if(this.busy)return;
+    try{
+      const intent=JSON.stringify([service,point.id,service==='end'?point.active_record?.id:point.selected_identity_id]);
+      if(this.pendingLive?.intent!==intent)this.pendingLive={intent,request:liveRequest(service,point,crypto.randomUUID())};
+      this.mutate(this.pendingLive.request);
+    }catch(error){this.error=error;this.render();}
+  }
   openDialog(mode,detail){
+    this.dialogEpoch++;
     if(!this.snapshot)return;this.dialog?.close();
     this.dialog=new RecordDialog(this.shadowRoot,{mode,detail,record:detail?.record,language:this.language,currency:this.snapshot.currency,timezone:this.snapshot.timezone,points:[...this.snapshot.points,...this.snapshot.archived_points],identities:this.snapshot.identities,defaultPoint:this.filters.point_id,defaultIdentity:this.filters.identity_id,
-      call:request=>this.call(request),pointName:id=>this.pointName(id),identityName:id=>this.identityName(id),onSaved:()=>{this.notice=this.t('saved');this.refresh();},onClose:()=>{this.dialog=null;}});
+      call:request=>this.call(request),pointName:id=>this.pointName(id),identityName:id=>this.identityName(id),onSaved:()=>{this.notice=this.t('saved');this.refresh();},onClose:()=>{this.dialogEpoch++;this.dialog=null;}});
   }
-  details(record){this.latest.run('detail',()=>this.call({type:'charge_tally/records',record_id:record.id}),detail=>this.openDialog('details',detail),error=>{this.error=error;this.render();});}
+  details(record){
+    const epoch=++this.dialogEpoch;
+    return this.latest.run('detail',()=>this.call({type:'charge_tally/records',record_id:record.id}),
+      detail=>{if(epoch===this.dialogEpoch)this.openDialog('details',detail);},
+      error=>{if(epoch===this.dialogEpoch){this.error=error;this.render();}});
+  }
   render(){
     if(!this.body)return;const card=this.body;card.replaceChildren();
     const header=el('div',null,{class:'row spread'}),heading=el('div');heading.append(el('p','CHARGE TALLY',{class:'eyebrow'}),el('h2',this.config.title||'Charge Tally'));
@@ -82,7 +97,7 @@ export class ChargeTallyCard extends HTMLElement {
   }
   renderPoint(point){
     const node=el('article',null,{class:'point'}),head=el('div',null,{class:'row spread'});head.append(el('h3',point.name),el('span',tr(point.status,this.language),{class:'badge'}));node.append(head);
-    const measurements=el('div',null,{class:'row muted'});measurements.append(el('span',`${this.t('power')}: ${point.power_w??'—'} W`),el('span',`${this.t('price')}: ${point.current_price??'—'} ${this.snapshot.currency}/kWh`),el('span',`${this.t('detector')}: ${this.t(point.detection_enabled?'enabled':'disabled')}`));node.append(measurements);
+    const measurements=el('div',null,{class:'row muted'});measurements.append(el('span',`${this.t('power')}: ${formatDecimal(point.power_w,this.language)} W`),el('span',`${this.t('price')}: ${formatDecimal(point.current_price,this.language,4)} ${this.snapshot.currency}/kWh`),el('span',`${this.t('detector')}: ${this.t(point.detection_enabled?'enabled':'disabled')}`));node.append(measurements);
     if(point.error||point.quality?.length)node.append(el('p',[point.error,quality(point.quality,this.language)].filter(Boolean).join(' · '),{class:'quality spaced'}));
     const active=point.active_record,controls=el('div',null,{class:'grid spaced'});
     if(active)controls.append(metric(this.t('current'),this.identityName(active.identity_id)));
@@ -96,7 +111,7 @@ export class ChargeTallyCard extends HTMLElement {
     actions.append(button(this.t(active?'end':'start'),()=>this.live(active?'end':'start',point),this.busy||!point.identity_entity_id||(!active&&!point.available),'primary'));node.append(actions);return node;
   }
   renderStatistics(){
-    const node=el('section',null,{class:'stack summary'}),header=el('div',null,{class:'row spread'});header.append(el('h3',this.t('statistics')),button(this.t('refresh'),()=>{this.latest.invalidate();this.refresh();}));node.append(header);
+    const node=el('section',null,{class:'stack summary'}),header=el('div',null,{class:'row spread'});header.append(el('h3',this.t('statistics')),button(this.t('refresh'),()=>{this.latest.invalidate();this.refresh(true);}));node.append(header);
     node.append(field(this.t('period'),select(['daily','monthly','yearly','total','custom'].map(id=>({id,name:this.t(id)})),this.period,value=>{this.period=value;this.summary=null;this.latest.invalidate();this.render();if(value!=='custom'||this.rangeStart&&this.rangeEnd)this.refresh();})));
     if(this.period==='custom'){
       const range=el('div',null,{class:'grid'}),from=input('date',this.rangeStart||''),to=input('date',this.rangeEnd||'');from.addEventListener('input',()=>{this.rangeStart=from.value;});to.addEventListener('input',()=>{this.rangeEnd=to.value;});range.append(field(this.t('from'),from),field(this.t('to'),to));node.append(range,el('small',`${this.snapshot.timezone} · ${this.t('rangeHint')}`),button(this.t('apply'),()=>{this.summary=null;this.latest.invalidate();this.refresh();}));
@@ -109,20 +124,20 @@ export class ChargeTallyCard extends HTMLElement {
     const wrap=el('div',null,{class:'stack'});wrap.append(field(this.t('chartMetric'),select([{id:'energy_kwh',name:this.t('energy')},{id:'known_cost',name:this.t('cost')}],this.chartMetric||'energy_kwh',value=>{this.chartMetric=value;this.render();})));
     const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');svg.setAttribute('viewBox','0 0 600 160');svg.setAttribute('class','chart');svg.setAttribute('role','img');svg.setAttribute('aria-label',this.t('statistics'));
     const key=this.chartMetric||'energy_kwh';
-    // Number conversion is limited to chart geometry; labels keep server decimals.
+    // Number conversion is limited to chart geometry; labels format server strings.
     const values=buckets.map(b=>Number(b[key])),max=Math.max(1,...values.filter(Number.isFinite).map(Math.abs));
     const baseline=document.createElementNS(ns,'line');for(const [k,v]of Object.entries({x1:0,x2:600,y1:90,y2:90}))baseline.setAttribute(k,v);svg.append(baseline);
-    buckets.forEach((bucket,index)=>{const value=values[index];if(!Number.isFinite(value))return;const width=580/Math.max(1,buckets.length),height=Math.abs(value)/max*64,rect=document.createElementNS(ns,'rect');for(const [k,v]of Object.entries({x:10+index*width,y:value<0?90:90-height,width:Math.max(1,width*.72),height}))rect.setAttribute(k,v);const title=document.createElementNS(ns,'title');title.textContent=`${bucket.local_date}: ${key==='known_cost'?formatCost(bucket,this.snapshot.currency,this.language):bucket.energy_kwh+' kWh'}`;rect.append(title);svg.append(rect);});
+    buckets.forEach((bucket,index)=>{const value=values[index];if(!Number.isFinite(value))return;const width=580/Math.max(1,buckets.length),height=Math.abs(value)/max*64,rect=document.createElementNS(ns,'rect');for(const [k,v]of Object.entries({x:10+index*width,y:value<0?90:90-height,width:Math.max(1,width*.72),height}))rect.setAttribute(k,v);const title=document.createElementNS(ns,'title');title.textContent=`${bucket.local_date}: ${key==='known_cost'?formatCost(bucket,this.snapshot.currency,this.language):formatDecimal(bucket.energy_kwh,this.language)+' kWh'}`;rect.append(title);svg.append(rect);});
     const axis=el('div',null,{class:'chart-axis'});
     const labels=buckets.length<=4?buckets:[buckets[0],buckets.at(-1)];
     for(const bucket of labels)if(bucket)axis.append(el('span',bucket.local_date));
     wrap.append(svg,axis);const details=el('details');details.append(el('summary',this.t('details')));const table=el('table'),head=el('tr');for(const key of ['from','energy','cost'])head.append(el('th',this.t(key),{scope:'col'}));table.append(head);
-    for(const bucket of buckets){const row=el('tr');for(const value of [bucket.local_date,bucket.energy_kwh+' kWh',formatCost(bucket,this.snapshot.currency,this.language)])row.append(el('td',value));table.append(row);}const scroll=el('div',null,{class:'table-wrap'});scroll.append(table);details.append(scroll);wrap.append(details);return wrap;
+    for(const bucket of buckets){const row=el('tr');for(const value of [bucket.local_date,formatDecimal(bucket.energy_kwh,this.language)+' kWh',formatCost(bucket,this.snapshot.currency,this.language)])row.append(el('td',value));table.append(row);}const scroll=el('div',null,{class:'table-wrap'});scroll.append(table);details.append(scroll);wrap.append(details);return wrap;
   }
   renderHistory(){
     const node=el('section'),heading=el('div',null,{class:'row spread'});heading.append(el('h3',this.t('history')),button(this.t('add'),()=>this.openDialog('create'),this.busy));node.append(heading,el('small',this.t('historyHint')));
     if(!this.page){node.append(el('p',this.t('loading'),{role:'status'}));return node;}
-    const list=el('ul',null,{class:'records'});for(const record of this.page.records){const item=el('li',null,{class:'row'}),open=button('',()=>this.details(record),false,'record-open');open.append(el('strong',`${this.pointName(record.point_id)} · ${this.identityName(record.identity_id)}`),el('small',`${dateText(record.start,record.timezone)} · ${tr(record.status,this.language)}`),el('span',`${record.energy_kwh} kWh · ${formatCost(record,this.snapshot.currency,this.language)}`),el('small',quality(record.quality,this.language)));item.append(open);list.append(item);}node.append(list);if(!this.page.records.length)node.append(el('p',this.t('empty')));
+    const list=el('ul',null,{class:'records'});for(const record of this.page.records){const item=el('li',null,{class:'row'}),open=button('',()=>this.details(record),false,'record-open');open.append(el('strong',`${this.pointName(record.point_id)} · ${this.identityName(record.identity_id)}`),el('small',`${dateText(record.start,record.timezone)} · ${tr(record.status,this.language)}`),el('span',`${formatDecimal(record.energy_kwh,this.language)} kWh · ${formatCost(record,this.snapshot.currency,this.language)}`),el('small',quality(record.quality,this.language)));item.append(open);list.append(item);}node.append(list);if(!this.page.records.length)node.append(el('p',this.t('empty')));
     const pager=el('div',null,{class:'row spread'});pager.append(button(this.t('previous'),()=>{this.offset=Math.max(0,this.offset-25);this.page=null;this.refresh();this.render();},this.offset===0),el('small',`${this.page.total?this.offset+1:0}–${this.offset+this.page.records.length} / ${this.page.total}`),button(this.t('nextPage'),()=>{this.offset+=25;this.page=null;this.refresh();this.render();},this.offset+this.page.limit>=this.page.total));node.append(pager);return node;
   }
 }

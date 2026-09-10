@@ -1,6 +1,16 @@
 const chinese = language => language?.startsWith('zh');
+const numberFormats=new Map();
+export function formatDecimal(value,language='en',digits=3,minimum=0){
+  if(value==null)return '—';
+  const key=JSON.stringify([language,digits,minimum]);
+  if(!numberFormats.has(key))numberFormats.set(key,new Intl.NumberFormat(language,{maximumFractionDigits:digits,minimumFractionDigits:minimum}));
+  // Intl accepts decimal strings directly, without an intermediate binary float.
+  const parts=numberFormats.get(key).formatToParts(value);
+  if(parts.some(part=>part.type==='nan'||part.type==='infinity'))return String(value);
+  return parts.map(part=>part.value).join('');
+}
 export function formatCost(summary, currency = '', language = 'en') {
-  const value = `${currency} ${summary?.known_cost ?? '—'}`.trim();
+  const value = `${currency} ${formatDecimal(summary?.known_cost,language,2,2)}`.trim();
   return summary?.cost_complete === true ? value : value + (chinese(language) ? '（已知小计 · 待补充）' : ' (known subtotal · pending)');
 }
 export function localInput(instant, timezone) {
@@ -32,16 +42,23 @@ export function validateRange(start,end) {
   return {valid:!!start && !!end && Number.isFinite(Date.parse(start)) && Date.parse(start)<Date.parse(end),code:'range'};
 }
 const decimal = value => typeof value === 'string' && value.length <= 100 && /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(value);
-export function validateForm(form,timezone) {
+export function validateForm(form,timezone,record) {
   try {
     if (!form.identity_id || !form.point_id) return {valid:false,code:'required'};
-    const start = resolveLocal(form.start,timezone,form.start_choice), end = resolveLocal(form.end,timezone,form.end_choice);
-    if (!validateRange(start,end).valid) return {valid:false,code:'range'};
+    const boundaries={start:resolveLocal(form.start,timezone,form.start_choice),end:resolveLocal(form.end,timezone,form.end_choice)};
+    const unchanged=[];
+    for(const key of ['start','end']){
+      if(record?.[key] && Math.floor(Date.parse(boundaries[key])/1000)===Math.floor(Date.parse(record[key])/1000)){
+        boundaries[key]=record[key];unchanged.push(key);
+      }
+    }
+    // Persisted unchanged boundaries retain server precision, even below a millisecond.
+    if (unchanged.length!==2 && !validateRange(boundaries.start,boundaries.end).valid) return {valid:false,code:'range'};
     if (form.energy_kwh && (!decimal(form.energy_kwh) || /^-/.test(form.energy_kwh))) return {valid:false,code:'energy'};
     if (form.cost && !decimal(form.cost)) return {valid:false,code:'decimal'};
     if (form.cost_mode==='manual' && !form.cost) return {valid:false,code:'decimal'};
     if ((form.note || '').length>2000) return {valid:false,code:'note'};
-    return {valid:true,start,end};
+    return {valid:true,...boundaries,unchanged};
   } catch (error) { return {valid:false,code:error.code || 'timezone'}; }
 }
 const filters = config => Object.fromEntries(['point_id','identity_id'].filter(key=>config[key]).map(key=>[key,config[key]]));
@@ -54,13 +71,10 @@ export function recordsRequest(config,offset=0,limit=25) {
   return {type:'charge_tally/records',...filters(config),offset,limit};
 }
 export function previewRequest(form,timezone,record) {
-  const result=validateForm(form,record?.timezone || timezone);
+  const result=validateForm(form,record?.timezone || timezone,record);
   if (!result.valid) throw Object.assign(new Error(result.code),{code:result.code});
   const boundaries={start:result.start,end:result.end};
-  for(const key of ['start','end']){
-    if(record?.[key] && localInput(result[key],record.timezone)===localInput(record[key],record.timezone)
-      && Math.floor(Date.parse(result[key])/1000)===Math.floor(Date.parse(record[key])/1000))delete boundaries[key];
-  }
+  for(const key of result.unchanged)delete boundaries[key];
   const cost=form.cost_mode==='auto'?{}:{cost:form.cost_mode==='unknown'?null:form.cost||null};
   return {type:'charge_tally/preview',...(record ? {record_id:record.id,expected_revision:record.revision} : {point_id:form.point_id}),identity_id:form.identity_id,...boundaries,
     ...(form.energy_kwh && form.energy_kwh!==record?.manual_energy ? {energy_kwh:form.energy_kwh} : {}),...cost,note:form.note || ''};
