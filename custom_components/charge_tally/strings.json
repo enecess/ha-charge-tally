@@ -192,5 +192,25 @@
         "finish": "Finish schedule"
       }
     }
+  },
+  "issues": {
+    "helper_repair": {
+      "title": "Charging point helpers need repair",
+      "description": "Managed helpers for {name} are not ready: {error}. Confirm to rebuild missing or changed helpers owned by this integration. Charging history is retained.",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Repair managed helpers",
+            "description": "Rebuild missing or changed helpers owned by this integration?"
+          }
+        },
+        "error": {
+          "repair_failed": "Repair failed. Check the source and helper status, then retry."
+        },
+        "abort": {
+          "point_removed": "The charging point was removed or the integration is not running."
+        }
+      }
+    }
   }
 }

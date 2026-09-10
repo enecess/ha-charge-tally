@@ -1,0 +1,454 @@
+"""Serial-thread runtime state and transactional accounting adaptation."""
+from copy import deepcopy
+from datetime import datetime, timedelta, UTC
+from decimal import Decimal
+from pathlib import Path
+from uuid import uuid4
+from zoneinfo import ZoneInfo
+
+from .accounting import Accounting, instant
+from .core.detection import Detector
+from .core.tariffs import DailySchedule
+from .core.units import energy_kwh, power_w, price_per_kwh
+from .ledger import Ledger
+from .queries import summarize
+
+
+class ScopedLedger:
+    """Restrict records before passing the ledger to the shared query service."""
+    def __init__(self, ledger, point_ids):
+        self.ledger, self.point_ids = ledger, set(point_ids)
+
+    def transaction(self):
+        return self.ledger.transaction()
+
+    def list_records(self, point_id=None, identity_id=None):
+        return [r for r in self.ledger.list_records(point_id, identity_id) if r["point_id"] in self.point_ids]
+
+    def list_segments(self, record_id):
+        return self.ledger.list_segments(record_id)
+
+
+class RuntimeStore:
+    """All methods, including construction and close, run on one worker."""
+
+    def __init__(self, path, currency, timezone):
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        self.ledger = Ledger(path)
+        self.accounting = Accounting(self.ledger)
+        self.currency, self.timezone = currency, timezone
+        self.states = self.ledger.get_checkpoint("runtime") or {}
+        self.points = {}
+        for state in self.states.values():
+            state["available"] = False
+            state["interrupted"] = True
+            if state.get("detector"):
+                data = state["detector"]
+                if data["state"] == "pending_start":
+                    data.update(state="idle", candidate=None, identity_id=None)
+                elif data["state"] == "pending_end":
+                    data.update(state="charging", candidate=None)
+
+    def apply(self, method, *args):
+        previous = deepcopy(self.states)
+        points = deepcopy(self.points)
+        try:
+            with self.ledger.transaction():
+                result = getattr(self, method)(*args)
+                self.ledger.put_checkpoint("runtime", self.states)
+            return result, self.snapshot()
+        except BaseException:
+            self.states, self.points = previous, points
+            raise
+
+    def configure(self, points, identities, at, timezone):
+        self.timezone = timezone
+        identities = {**identities, "unassigned": {"name": "Unassigned", "enabled": True}}
+        for old in self.ledger.list_identities():
+            if old["id"] not in identities:
+                self.ledger.put_identity({**old, "active": False})
+        for id_, data in identities.items():
+            snapshot = {"id": id_, "name": data["name"], "active": data.get("enabled", True)}
+            if snapshot != self.ledger.get_identity(id_):
+                self.ledger.put_identity(snapshot)
+        for old in self.ledger.list_points():
+            if old["id"] not in points:
+                self.ledger.put_point({**old, "active": False})
+        for id_, data in points.items():
+            snapshot = {**deepcopy(data), "id": id_, "active": True,
+                        "max_interval_seconds": data.get("max_gap_seconds", 600)}
+            old = self.ledger.get_point(id_)
+            if old != snapshot:
+                self.ledger.put_point(snapshot)
+            state = self.states.setdefault(id_, {"selected_identity_id": "unassigned", "normalized_energy_kwh": "0",
+                "reading": None, "reading_at": None, "available": False, "power_w": None,
+                "power_at": None, "current_price": None, "quality": [], "detector": None})
+            selected = identities.get(state["selected_identity_id"])
+            if not selected or not selected.get("enabled", True):
+                state["selected_identity_id"] = "unassigned"
+            if old and any(old.get(k) != snapshot.get(k) for k in ("input_mode", "energy_entity", "power_entity", "resetting")):
+                state.update(reading=None, reading_at=None, available=False, detector=None, input_epoch=at.isoformat())
+            if old and old.get("detection") != data.get("detection"):
+                state["detector"] = None
+            if old is None or old.get("price") != data["price"]:
+                price = data["price"]
+                if old and any(old["price"].get(key) != price.get(key) for key in ("mode", "entity_id", "unit")):
+                    state["price_epoch"] = at.isoformat()
+                self.put_price({"point_id": id_, "at": at.isoformat(),
+                    **deepcopy(price), "timezone": timezone,
+                    **({"price": price["value"]} if price["mode"] == "static" else {"price": None} if price["mode"] == "dynamic" else {})})
+            state["current_price"] = self.prices(id_, at, at + timedelta(microseconds=1))[-1][1]
+            if state["current_price"] is not None:
+                state["current_price"] = str(state["current_price"])
+        self.points = deepcopy(points)
+
+    def put_price(self, data):
+        sequence = (self.ledger.get_checkpoint("price_sequence") or 0) + 1
+        self.ledger.put_checkpoint("price_sequence", sequence)
+        self.ledger.put_price_version({"id": f"runtime-price:{sequence:020d}", **data})
+
+    def prices(self, point_id, start, end):
+        versions = self.ledger.list_price_versions(point_id)
+        result = {start: None}
+        for index, version in enumerate(versions):
+            left = max(start, instant(version["at"]))
+            right = min(end, instant(versions[index + 1]["at"])) if index + 1 < len(versions) else end
+            if left >= right:
+                continue
+            if version.get("mode") == "tou":
+                schedule = DailySchedule(version["schedule"])
+                zone = version.get("timezone", self.timezone)
+                for at in [left, *schedule.boundaries(left, right, zone)]:
+                    result[at] = schedule.price_at(at, zone)
+            else:
+                value = version.get("price")
+                result[left] = None if value is None else Decimal(value)
+        # Stored interval prices are immutable evidence for their covered range.
+        for observation in self.ledger.list_intervals(point_id, start.isoformat(), end.isoformat()):
+            if observation["gap"]:
+                continue
+            left, right = max(start, instant(observation["start"])), min(end, instant(observation["end"]))
+            active = None
+            for at, price in observation["prices"]:
+                at = instant(at)
+                value = None if price is None else Decimal(price)
+                if at <= left:
+                    active = value
+                elif at < right:
+                    result[at] = value
+            result[left] = active
+            if right < end and not any(instant(v["at"]) <= right for v in versions):
+                result[right] = None
+        for gap in self.ledger.get_checkpoint("_price_gaps:" + point_id) or []:
+            if instant(gap["start"]) < end and instant(gap["end"]) > start:
+                result[max(start, instant(gap["start"]))] = None
+                for at in list(result):
+                    if instant(gap["start"]) <= at < instant(gap["end"]):
+                        result[at] = None
+        return sorted(result.items())
+
+    def active(self, point_id):
+        return next((r for r in self.ledger.list_records(point_id=point_id) if r["status"] == "active"), None)
+
+    def guard(self, point_id):
+        state = self.states.get(point_id, {})
+        return not self.active(point_id) and not (state.get("detector") or {}).get("candidate")
+
+    def observe(self, point_id, role, observation):
+        if point_id not in self.points:
+            return
+        point, state = self.points[point_id], self.states[point_id]
+        expected = (point.get("energy_entity") if point["input_mode"] != "power" else state.get("bindings", {}).get("energy")) if role == "energy" else point.get("power_entity") if role == "power" else point["price"].get("entity_id")
+        if observation.get("entity_id") and observation["entity_id"] != expected:
+            return
+        at = instant(observation["at"])
+        if state.get("input_epoch") and role != "price" and at < instant(state["input_epoch"]):
+            return
+        key = role + "_event_at"
+        if state.get(key) and at < instant(state[key]):
+            return
+        if state.get(role + "_event") == observation and not (role == "energy" and not state.get("available")):
+            return
+        state[key] = at.isoformat()
+        state[role + "_event"] = observation
+        try:
+            raw, unit = observation["value"], observation.get("unit")
+            if role == "energy":
+                if observation.get("state_class") not in ("total", "total_increasing"):
+                    raise ValueError("Cumulative energy required")
+                value = energy_kwh(raw, unit)
+            elif role == "power":
+                value = power_w(raw, unit)
+            else:
+                value = price_per_kwh(raw, unit or point["price"].get("unit"), self.currency)
+        except (ValueError, TypeError):
+            value = None
+        if role == "price":
+            state["current_price"] = None if value is None else str(value)
+            self.put_price({"point_id": point_id, "at": at.isoformat(),
+                                          "mode": "dynamic", "price": state["current_price"]})
+        elif role == "power":
+            state["power_w"] = None if value is None else str(value)
+            state["power_at"] = at.isoformat()
+            self.detect(point_id, at, value)
+        else:
+            return self.energy(point_id, at, value)
+
+    def energy(self, point_id, at, value):
+        point, state = self.points[point_id], self.states[point_id]
+        if value is None:
+            state.update(available=False, interrupted=True, quality=["unavailable"])
+            self.detect(point_id, at, None)
+            return
+        previous = state.get("reading")
+        recovery = None
+        if previous is not None and at <= instant(state["reading_at"]):
+            if at == instant(state["reading_at"]) and value == Decimal(previous):
+                state["available"] = True
+            return
+        if previous is not None and at > instant(state["reading_at"]):
+            delta = value - Decimal(previous)
+            quality = []
+            if delta < 0:
+                quality = ["reset"]
+                if not point.get("resetting", True):
+                    state.update(reading=str(value), reading_at=at.isoformat(), available=False, interrupted=True, quality=["unexpected_reset"])
+                    self.detect(point_id, at, None)
+                    return
+                delta = value
+            if state.get("interrupted"):
+                quality.append("unavailable")
+            left = instant(state["reading_at"])
+            if (at - left).total_seconds() > point.get("max_gap_seconds", 600):
+                quality.append("gap")
+            state["normalized_energy_kwh"] = str(Decimal(state["normalized_energy_kwh"]) + delta)
+            self.accounting.add_interval(point_id, left, at, delta, self.prices(point_id, left, at), quality)
+            state["quality"] = quality
+            if quality:
+                recovery = {"start": left.isoformat(), "end": at.isoformat()}
+        state.update(reading=str(value), reading_at=at.isoformat(), available=True, interrupted=False)
+        return recovery
+
+    def bind_sources(self, sources, errors, now):
+        for point_id in self.points:
+            state = self.states[point_id]
+            state["bindings"] = sources.get(point_id, {})
+            state["helper_error"] = errors.get(point_id)
+            if state["helper_error"]:
+                self.detect(point_id, now, None)
+
+    def detect(self, point_id, at, power):
+        point, state = self.points[point_id], self.states[point_id]
+        config = point.get("detection", {})
+        if not config.get("enabled"):
+            return
+        active = self.active(point_id)
+        if active and active["source"] == "manual":
+            return
+        detector = Detector(config["start_w"], config["end_w"], config["start_seconds"], config["end_seconds"])
+        if state.get("detector"):
+            detector.restore(state["detector"], interrupted=False)
+        if detector.snapshot().get("last_at") and at < instant(detector.snapshot()["last_at"]):
+            return
+        events = detector.observe(at, power if state.get("available") and not state.get("helper_error") else None, state["selected_identity_id"])
+        for event in events:
+            if event["kind"] == "start" and not active:
+                identity = self.ledger.get_identity(event["identity_id"])
+                if identity and identity.get("active", True):
+                    self.accounting.start(point_id, event["identity_id"], instant(event["at"]), uuid4().hex, source="automatic", timezone=self.timezone)
+                else:
+                    detector.force_stop()
+            elif event["kind"] == "end" and active:
+                self.accounting.end(active["id"], instant(event["at"]), uuid4().hex)
+        state["detector"] = detector.snapshot()
+
+    def command(self, command, payload, now):
+        if command not in ("start", "end", "commit_preview"):
+            return self._command(command, payload, now)
+        key = "runtime_request:" + payload["request_id"]
+        previous = self.ledger.get_checkpoint(key)
+        if previous:
+            if previous["command"] != command or previous["payload"] != payload:
+                raise ValueError("Request ID reused with different content")
+            return previous["result"]
+        result = self._command(command, payload, now)
+        self.ledger.put_checkpoint(key, {"command": command, "payload": payload, "result": result})
+        return result
+
+    def _command(self, command, payload, now):
+        data = dict(payload)
+        if command == "start":
+            point_id = data["point_id"]
+            state = self.states[point_id]
+            request_id = data["request_id"]
+            if not state.get("available") and self.ledger.get_request(request_id) is None:
+                raise ValueError("A valid measurement baseline is required; use historical entry")
+            # Persist the original instant for retries that omit it.
+            key = "command_time:" + request_id
+            at = instant(data["at"]) if data.get("at") else instant(self.ledger.get_checkpoint(key) or now.isoformat())
+            self.ledger.put_checkpoint(key, at.isoformat())
+            return self.accounting.start(point_id, data.get("identity_id", state["selected_identity_id"]), at,
+                                         request_id, timezone=self.timezone)
+        if command == "end":
+            record = self.ledger.get_record(data["record_id"])
+            if not record:
+                raise ValueError("Unknown record")
+            key = "command_time:" + data["request_id"]
+            at = instant(data["at"]) if data.get("at") else instant(self.ledger.get_checkpoint(key) or now.isoformat())
+            self.ledger.put_checkpoint(key, at.isoformat())
+            result = self.accounting.end(record["id"], at, data["request_id"])
+            state = self.states[record["point_id"]]
+            if state.get("detector"):
+                state["detector"].update(state="idle", candidate=None, identity_id=None, blocked=True)
+            return result
+        if command == "select_identity":
+            identity = self.ledger.get_identity(data["identity_id"])
+            if not identity or not identity.get("active", True):
+                raise ValueError("An active identity is required")
+            self.states[data["point_id"]]["selected_identity_id"] = data["identity_id"]
+            return {"point_id": data["point_id"], "identity_id": data["identity_id"]}
+        if command == "set_detection":
+            point = self.points[data["point_id"]]
+            if not self.guard(data["point_id"]):
+                raise ValueError("Point has an active record or detection candidate")
+            config = point.get("detection", {})
+            if data["enabled"]:
+                if point["input_mode"] == "energy" or not all(k in config for k in ("start_w", "end_w", "start_seconds", "end_seconds")):
+                    raise ValueError("Configure power detection thresholds first")
+                Detector(config["start_w"], config["end_w"], config["start_seconds"], config["end_seconds"])
+            return {"point_id": data["point_id"], "enabled": bool(data["enabled"])}
+        if command in ("reassign", "void"):
+            if command == "void":
+                record = self.ledger.get_record(data["record_id"])
+                if record and record["status"] == "active":
+                    raise ValueError("End the active record before voiding it")
+            return getattr(self.accounting, command)(**data)
+        if command == "preview":
+            existing = self.ledger.get_record(data["record_id"]) if data.get("record_id") else {}
+            if any(key in data for key in ("start", "end", "energy_kwh")):
+                basis = {**(existing or {}), **data}
+                data.setdefault("prices", self.prices(basis["point_id"], instant(basis["start"]), instant(basis["end"])))
+            return self.accounting.preview(data)
+        if command == "commit_preview":
+            return self.accounting.commit_preview(**data)
+        if command == "record":
+            record = self.ledger.get_record(data["record_id"])
+            if not record:
+                raise ValueError("Unknown record")
+            return {"record": record, "segments": self.ledger.list_segments(record["id"]), "revisions": self.ledger.list_revisions(record["id"])}
+        if command == "summary":
+            return summarize(self.ledger, instant(data["start"]) if data.get("start") else None,
+                             instant(data["end"]) if data.get("end") else None,
+                             identity_id=data.get("identity_id"), point_id=data.get("point_id"))
+        raise ValueError("Unknown command")
+
+    def snapshot(self, point_ids=None):
+        scoped = self.ledger if point_ids is None else ScopedLedger(self.ledger, point_ids)
+        points = []
+        for point_id, point in self.points.items():
+            if point_ids is not None and point_id not in point_ids:
+                continue
+            state = self.states[point_id]
+            active = self.active(point_id)
+            points.append({"id": point_id, "name": point["name"], "selected_identity_id": state["selected_identity_id"],
+                "active_record": active, "normalized_energy_kwh": state["normalized_energy_kwh"],
+                "power_w": state.get("power_w"), "current_price": state.get("current_price"),
+                "status": "charging" if active and active["source"] == "manual" else (state.get("detector") or {}).get("state", "charging" if active else "idle"),
+                "quality": state.get("quality", []), "available": state.get("available", False),
+                "detection_enabled": point.get("detection", {}).get("enabled", False),
+                "candidate": (state.get("detector") or {}).get("candidate"), "utility_entities": {}})
+        identities = self.ledger.list_identities()
+        now = datetime.now(UTC).astimezone(ZoneInfo(self.timezone))
+        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        starts = {"total": None, "daily": today, "monthly": today.replace(day=1), "yearly": today.replace(month=1, day=1)}
+        for identity in identities:
+            identity["summaries"] = {period: summarize(scoped, start, None, identity_id=identity["id"]) for period, start in starts.items()}
+        archived = [{**point, "identity_entity_id": None} for point in self.ledger.list_points()
+                    if not point.get("active", True) and (point_ids is None or point["id"] in point_ids)]
+        return {"currency": self.currency, "identities": identities, "points": points, "archived_points": archived,
+                "records": scoped.list_records(), "summary": summarize(scoped, None, None),
+                "revision": self.ledger.data_version()}
+
+    def scoped_summary(self, point_ids, data):
+        return summarize(ScopedLedger(self.ledger, point_ids), instant(data["start"]) if data.get("start") else None,
+                         instant(data["end"]) if data.get("end") else None,
+                         identity_id=data.get("identity_id"), point_id=data.get("point_id"))
+
+    def query(self, command, data, point_ids):
+        allowed = [p["id"] for p in self.ledger.list_points()] if point_ids is None else point_ids
+        if command == "summary":
+            return self.scoped_summary(allowed, data)
+        if command == "record":
+            record = self.ledger.get_record(data["record_id"])
+            if not record or record["point_id"] not in allowed:
+                raise ValueError("Unknown authorized record")
+            return {"record": record, "segments": self.ledger.list_segments(record["id"]), "revisions": self.ledger.list_revisions(record["id"]),
+                    "point": self.ledger.get_point(record["point_id"]), "identity": self.ledger.get_identity(record["identity_id"])}
+        if command != "records":
+            raise ValueError("Unknown query")
+        offset, limit = data.get("offset", 0), data.get("limit", 50)
+        if not isinstance(offset, int) or not isinstance(limit, int) or offset < 0 or not 1 <= limit <= 500:
+            raise ValueError("Invalid query page")
+        records = [record for record in self.ledger.list_records(data.get("point_id"), data.get("identity_id"), include_void=data.get("include_void", False))
+                   if record["point_id"] in allowed
+                   and (not data.get("start") or record["end"] is None or instant(record["end"]) > instant(data["start"]))
+                   and (not data.get("end") or instant(record["start"]) < instant(data["end"]))]
+        records.sort(key=lambda record: (record["start"], record["id"]), reverse=True)
+        return {"records": records[offset:offset + limit], "total": len(records), "offset": offset, "limit": limit}
+
+    def history_needed(self, point_id, start, end):
+        cursor = start
+        for interval in self.ledger.list_intervals(point_id, start.isoformat(), end.isoformat()):
+            if interval["gap"] or instant(interval["start"]) > cursor:
+                return True
+            cursor = max(cursor, instant(interval["end"]))
+        return cursor < end
+
+    def import_history(self, point_id, intervals, historical_prices=None):
+        epoch = self.states[point_id].get("input_epoch")
+        valid = [i for i in intervals if not i.get("gap") and not i.get("quality") and (epoch is None or i["start"] >= epoch)]
+        existing = self.ledger.list_intervals(point_id)
+        for gap in [i for i in existing if i["gap"]]:
+            parts = [i for i in valid if i["start"] >= gap["start"] and i["end"] <= gap["end"]]
+            cursor = gap["start"]
+            for part in parts:
+                if part["start"] != cursor:
+                    break
+                cursor = part["end"]
+            if cursor == gap["end"] and sum((Decimal(i["energy_kwh"]) for i in parts), Decimal(0)) == Decimal(gap["energy_kwh"]):
+                replacements = [{**i, "prices": self.history_prices(point_id, instant(i["start"]), instant(i["end"]), historical_prices)} for i in parts]
+                self.accounting.replace_gap(point_id, instant(gap["start"]), instant(gap["end"]), replacements)
+        existing = self.ledger.list_intervals(point_id)
+        for interval in valid:
+            if any(old["start"] < interval["end"] and old["end"] > interval["start"] for old in existing):
+                continue
+            left, right = instant(interval["start"]), instant(interval["end"])
+            self.accounting.add_interval(point_id, left, right, Decimal(interval["energy_kwh"]), self.history_prices(point_id, left, right, historical_prices))
+            existing.append(interval)
+
+    def history_prices(self, point_id, start, end, historical_prices):
+        own = dict(self.prices(point_id, start, end))
+        if not historical_prices:
+            return sorted(own.items())
+        epoch = self.states[point_id].get("price_epoch")
+        versions = self.ledger.list_price_versions(point_id)
+        boundaries = sorted(set(own) | {at for at, _ in historical_prices if start < at < end})
+        result = []
+        for at in boundaries:
+            active = next((v for v in reversed(versions) if instant(v["at"]) <= at), None)
+            dynamic = active.get("mode") == "dynamic" if active else self.points[point_id]["price"]["mode"] == "dynamic"
+            value = next((value for time, value in reversed(sorted(own.items())) if time <= at), None)
+            if dynamic and (epoch is None or at >= instant(epoch)):
+                value = next((value for time, value in reversed(historical_prices) if time <= at), None)
+            result.append((at, value))
+        return result
+
+    def maintenance(self, now):
+        for point_id, state in self.states.items():
+            if point_id in self.points:
+                price = self.prices(point_id, now, now + timedelta(microseconds=1))[-1][1]
+                state["current_price"] = None if price is None else str(price)
+        date = now.date().isoformat()
+        if self.ledger.get_checkpoint("pruned_on") != date:
+            if self.ledger.prune(before=now - timedelta(days=90), limit=500) < 500:
+                self.ledger.put_checkpoint("pruned_on", date)

@@ -192,5 +192,25 @@
         "finish": "完成时段配置"
       }
     }
+  },
+  "issues": {
+    "helper_repair": {
+      "title": "充电点辅助元素需要修复",
+      "description": "{name} 的受管理辅助元素尚未就绪：{error}。确认后将重建本集成拥有的缺失或已修改辅助元素；历史记录会保留。",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "修复辅助元素",
+            "description": "重建本集成拥有的缺失或已修改辅助元素？"
+          }
+        },
+        "error": {
+          "repair_failed": "修复失败，请检查来源及辅助元素状态后重试。"
+        },
+        "abort": {
+          "point_removed": "充电点已移除或集成未运行。"
+        }
+      }
+    }
   }
 }

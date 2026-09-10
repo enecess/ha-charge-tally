@@ -1,0 +1,70 @@
+"""Entity registry anchors, native periods, and mutable identity summaries."""
+from decimal import Decimal
+from types import MappingProxyType
+
+from homeassistant.config_entries import ConfigSubentry
+from homeassistant.helpers import entity_registry as er
+
+from test_runtime import setup_runtime, tick, ENERGY
+
+
+async def test_entities_publish_live_record_and_identity_totals(hass, tmp_path, freezer):
+    entry, runtime = await setup_runtime(hass, tmp_path, periods=["daily"])
+    registry = er.async_get(hass)
+    def entity(id_, key, domain="sensor"):
+        return registry.async_get_entity_id(domain, "charge_tally", entry.entry_id + ":" + id_ + ":" + key)
+    select_id = entity("point", "identity", "select")
+    assert (await runtime.async_snapshot())["points"][0]["identity_entity_id"] == select_id
+    await hass.services.async_call("select", "select_option", {"entity_id": select_id, "option": "Car"}, blocking=True)
+    record = await runtime.async_command("start", {"point_id": "point", "request_id": "r1"})
+    await tick(hass, freezer, 30)
+    hass.states.async_set("sensor.energy", "100.060", ENERGY)
+    await hass.async_block_till_done()
+    assert Decimal(hass.states.get(entity("point", "record_energy")).state) == Decimal(".060")
+    total = hass.states.get(entity("car", "total_energy"))
+    assert Decimal(total.state) == Decimal(".060")
+    assert total.attributes.get("state_class") != "total_increasing"
+    latest = (await runtime.async_snapshot())["records"][0]
+    await runtime.async_command("reassign", {"record_id": record["id"], "identity_id": "unassigned", "expected_revision": latest["revision"]})
+    await hass.async_block_till_done()
+    assert Decimal(hass.states.get(entity("car", "total_energy")).state) == 0
+    registry.async_update_entity(select_id, new_entity_id="select.renamed_identity")
+    assert (await runtime.async_snapshot())["points"][0]["identity_entity_id"] == "select.renamed_identity"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_empty_point_scope_returns_no_global_counts(hass, tmp_path):
+    entry, runtime = await setup_runtime(hass, tmp_path)
+    await runtime.async_command("start", {"point_id": "point", "request_id": "r1"})
+    empty = await runtime.async_snapshot([])
+    assert empty["points"] == []
+    assert empty["records"] == []
+    assert empty["summary"]["active_count"] == 0
+    assert empty["summary"]["energy_kwh"] == "0"
+    assert (await runtime.async_snapshot(["point"]))["summary"]["active_count"] == 1
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_parallel_points_and_scoped_queries_do_not_mix_identity_totals(hass, tmp_path, freezer):
+    entry, runtime = await setup_runtime(hass, tmp_path)
+    hass.states.async_set("sensor.energy_b", "50", ENERGY)
+    data = {**entry.subentries["point"].data, "name": "Second", "input_mode": "energy", "energy_entity": "sensor.energy_b", "periods": ["daily"]}
+    hass.config_entries.async_add_subentry(entry, ConfigSubentry(subentry_id="second", subentry_type="point", title="Second", unique_id=None, data=MappingProxyType(data)))
+    await hass.async_block_till_done()
+    assert len(hass.config_entries.async_entries("utility_meter")) == 1
+    await runtime.async_command("start", {"point_id": "point", "identity_id": "car", "request_id": "a"})
+    await runtime.async_command("start", {"point_id": "second", "identity_id": "unassigned", "request_id": "b"})
+    await tick(hass, freezer, 30)
+    hass.states.async_set("sensor.energy", "101", ENERGY)
+    hass.states.async_set("sensor.energy_b", "52", ENERGY)
+    await hass.async_block_till_done()
+    snapshot = await runtime.async_snapshot(["second"])
+    assert len(snapshot["points"]) == 1
+    assert Decimal(snapshot["summary"]["energy_kwh"]) == 2
+    assert snapshot["summary"]["active_count"] == 1
+    assert next(i for i in snapshot["identities"] if i["id"] == "car")["summaries"]["total"]["energy_kwh"] == "0"
+    result = await runtime.async_query("records", {}, point_ids=["second"])
+    assert result["total"] == 1
+    assert result["records"][0]["point_id"] == "second"
+    assert (await runtime.async_query("summary", {}, point_ids=[]))["active_count"] == 0
+    assert await hass.config_entries.async_unload(entry.entry_id)
