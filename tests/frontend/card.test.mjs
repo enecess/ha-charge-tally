@@ -1,3 +1,4 @@
+import {tr} from '../../custom_components/charge_tally/www/card-i18n.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {formatCost, validateRange, localCandidates, localInput, resolveLocal, validateForm,
@@ -138,19 +139,64 @@ test('subscription failures back off to 30 seconds and disconnect clears pending
 class TestNode extends EventTarget {
   constructor(){super();this.children=[];this.dataset={};}
   append(...nodes){this.children.push(...nodes);}
-  setAttribute(){}
+  replaceChildren(...nodes){this.children=[...nodes];}
+  setAttribute(key,value){this[key]=value;}
+  querySelectorAll(selector){
+    const matches=node=>selector.split(',').some(part=>part==='button[data-write]' ? node.tagName==='button'&&Object.hasOwn(node.dataset,'write') : node.tagName===part);
+    return this.children.flatMap(child=>[...(matches(child)?[child]:[]),...child.querySelectorAll(selector)]);
+  }
   showModal(){}
   close(){this.dispatchEvent(new Event('close'));}
   remove(){}
 }
 globalThis.HTMLElement=class {attachShadow(){this.shadowRoot=new TestNode();}};
-globalThis.document={createElement:()=>new TestNode()};
+globalThis.document={createElement:tag=>{const node=new TestNode();node.tagName=tag;return node;}};
 globalThis.window={customCards:[]};
 globalThis.customElements={get:()=>undefined,define:()=>{}};
 const {ChargeTallyCard}=await import('../../custom_components/charge_tally/www/charge-tally-card.js');
-const {RecordDialog}=await import('../../custom_components/charge_tally/www/card-dialog.js?v=0.1.0');
+const {RecordDialog}=await import('../../custom_components/charge_tally/www/card-dialog.js?v=0.1.1');
+const {ChargeTallyEditor}=await import('../../custom_components/charge_tally/www/card-editor.js?v=0.1.1');
 const state=await import('../../custom_components/charge_tally/www/card-state.js');
-const {tr,summaryView,segmentTable}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.0');
+const {summaryView,segmentTable}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.1');
+
+const visibleText=node=>[node.textContent||'',...(node.children||[]).map(visibleText)].join(' ');
+test('card and editor retranslate existing views when HA language changes',()=>{
+  const card=new ChargeTallyCard();
+  const editor=new ChargeTallyEditor();
+  const hass={connection:{connected:true},language:'de'};
+  card.hass=hass;editor.hass=hass;
+  assert.match(visibleText(card.body),/Erneut versuchen/);
+  assert.match(visibleText(editor.shadowRoot),/Titel/);
+  card.hass={...hass,language:'fr'};editor.hass={...hass,language:'fr'};
+  assert.match(visibleText(card.body),/Réessayer/);
+  assert.match(visibleText(editor.shadowRoot),/Titre/);
+  assert.doesNotMatch(visibleText(card.body),/Erneut versuchen/);
+  card.hass={...hass,language:'pl'};editor.hass={...hass,language:'pl'};
+  assert.match(visibleText(card.body),/Ponów|Spróbuj ponownie/);
+  assert.match(visibleText(editor.shadowRoot),/Tytuł/);
+});
+
+test('switching language preserves an open draft, preview token and pending operation',()=>{
+  const card=new ChargeTallyCard();
+  card.language='de';
+  card.snapshot={points:[{id:'p',name:'My charger',status:'idle',active:true,available:true,active_record:null,selected_identity_id:'i',detection_enabled:false,identity_entity_id:'select.p',power_w:'0',current_price:'.5',quality:[],error:null}],archived_points:[],identities:[{id:'i',name:'My identity'}],currency:'EUR',timezone:'UTC'};
+  card.openDialog('create');
+  const dialog=card.dialog;
+  const note=dialog.node.querySelectorAll('textarea')[0];
+  note.value='Keep this draft';note.dispatchEvent(new Event('input'));
+  const preview={token:'authorized-preview',overlaps:[],record:{id:'draft',point_id:'p',identity_id:'i',timezone:'UTC',start:'2026-09-10T00:00:00Z',end:'2026-09-10T01:00:00Z',source:'manual',status:'ended',revision:1,energy_kwh:'5',known_cost:'2.5',cost_complete:true,quality:[]},segments:[],coverage:[]};
+  dialog.preview=preview;dialog.requestId='same-operation';dialog.busy=true;
+  const draft=structuredClone(dialog.form);
+  card.hass={language:'fr',connection:{connected:true}};
+  assert.equal(dialog.language,'fr');
+  assert.match(visibleText(dialog.node),/Ajouter|Nouvel/);
+  assert.deepEqual(dialog.form,draft);
+  assert.equal(dialog.node.querySelectorAll('textarea')[0].value,'Keep this draft');
+  assert.equal(dialog.preview,preview);
+  assert.equal(dialog.requestId,'same-operation');
+  assert.equal(dialog.saveButton.disabled,true);
+  dialog.close();
+});
 
 test('segment ranges use the record accounting timezone without altering UTC data',()=>{
   const segments=[{local_date:'2025-12-31',start:'2025-12-31T15:00:00+00:00',end:'2025-12-31T16:00:00+00:00',energy_kwh:'7',cost:null}];

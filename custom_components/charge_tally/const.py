@@ -1,7 +1,7 @@
 """Shared integration identifiers and configuration defaults."""
 DOMAIN = "charge_tally"
 NAME = "Charge Tally"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 INPUT_MODES = ("energy", "power", "energy_power")
 PERIODS = ("daily", "monthly", "yearly")
 DEFAULT_MAX_GAP_SECONDS = 600

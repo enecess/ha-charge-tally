@@ -10,7 +10,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 class IdentitySelect(TallyEntity, SelectEntity):
     def __init__(self, runtime, sub):
-        super().__init__(runtime, sub.subentry_id, "identity", sub.data["name"] + " Identity")
+        super().__init__(runtime, sub.subentry_id, "identity", sub.data["name"] + " Identity", sub.data["name"])
 
     @property
     def options(self):

@@ -37,7 +37,10 @@ async def test_resource_registration_is_idempotent_and_serves_only_www(hass, tmp
         assert "max-age" in response.headers["Cache-Control"]
         source = await response.text()
         queue.extend(urljoin(url, path) for path in re.findall(r"^import\s+(?:[^'\"]*?\s+from\s+)?['\"]([^'\"]+)['\"]", source, re.MULTILINE))
-    assert len(seen) == 6
+    paths = {urlsplit(url).path for url in seen}
+    assert "/charge_tally/card-i18n.js" in paths
+    for language in ("en", "zh-Hans", "de", "fr", "pl"):
+        assert f"/charge_tally/locales/{language}.js" in paths
 
 
 async def test_yaml_resources_return_manual_module_configuration(hass, hass_client):

@@ -44,6 +44,15 @@ class PackageTests(unittest.TestCase):
                     build(self.root)
                 path.unlink()
 
+    def test_archive_includes_card_and_native_translations_for_all_languages(self):
+        from scripts.package import build
+        with ZipFile(build(self.root)) as archive:
+            prefix = "custom_components/charge_tally/"
+            for language in ("en", "zh-Hans", "de", "fr", "pl"):
+                for relative in (f"translations/{language}.json", f"www/locales/{language}.js"):
+                    self.assertEqual(archive.read(prefix + relative), (self.component / relative).read_bytes())
+            self.assertIn(prefix + "www/card-i18n.js", archive.namelist())
+
     def test_manifest_version_mismatch_is_rejected(self):
         from scripts.package import build
         path = self.component / "manifest.json"
@@ -56,13 +65,13 @@ class PackageTests(unittest.TestCase):
     def test_shared_version_constant_must_match_manifest(self):
         from scripts.package import build
         path = self.component / "const.py"
-        path.write_text(path.read_text(encoding="utf-8").replace('VERSION = "0.1.0"', 'VERSION = "0.2.0"'), encoding="utf-8")
+        path.write_text(path.read_text(encoding="utf-8").replace('VERSION = "0.1.1"', 'VERSION = "0.2.0"'), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "version"):
             build(self.root)
 
     def test_frontend_module_version_mismatch_is_rejected(self):
         from scripts.package import build
         module = self.component / "www" / "charge-tally-card.js"
-        module.write_text(module.read_text(encoding="utf-8").replace("?v=0.1.0", "?v=0.2.0"), encoding="utf-8")
+        module.write_text(module.read_text(encoding="utf-8").replace("?v=0.1.1", "?v=0.2.0"), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "version"):
             build(self.root)

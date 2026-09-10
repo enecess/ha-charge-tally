@@ -1,8 +1,9 @@
-import {styles} from './card-styles.js?v=0.1.0';
-import {Latest,Subscription,formatCost,formatDecimal,errorMessage,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.0';
-import {el,button,field,select,input,tr,metric,summaryView,quality,dateText} from './card-ui.js?v=0.1.0';
-import {RecordDialog} from './card-dialog.js?v=0.1.0';
-import './card-editor.js?v=0.1.0';
+import {tr} from './card-i18n.js?v=0.1.1';
+import {styles} from './card-styles.js?v=0.1.1';
+import {Latest,Subscription,formatCost,formatDecimal,errorMessage,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.1';
+import {el,button,field,select,input,metric,summaryView,quality,dateText} from './card-ui.js?v=0.1.1';
+import {RecordDialog} from './card-dialog.js?v=0.1.1';
+import './card-editor.js?v=0.1.1';
 
 export class ChargeTallyCard extends HTMLElement {
   static getConfigElement(){return document.createElement('charge-tally-card-editor');}
@@ -13,12 +14,20 @@ export class ChargeTallyCard extends HTMLElement {
     this.subscription=new Subscription(snapshot=>this.onSnapshot(snapshot),error=>{this.error=error;this.render();});
   }
   setConfig(config){
-    if(!config||typeof config!=='object')throw new Error('Invalid Charge Tally card config');
-    for(const key of ['point_id','identity_id','title'])if(config[key]!=null&&typeof config[key]!=='string')throw new Error(`${key} must be a string`);
-    for(const key of ['show_records','show_chart'])if(config[key]!=null&&typeof config[key]!=='boolean')throw new Error(`${key} must be boolean`);
+    if(!config||typeof config!=='object')throw new Error(this.t('error.configInvalid'));
+    for(const key of ['point_id','identity_id','title'])if(config[key]!=null&&typeof config[key]!=='string')throw new Error(tr('error.configString',this.language,{field:key}));
+    for(const key of ['show_records','show_chart'])if(config[key]!=null&&typeof config[key]!=='boolean')throw new Error(tr('error.configBoolean',this.language,{field:key}));
     this.config={...config};this.filters={point_id:config.point_id||'',identity_id:config.identity_id||''};this.offset=0;this.latest.invalidate();this.render();if(this.snapshot)this.refresh();
   }
-  set hass(hass){this._hass=hass;const language=hass.language||'en';if(language!==this.language){this.language=language;this.render();}if(this.isConnected)this.subscription.connect(hass.connection);}
+  set hass(hass){
+    this._hass=hass;const language=hass.language||'en';
+    if(language!==this.language){
+      this.language=language;this.render();this.dialog?.setLanguage(language);
+      const metadata=window.customCards?.find(card=>card.type==='charge-tally-card');
+      if(metadata)metadata.description=this.t('cardDescription');
+    }
+    if(this.isConnected)this.subscription.connect(hass.connection);
+  }
   getCardSize(){return this.config.show_records===false?6:10;}
   connectedCallback(){if(this._hass)this.subscription.connect(this._hass.connection);}
   disconnectedCallback(){this.dialogEpoch++;this.subscription.disconnect();this.latest.invalidate();this.actions.invalidate();this.dialog?.close();}
@@ -143,4 +152,4 @@ export class ChargeTallyCard extends HTMLElement {
 }
 if(!customElements.get('charge-tally-card'))customElements.define('charge-tally-card',ChargeTallyCard);
 window.customCards=window.customCards||[];
-if(!window.customCards.some(card=>card.type==='charge-tally-card'))window.customCards.push({type:'charge-tally-card',name:'Charge Tally',preview:true,description:'Charging records, identities and accounting statistics'});
+if(!window.customCards.some(card=>card.type==='charge-tally-card'))window.customCards.push({type:'charge-tally-card',name:'Charge Tally',preview:true,description:tr('cardDescription',globalThis.navigator?.language)});

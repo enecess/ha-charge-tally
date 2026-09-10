@@ -7,10 +7,10 @@ body.dark{background:#142129;color:#edf7f8;--primary-color:#75dad5;--primary-tex
 main{max-width:980px;margin:auto} nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}button{padding:9px}#mount.narrow{width:340px;max-width:100%}#notice{border-left:4px solid #b77b00;padding:10px}#editor{margin-top:24px}
 </style>
 <main><h1>Charge Tally · simulated UI harness</h1><p id="notice">SIMULATED DATA / 模拟数据 — Shapes derived from Task 5 HA protocol captures. No connection to Home Assistant or any charging device. Dates, totals and mutations below are scripted demonstrations.</p>
-<nav><button id="theme">Light / dark</button><button id="width">Desktop / narrow</button><button id="language">中文 / English</button><button id="disconnect">Disconnect / reconnect</button><button id="unload">Simulate entry reload</button><button id="error">Fail next request</button><button id="show-editor">Show graphical editor</button></nav>
+<nav><button id="theme">Light / dark</button><button id="width">Desktop / narrow</button><label>Language <select id="language"><option value="en">English</option><option value="zh-Hans">简体中文</option><option value="de">Deutsch</option><option value="fr">Français</option><option value="pl">Polski</option></select></label><button id="disconnect">Disconnect / reconnect</button><button id="unload">Simulate entry reload</button><button id="error">Fail next request</button><button id="show-editor">Show graphical editor</button></nav>
 <p id="requests" aria-live="polite">No requests yet.</p><div id="mount"><charge-tally-card></charge-tally-card></div><div id="editor"></div></main>
 <script type="module">
-import '/charge_tally/charge-tally-card.js?v=0.1.0';
+import '/charge_tally/charge-tally-card.js?v=0.1.1';
 const summary={energy_kwh:'0.285887930259482529870184281103830795',known_cost:'0.142943965129741264935092140551915398',cost_complete:false,active_count:1,completed_count:26,quality:['missing_price','provisional'],buckets:[{local_date:'2026-09-08',energy_kwh:'5.20',known_cost:'-1.20',cost_complete:true,quality:[]},{local_date:'2026-09-09',energy_kwh:'7.20',known_cost:'9.00',cost_complete:false,quality:['missing_price']}]};
 const record={id:'demo-record',point_id:'point',identity_id:'car',start:'2026-09-08T15:30:00Z',end:'2026-09-08T16:30:00Z',timezone:'Asia/Shanghai',source:'manual',status:'ended',revision:2,note:'Cross-day demo <safe text>',manual_override:true,manual_energy:'0.285887930259482529870184281103830795',manual_cost:null,energy_kwh:'0.285887930259482529870184281103830795',known_cost:'0.142943965129741264935092140551915398',cost_complete:false,quality:['manual','estimated','missing_price']};
 const segments=[{start:record.start,end:'2026-09-08T16:00:00Z',local_date:'2026-09-08',energy_kwh:'1.2',cost:'1.2',quality:['estimated','manual']},{start:'2026-09-08T16:00:00Z',end:record.end,local_date:'2026-09-09',energy_kwh:'1.2',cost:null,quality:['estimated','manual','missing_price']}];
@@ -38,7 +38,7 @@ const hass={language:'en',connection,states:{'select.garage_identity':{state:'Un
 const card=document.querySelector('charge-tally-card');card.setConfig({type:'custom:charge-tally-card',show_chart:true,show_records:true});card.hass=hass;
 document.querySelector('#theme').onclick=()=>document.body.classList.toggle('dark');
 document.querySelector('#width').onclick=()=>document.querySelector('#mount').classList.toggle('narrow');
-document.querySelector('#language').onclick=()=>{hass.language=hass.language==='en'?'zh-Hans':'en';card.hass={...hass};};
+document.querySelector('#language').onchange=event=>{hass.language=event.target.value;document.documentElement.lang=hass.language;card.hass={...hass};const editor=document.querySelector('charge-tally-card-editor');if(editor)editor.hass={...hass};};
 document.querySelector('#error').onclick=()=>{fail=true;document.querySelector('#requests').textContent='Next simulated request will fail.';};
 document.querySelector('#unload').onclick=()=>{for(const cb of [...subscribers])cb({type:'unloaded'});generation=0;};
 document.querySelector('#disconnect').onclick=()=>{connection.connected=!connection.connected;listeners.get(connection.connected?'ready':'disconnected')?.();};

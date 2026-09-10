@@ -308,5 +308,55 @@
     "overlap": {
       "message": "The interval overlaps another record at this point."
     }
+  },
+  "entity": {
+    "sensor": {
+      "energy": {
+        "name": "{name} Energy"
+      },
+      "status": {
+        "name": "{name} Status"
+      },
+      "record_energy": {
+        "name": "{name} Record energy"
+      },
+      "record_cost": {
+        "name": "{name} Record cost"
+      },
+      "daily_energy": {
+        "name": "{name} daily energy"
+      },
+      "daily_cost": {
+        "name": "{name} daily cost"
+      },
+      "monthly_energy": {
+        "name": "{name} monthly energy"
+      },
+      "monthly_cost": {
+        "name": "{name} monthly cost"
+      },
+      "yearly_energy": {
+        "name": "{name} yearly energy"
+      },
+      "yearly_cost": {
+        "name": "{name} yearly cost"
+      },
+      "total_energy": {
+        "name": "{name} total energy"
+      },
+      "total_cost": {
+        "name": "{name} total cost"
+      }
+    },
+    "select": {
+      "identity": {
+        "name": "{name} Identity"
+      }
+    },
+    "switch": {
+      "detection": {
+        "name": "{name} Detection"
+      }
+    }
   }
 }

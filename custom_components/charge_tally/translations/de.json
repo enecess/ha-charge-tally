@@ -1,0 +1,362 @@
+{
+  "title": "Charge Tally",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Charge Tally-Abrechnungsbuch",
+        "description": "Bestätigen Sie die Währung des Abrechnungsbuchs. Sie kann nach der Einrichtung nicht geändert werden.",
+        "data": {
+          "currency": "Währung"
+        }
+      }
+    },
+    "error": {
+      "invalid_currency": "Wählen Sie einen gültigen Währungscode aus drei Buchstaben.",
+      "currency_mismatch": "Das gespeicherte Abrechnungsbuch verwendet eine andere Währung. Verwenden Sie dessen ursprüngliche Währung."
+    },
+    "abort": {
+      "single_instance_allowed": "Es wird nur ein Charge Tally-Abrechnungsbuch unterstützt.",
+      "already_configured": "Charge Tally ist bereits eingerichtet.",
+      "currency_unbound": "Dieses Abrechnungsbuch aus einer Vorabversion ist keiner Währung zugeordnet. Sichern Sie es und bestätigen Sie vor der Wiederherstellung ausdrücklich seine ursprüngliche Währung."
+    }
+  },
+  "config_subentries": {
+    "point": {
+      "entry_type": "Ladepunkt",
+      "initiate_flow": {
+        "user": "Ladepunkt hinzufügen",
+        "reconfigure": "Ladepunkt konfigurieren"
+      },
+      "step": {
+        "user": {
+          "title": "Ladepunkt",
+          "data": {
+            "name": "Name",
+            "input_mode": "Energieerfassungsmodus"
+          }
+        },
+        "input": {
+          "title": "Messquellen",
+          "sections": {
+            "measurement": {
+              "name": "Messung und Erkennung",
+              "data": {
+                "energy_entity": "Sensor für kumulierte Energie",
+                "power_entity": "Leistungssensor",
+                "resetting": "Zähler kann zurückgesetzt werden",
+                "max_gap_seconds": "Maximales Zuordnungsintervall (Sekunden)",
+                "detection_enabled": "Automatische Ladeerkennung"
+              },
+              "data_description": {
+                "resetting": "Ein sinkender Zählerstand kennzeichnet ein unvollständiges Intervall mit Zählerrücksetzung.",
+                "max_gap_seconds": "Längere Intervalle werden zu Lücken, die geprüft werden müssen. Standard: 600 Sekunden."
+              }
+            }
+          }
+        },
+        "detection": {
+          "title": "Automatische Erkennung",
+          "data": {
+            "start_w": "Startschwelle (W)",
+            "end_w": "Endschwelle (W)",
+            "start_seconds": "Startdauer (Sekunden)",
+            "end_seconds": "Enddauer (Sekunden)"
+          }
+        },
+        "price": {
+          "title": "Stromtarif",
+          "data": {
+            "mode": "Preismodus"
+          }
+        },
+        "static": {
+          "title": "Fester Preis",
+          "description": "Geben Sie {currency}/kWh ein. Null und negative Preise werden unterstützt.",
+          "data": {
+            "value": "Preis pro kWh"
+          }
+        },
+        "dynamic": {
+          "title": "Dynamischer Preis",
+          "data": {
+            "entity_id": "Preissensor",
+            "unit": "Bestätigte Einheit"
+          },
+          "data_description": {
+            "unit": "Erforderlich, wenn die Quelle keine Einheit hat. Eine abweichende Währung der Quelle kann nicht überschrieben werden."
+          }
+        },
+        "tou": {
+          "title": "Täglicher Zeitplan für zeitabhängige Tarife",
+          "description": "Aktuelle Zeiträume:\n{schedule}\n\nFügen Sie Zeiträume hinzu, bearbeiten oder entfernen Sie diese. Schließen Sie den Zeitplan ab, sobald der gesamte Tag abgedeckt ist.",
+          "data": {
+            "action": "Aktion",
+            "row": "Zeitraum"
+          }
+        },
+        "tou_row": {
+          "title": "Preiszeitraum bearbeiten",
+          "description": "Verwenden Sie HH:MM. Geben Sie 24:00 für das Tagesende ein. Ein Zeitraum wie 22:00–06:00 reicht über Mitternacht hinaus.",
+          "data": {
+            "start": "Startzeit",
+            "end": "Endzeit (24:00 = Tagesende)",
+            "price": "Preis pro kWh"
+          }
+        },
+        "finish": {
+          "title": "Zeitraumstatistiken und Zusammenfassung",
+          "description": "{summary}\n\nErstellen Sie native Energiezähler für die ausgewählten Zeiträume. Die Abrechnung folgt dem Preisverlauf des Abrechnungsbuchs.",
+          "data": {
+            "periods": "Zeiträume für Energiestatistiken"
+          }
+        }
+      },
+      "error": {
+        "invalid_name": "Geben Sie einen Namen ein.",
+        "invalid_currency": "Wählen Sie einen gültigen Währungscode aus drei Buchstaben.",
+        "invalid_identity": "Wählen Sie, ob diese Identität aktiviert ist.",
+        "duplicate_name": "Eine Identität mit diesem Namen existiert bereits.",
+        "invalid_input_mode": "Wählen Sie einen Erfassungsmodus.",
+        "invalid_source": "Wählen Sie einen vorhandenen Sensor mit numerischen, nicht negativen Werten.",
+        "invalid_energy_source": "Verwenden Sie einen kumulativen Sensor in Wh, kWh oder MWh mit der Zustandsklasse total oder total_increasing.",
+        "invalid_power_source": "Verwenden Sie einen Leistungssensor mit Messwerten in W oder kW.",
+        "duplicate_source": "Diese Quelle ist bereits einem Ladepunkt zugeordnet.",
+        "invalid_detection": "Die Endschwelle muss unter der Startschwelle liegen; die Zeitdauern müssen positiv sein.",
+        "invalid_gap": "Das maximale Zuordnungsintervall muss positiv sein.",
+        "invalid_price": "Geben Sie einen endlichen Preis ein; Null und negative Preise sind zulässig.",
+        "invalid_price_unit": "Verwenden Sie die Währung dieses Abrechnungsbuchs pro Wh, kWh oder MWh. Bestätigen Sie die Einheit, falls die Quelle keine hat.",
+        "invalid_schedule": "Die Zeiträume müssen den gesamten Tag ohne Lücken oder Überschneidungen abdecken.",
+        "invalid_row": "Wählen Sie eine Zeile oder geben Sie Uhrzeiten im Format HH:MM und einen endlichen Preis ein. Verwenden Sie 24:00 für das Tagesende; identische Start- und Endzeiten sind ungültig.",
+        "invalid_periods": "Wählen Sie tägliche, monatliche oder jährliche Statistiken ohne Duplikate."
+      },
+      "abort": {
+        "single_instance_allowed": "Es wird nur ein Charge Tally-Abrechnungsbuch unterstützt.",
+        "already_configured": "Charge Tally ist bereits eingerichtet.",
+        "reconfigure_successful": "Konfiguration aktualisiert.",
+        "point_busy": "Beenden Sie den aktuellen Eintrag oder den noch unbestätigten erkannten Ladevorgang, bevor Sie die Mess- oder Erkennungseinstellungen ändern.",
+        "runtime_unavailable": "Das Abrechnungsbuch muss geladen sein, um die Mess- oder Erkennungseinstellungen sicher zu ändern.",
+        "config_changed": "Dieser Ladepunkt wurde durch eine andere Aktion geändert. Öffnen Sie die Konfiguration erneut."
+      }
+    },
+    "identity": {
+      "entry_type": "Identität",
+      "initiate_flow": {
+        "user": "Gemeinsame Identität hinzufügen",
+        "reconfigure": "Identität konfigurieren"
+      },
+      "step": {
+        "user": {
+          "title": "Gemeinsame Identität",
+          "description": "Identitäten werden von allen Ladepunkten gemeinsam genutzt. Beim Deaktivieren oder Löschen bleibt die Zuordnung historischer Einträge erhalten.",
+          "data": {
+            "name": "Name",
+            "enabled": "Aktiviert"
+          }
+        }
+      },
+      "error": {
+        "invalid_name": "Geben Sie einen Namen ein.",
+        "invalid_identity": "Wählen Sie, ob diese Identität aktiviert ist.",
+        "duplicate_name": "Eine Identität mit diesem Namen existiert bereits."
+      },
+      "abort": {
+        "reconfigure_successful": "Konfiguration aktualisiert."
+      }
+    }
+  },
+  "selector": {
+    "input_mode": {
+      "options": {
+        "energy": "Nur Energie",
+        "power": "Nur Leistung (natives Integral)",
+        "energy_power": "Energie und Leistung"
+      }
+    },
+    "price_mode": {
+      "options": {
+        "static": "Fest",
+        "dynamic": "Dynamischer Sensor",
+        "tou": "Täglicher zeitabhängiger Tarif"
+      }
+    },
+    "periods": {
+      "options": {
+        "daily": "Täglich",
+        "monthly": "Monatlich",
+        "yearly": "Jährlich"
+      }
+    },
+    "schedule_action": {
+      "options": {
+        "add": "Zeitraum hinzufügen",
+        "edit": "Zeitraum bearbeiten",
+        "remove": "Zeitraum entfernen",
+        "finish": "Zeitplan abschließen"
+      }
+    }
+  },
+  "issues": {
+    "helper_repair": {
+      "title": "Helfer des Ladepunkts müssen repariert werden",
+      "description": "Die verwalteten Helfer für {name} sind nicht bereit: {error}. Bestätigen Sie, um fehlende oder geänderte Helfer dieser Integration neu zu erstellen. Der Ladeverlauf bleibt erhalten.",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Verwaltete Helfer reparieren",
+            "description": "Fehlende oder geänderte Helfer dieser Integration neu erstellen?"
+          }
+        },
+        "error": {
+          "repair_failed": "Reparatur fehlgeschlagen. Prüfen Sie den Status der Quelle und der Helfer und versuchen Sie es erneut."
+        },
+        "abort": {
+          "point_removed": "Der Ladepunkt wurde entfernt oder die Integration läuft nicht."
+        }
+      }
+    }
+  },
+  "services": {
+    "start": {
+      "name": "Erfassung starten",
+      "description": "Starten Sie einen Eintrag zur aktuellen Serverzeit.",
+      "fields": {
+        "point_id": {
+          "name": "Ladepunkt-ID",
+          "description": "Stabile Ladepunkt-ID; kann anstelle der Entitätsauswahl verwendet werden."
+        },
+        "identity_id": {
+          "name": "Identitäts-ID",
+          "description": "Stabile Identitäts-ID. Beim Start wird standardmäßig die am Ladepunkt ausgewählte Identität verwendet."
+        },
+        "request_id": {
+          "name": "Anfrage-ID",
+          "description": "Eindeutige ID für diesen Vorgang. Verwenden Sie bei einem erneuten Versuch dieselbe ID und dieselben Felder."
+        },
+        "entity_id": {
+          "name": "Entität zur Identitätsauswahl des Ladepunkts (optional)",
+          "description": "Wählen Sie eine Entität zur Identitätsauswahl eines Ladepunkts oder geben Sie eine Ladepunkt-ID ein. Kombinierte Verweise müssen zum selben Ladepunkt gehören."
+        }
+      }
+    },
+    "end": {
+      "name": "Erfassung beenden",
+      "description": "Beenden Sie einen Eintrag zur aktuellen Serverzeit.",
+      "fields": {
+        "point_id": {
+          "name": "Ladepunkt-ID",
+          "description": "Stabile Ladepunkt-ID; kann anstelle der Entitätsauswahl verwendet werden."
+        },
+        "record_id": {
+          "name": "Eintrags-ID",
+          "description": "Zu ändernder Eintrag. Ohne Eintrags-ID wird der aktive Eintrag des Zielladepunkts verwendet."
+        },
+        "expected_revision": {
+          "name": "Erwartete Eintragsrevision",
+          "description": "Aktuelle Eintragsrevision aus dem Zustandsabbild oder den Eintragsdetails."
+        },
+        "request_id": {
+          "name": "Anfrage-ID",
+          "description": "Eindeutige ID für diesen Vorgang. Verwenden Sie bei einem erneuten Versuch dieselbe ID und dieselben Felder."
+        },
+        "entity_id": {
+          "name": "Entität zur Identitätsauswahl des Ladepunkts (optional)",
+          "description": "Wählen Sie eine Entität zur Identitätsauswahl eines Ladepunkts oder geben Sie eine Ladepunkt-ID / Eintrags-ID ein. Kombinierte Verweise müssen zum selben Ladepunkt gehören."
+        }
+      }
+    },
+    "reassign": {
+      "name": "Identität des Eintrags neu zuordnen",
+      "description": "Ordnen Sie den gesamten Eintrag einer Identität zu, ohne den Preis neu zu berechnen.",
+      "fields": {
+        "point_id": {
+          "name": "Ladepunkt-ID",
+          "description": "Stabile Ladepunkt-ID; kann anstelle der Entitätsauswahl verwendet werden."
+        },
+        "record_id": {
+          "name": "Eintrags-ID",
+          "description": "Zu ändernder Eintrag. Ohne Eintrags-ID wird der aktive Eintrag des Zielladepunkts verwendet."
+        },
+        "identity_id": {
+          "name": "Identitäts-ID",
+          "description": "Stabile Identitäts-ID. Beim Start wird standardmäßig die am Ladepunkt ausgewählte Identität verwendet."
+        },
+        "expected_revision": {
+          "name": "Erwartete Eintragsrevision",
+          "description": "Aktuelle Eintragsrevision aus dem Zustandsabbild oder den Eintragsdetails."
+        },
+        "request_id": {
+          "name": "Anfrage-ID",
+          "description": "Eindeutige ID für diesen Vorgang. Verwenden Sie bei einem erneuten Versuch dieselbe ID und dieselben Felder."
+        },
+        "entity_id": {
+          "name": "Entität zur Identitätsauswahl des Ladepunkts (optional)",
+          "description": "Wählen Sie eine Entität zur Identitätsauswahl eines Ladepunkts oder geben Sie eine Ladepunkt-ID / Eintrags-ID ein. Kombinierte Verweise müssen zum selben Ladepunkt gehören."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "invalid_request": {
+      "message": "Die Anfrage konnte nicht angewendet werden. Prüfen Sie die Eingabe und den Status des Ladepunkts."
+    },
+    "conflict": {
+      "message": "Der Eintrag oder die Anfrage wurde geändert. Aktualisieren Sie die Ansicht und versuchen Sie es erneut."
+    },
+    "stale_preview": {
+      "message": "Die Vorschau ist veraltet. Erstellen Sie eine neue Vorschau."
+    },
+    "overlap": {
+      "message": "Das Intervall überschneidet sich mit einem anderen Eintrag an diesem Ladepunkt."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "energy": {
+        "name": "{name} Energie"
+      },
+      "status": {
+        "name": "{name} Status"
+      },
+      "record_energy": {
+        "name": "{name} Energie des Eintrags"
+      },
+      "record_cost": {
+        "name": "{name} Kosten des Eintrags"
+      },
+      "daily_energy": {
+        "name": "{name} Tagesenergie"
+      },
+      "daily_cost": {
+        "name": "{name} Tageskosten"
+      },
+      "monthly_energy": {
+        "name": "{name} Monatsenergie"
+      },
+      "monthly_cost": {
+        "name": "{name} Monatskosten"
+      },
+      "yearly_energy": {
+        "name": "{name} Jahresenergie"
+      },
+      "yearly_cost": {
+        "name": "{name} Jahreskosten"
+      },
+      "total_energy": {
+        "name": "{name} Gesamtenergie"
+      },
+      "total_cost": {
+        "name": "{name} Gesamtkosten"
+      }
+    },
+    "select": {
+      "identity": {
+        "name": "{name} Identität"
+      }
+    },
+    "switch": {
+      "detection": {
+        "name": "{name} Ladeerkennung"
+      }
+    }
+  }
+}

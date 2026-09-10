@@ -1,0 +1,362 @@
+{
+  "title": "Charge Tally",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Registre Charge Tally",
+        "description": "Confirmez la devise du registre. Elle ne pourra plus être modifiée après la configuration.",
+        "data": {
+          "currency": "Devise"
+        }
+      }
+    },
+    "error": {
+      "invalid_currency": "Choisissez un code de devise valide à trois lettres.",
+      "currency_mismatch": "Le registre conservé utilise une autre devise. Utilisez sa devise d’origine."
+    },
+    "abort": {
+      "single_instance_allowed": "Un seul registre Charge Tally est pris en charge.",
+      "already_configured": "Charge Tally est déjà configuré.",
+      "currency_unbound": "Ce registre issu d’une préversion n’est associé à aucune devise. Sauvegardez-le et confirmez explicitement sa devise d’origine avant de le restaurer."
+    }
+  },
+  "config_subentries": {
+    "point": {
+      "entry_type": "Point de recharge",
+      "initiate_flow": {
+        "user": "Ajouter un point de recharge",
+        "reconfigure": "Configurer le point de recharge"
+      },
+      "step": {
+        "user": {
+          "title": "Point de recharge",
+          "data": {
+            "name": "Nom",
+            "input_mode": "Mode de saisie de l’énergie"
+          }
+        },
+        "input": {
+          "title": "Sources de mesure",
+          "sections": {
+            "measurement": {
+              "name": "Mesure et détection",
+              "data": {
+                "energy_entity": "Capteur d’énergie cumulée",
+                "power_entity": "Capteur de puissance",
+                "resetting": "Le compteur peut être réinitialisé",
+                "max_gap_seconds": "Intervalle maximal de répartition (secondes)",
+                "detection_enabled": "Détection automatique de la recharge"
+              },
+              "data_description": {
+                "resetting": "Une baisse du relevé du compteur signale un intervalle incomplet dû à une réinitialisation.",
+                "max_gap_seconds": "Les intervalles plus longs deviennent des lacunes à vérifier. Valeur par défaut : 600 secondes."
+              }
+            }
+          }
+        },
+        "detection": {
+          "title": "Détection automatique",
+          "data": {
+            "start_w": "Seuil de démarrage (W)",
+            "end_w": "Seuil d’arrêt (W)",
+            "start_seconds": "Durée de confirmation du démarrage (secondes)",
+            "end_seconds": "Durée de confirmation de l’arrêt (secondes)"
+          }
+        },
+        "price": {
+          "title": "Tarification de l’électricité",
+          "data": {
+            "mode": "Mode de tarification"
+          }
+        },
+        "static": {
+          "title": "Prix fixe",
+          "description": "Saisissez un prix en {currency}/kWh. Les prix nuls et négatifs sont acceptés.",
+          "data": {
+            "value": "Prix par kWh"
+          }
+        },
+        "dynamic": {
+          "title": "Prix dynamique",
+          "data": {
+            "entity_id": "Capteur de prix",
+            "unit": "Unité confirmée"
+          },
+          "data_description": {
+            "unit": "Obligatoire si la source n’a pas d’unité. Une devise source incompatible ne peut pas être remplacée."
+          }
+        },
+        "tou": {
+          "title": "Planning tarifaire journalier par plage horaire",
+          "description": "Plages actuelles :\n{schedule}\n\nAjoutez, modifiez ou supprimez des plages, puis terminez une fois la journée entière couverte.",
+          "data": {
+            "action": "Action",
+            "row": "Plage horaire"
+          }
+        },
+        "tou_row": {
+          "title": "Modifier la plage tarifaire",
+          "description": "Utilisez HH:MM. Saisissez 24:00 pour la fin de journée. Une plage telle que 22:00–06:00 passe par minuit.",
+          "data": {
+            "start": "Heure de début",
+            "end": "Heure de fin (24:00 = fin de journée)",
+            "price": "Prix par kWh"
+          }
+        },
+        "finish": {
+          "title": "Statistiques par période et récapitulatif",
+          "description": "{summary}\n\nCréez des compteurs d’énergie natifs pour les périodes sélectionnées. La facturation suit l’historique des prix du registre.",
+          "data": {
+            "periods": "Périodes des statistiques d’énergie"
+          }
+        }
+      },
+      "error": {
+        "invalid_name": "Saisissez un nom.",
+        "invalid_currency": "Choisissez un code de devise valide à trois lettres.",
+        "invalid_identity": "Indiquez si cette identité est activée.",
+        "duplicate_name": "Une identité portant ce nom existe déjà.",
+        "invalid_input_mode": "Choisissez un mode de saisie.",
+        "invalid_source": "Sélectionnez un capteur existant dont les valeurs sont numériques et non négatives.",
+        "invalid_energy_source": "Utilisez un capteur cumulatif en Wh, kWh ou MWh avec la classe d’état total ou total_increasing.",
+        "invalid_power_source": "Utilisez un capteur de puissance mesurée en W ou kW.",
+        "duplicate_source": "Cette source est déjà affectée à un point de recharge.",
+        "invalid_detection": "Le seuil d’arrêt doit être inférieur au seuil de démarrage ; les durées doivent être positives.",
+        "invalid_gap": "L’intervalle maximal de répartition doit être positif.",
+        "invalid_price": "Saisissez un prix fini ; les prix nuls et négatifs sont autorisés.",
+        "invalid_price_unit": "Utilisez la devise de ce registre par Wh, kWh ou MWh. Confirmez l’unité si la source n’en a pas.",
+        "invalid_schedule": "Les plages doivent couvrir toute la journée sans lacunes ni chevauchements.",
+        "invalid_row": "Sélectionnez une ligne ou saisissez des heures au format HH:MM et un prix fini. Utilisez 24:00 pour la fin de journée ; le début et la fin doivent être différents.",
+        "invalid_periods": "Sélectionnez des statistiques journalières, mensuelles ou annuelles sans doublons."
+      },
+      "abort": {
+        "single_instance_allowed": "Un seul registre Charge Tally est pris en charge.",
+        "already_configured": "Charge Tally est déjà configuré.",
+        "reconfigure_successful": "Configuration mise à jour.",
+        "point_busy": "Terminez l’enregistrement en cours ou la détection en attente de confirmation avant de modifier les paramètres de mesure ou de détection.",
+        "runtime_unavailable": "Le registre doit être chargé pour modifier les paramètres de mesure ou de détection en toute sécurité.",
+        "config_changed": "Ce point a été modifié par une autre action. Rouvrez la configuration."
+      }
+    },
+    "identity": {
+      "entry_type": "Identité",
+      "initiate_flow": {
+        "user": "Ajouter une identité partagée",
+        "reconfigure": "Configurer l’identité"
+      },
+      "step": {
+        "user": {
+          "title": "Identité partagée",
+          "description": "Les identités sont partagées entre les points de recharge. Leur désactivation ou suppression conserve l’attribution des enregistrements historiques.",
+          "data": {
+            "name": "Nom",
+            "enabled": "Activée"
+          }
+        }
+      },
+      "error": {
+        "invalid_name": "Saisissez un nom.",
+        "invalid_identity": "Indiquez si cette identité est activée.",
+        "duplicate_name": "Une identité portant ce nom existe déjà."
+      },
+      "abort": {
+        "reconfigure_successful": "Configuration mise à jour."
+      }
+    }
+  },
+  "selector": {
+    "input_mode": {
+      "options": {
+        "energy": "Énergie uniquement",
+        "power": "Puissance uniquement (Integral natif)",
+        "energy_power": "Énergie et puissance"
+      }
+    },
+    "price_mode": {
+      "options": {
+        "static": "Fixe",
+        "dynamic": "Capteur dynamique",
+        "tou": "Tarif journalier par plage horaire"
+      }
+    },
+    "periods": {
+      "options": {
+        "daily": "Journalières",
+        "monthly": "Mensuelles",
+        "yearly": "Annuelles"
+      }
+    },
+    "schedule_action": {
+      "options": {
+        "add": "Ajouter une plage",
+        "edit": "Modifier la plage",
+        "remove": "Supprimer la plage",
+        "finish": "Terminer le planning"
+      }
+    }
+  },
+  "issues": {
+    "helper_repair": {
+      "title": "Les entrées auxiliaires du point de recharge doivent être réparées",
+      "description": "Les entrées auxiliaires gérées pour {name} ne sont pas prêtes : {error}. Confirmez pour recréer les entrées auxiliaires manquantes ou modifiées appartenant à cette intégration. L’historique de recharge est conservé.",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Réparer les entrées auxiliaires gérées",
+            "description": "Recréer les entrées auxiliaires manquantes ou modifiées appartenant à cette intégration ?"
+          }
+        },
+        "error": {
+          "repair_failed": "La réparation a échoué. Vérifiez l’état de la source et des entrées auxiliaires, puis réessayez."
+        },
+        "abort": {
+          "point_removed": "Le point de recharge a été supprimé ou l’intégration n’est pas en cours d’exécution."
+        }
+      }
+    }
+  },
+  "services": {
+    "start": {
+      "name": "Démarrer la comptabilisation",
+      "description": "Démarre un enregistrement à l’heure actuelle du serveur.",
+      "fields": {
+        "point_id": {
+          "name": "ID du point de recharge",
+          "description": "ID stable du point de recharge ; peut remplacer la sélection d’entité."
+        },
+        "identity_id": {
+          "name": "ID de l’identité",
+          "description": "ID stable de l’identité. Au démarrage, l’identité sélectionnée pour le point est utilisée par défaut."
+        },
+        "request_id": {
+          "name": "ID de la requête",
+          "description": "ID unique de cette opération. Réutilisez le même ID et les mêmes champs lors d’une nouvelle tentative."
+        },
+        "entity_id": {
+          "name": "Entité d’identité du point (facultatif)",
+          "description": "Sélectionnez une entité de sélection d’identité du point ou saisissez un ID de point. Les références combinées doivent appartenir au même point."
+        }
+      }
+    },
+    "end": {
+      "name": "Terminer la comptabilisation",
+      "description": "Termine un enregistrement à l’heure actuelle du serveur.",
+      "fields": {
+        "point_id": {
+          "name": "ID du point de recharge",
+          "description": "ID stable du point de recharge ; peut remplacer la sélection d’entité."
+        },
+        "record_id": {
+          "name": "ID de l’enregistrement",
+          "description": "Enregistrement à modifier. Sans ID d’enregistrement, l’enregistrement actif du point cible est utilisé."
+        },
+        "expected_revision": {
+          "name": "Révision attendue de l’enregistrement",
+          "description": "Révision actuelle de l’enregistrement issue de l’instantané ou des détails de l’enregistrement."
+        },
+        "request_id": {
+          "name": "ID de la requête",
+          "description": "ID unique de cette opération. Réutilisez le même ID et les mêmes champs lors d’une nouvelle tentative."
+        },
+        "entity_id": {
+          "name": "Entité d’identité du point (facultatif)",
+          "description": "Sélectionnez une entité de sélection d’identité du point ou saisissez un ID de point / d’enregistrement. Les références combinées doivent appartenir au même point."
+        }
+      }
+    },
+    "reassign": {
+      "name": "Réaffecter l’identité de l’enregistrement",
+      "description": "Affecte l’ensemble de l’enregistrement à une identité sans recalculer le prix.",
+      "fields": {
+        "point_id": {
+          "name": "ID du point de recharge",
+          "description": "ID stable du point de recharge ; peut remplacer la sélection d’entité."
+        },
+        "record_id": {
+          "name": "ID de l’enregistrement",
+          "description": "Enregistrement à modifier. Sans ID d’enregistrement, l’enregistrement actif du point cible est utilisé."
+        },
+        "identity_id": {
+          "name": "ID de l’identité",
+          "description": "ID stable de l’identité. Au démarrage, l’identité sélectionnée pour le point est utilisée par défaut."
+        },
+        "expected_revision": {
+          "name": "Révision attendue de l’enregistrement",
+          "description": "Révision actuelle de l’enregistrement issue de l’instantané ou des détails de l’enregistrement."
+        },
+        "request_id": {
+          "name": "ID de la requête",
+          "description": "ID unique de cette opération. Réutilisez le même ID et les mêmes champs lors d’une nouvelle tentative."
+        },
+        "entity_id": {
+          "name": "Entité d’identité du point (facultatif)",
+          "description": "Sélectionnez une entité de sélection d’identité du point ou saisissez un ID de point / d’enregistrement. Les références combinées doivent appartenir au même point."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "invalid_request": {
+      "message": "La requête n’a pas pu être appliquée. Vérifiez la saisie et l’état du point."
+    },
+    "conflict": {
+      "message": "L’enregistrement ou la requête a changé. Actualisez et réessayez."
+    },
+    "stale_preview": {
+      "message": "L’aperçu n’est plus à jour. Créez un nouvel aperçu."
+    },
+    "overlap": {
+      "message": "L’intervalle chevauche un autre enregistrement de ce point."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "energy": {
+        "name": "{name} Énergie"
+      },
+      "status": {
+        "name": "{name} État"
+      },
+      "record_energy": {
+        "name": "{name} Énergie de l’enregistrement"
+      },
+      "record_cost": {
+        "name": "{name} Coût de l’enregistrement"
+      },
+      "daily_energy": {
+        "name": "{name} Énergie du jour"
+      },
+      "daily_cost": {
+        "name": "{name} Coût du jour"
+      },
+      "monthly_energy": {
+        "name": "{name} Énergie du mois"
+      },
+      "monthly_cost": {
+        "name": "{name} Coût du mois"
+      },
+      "yearly_energy": {
+        "name": "{name} Énergie de l’année"
+      },
+      "yearly_cost": {
+        "name": "{name} Coût de l’année"
+      },
+      "total_energy": {
+        "name": "{name} Énergie totale"
+      },
+      "total_cost": {
+        "name": "{name} Coût total"
+      }
+    },
+    "select": {
+      "identity": {
+        "name": "{name} Identité"
+      }
+    },
+    "switch": {
+      "detection": {
+        "name": "{name} Détection de la recharge"
+      }
+    }
+  }
+}

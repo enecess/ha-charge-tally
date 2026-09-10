@@ -14,7 +14,9 @@ entity.py frontend.py history.py icons.json ledger.py manifest.json native_helpe
 queries.py repairs.py runtime.py runtime_store.py select.py sensor.py services.yaml strings.json switch.py
 core/__init__.py core/detection.py core/segments.py core/tariffs.py core/units.py
 translations/en.json translations/zh-Hans.json
+translations/de.json translations/fr.json translations/pl.json
 www/card-dialog.js www/card-editor.js www/card-state.js www/card-styles.js www/card-ui.js www/charge-tally-card.js
+www/card-i18n.js www/locales/en.js www/locales/zh-Hans.js www/locales/de.js www/locales/fr.js www/locales/pl.js
 """.split())
 BRAND_FILES = frozenset("brand/" + name + ".png" for name in (
     "icon", "logo", "icon@2x", "logo@2x", "dark_icon", "dark_logo", "dark_icon@2x", "dark_logo@2x"
@@ -36,7 +38,7 @@ def build(root: Path, output: Path | None = None) -> Path:
         if "__pycache__" in relative.parts or path.suffix in (".pyc", ".pyo"):
             continue
         if path.is_dir():
-            if name not in ("core", "translations", "www", "brand"):
+            if name not in ("core", "translations", "www", "www/locales", "brand"):
                 raise ValueError(f"Unexpected directory: {name}")
             continue
         if name == "www/.gitkeep":

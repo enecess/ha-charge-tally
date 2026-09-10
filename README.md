@@ -4,11 +4,11 @@
 
 Charge Tally turns Home Assistant energy, power and price sensors into charging records shared across charging points and named identities. It provides live accounting, historical corrections and a local dashboard card. Start/end actions control accounting only; connect your own buttons, RFID readers or charger automations separately.
 
-Version **0.1.0** targets **Home Assistant 2026.9.1**. The tested Linux environment uses Python **3.14.7**; newer Home Assistant versions have not been certified. The integration has no third-party runtime Python requirements, CDN or remote frontend dependencies.
+Version **0.1.1** targets **Home Assistant 2026.9.1**. The tested Linux environment uses Python **3.14.7**; newer Home Assistant versions have not been certified. The integration has no third-party runtime Python requirements, CDN or remote frontend dependencies.
 
 ## Installation
 
-For a local installation, extract `dist/charge_tally-0.1.0.zip` into the Home Assistant configuration directory. The resulting file must be `<config>/custom_components/charge_tally/manifest.json`, without an extra archive-name directory. Restart Home Assistant.
+For a local installation, extract `dist/charge_tally-0.1.1.zip` into the Home Assistant configuration directory. The resulting file must be `<config>/custom_components/charge_tally/manifest.json`, without an extra archive-name directory. Restart Home Assistant.
 
 For HACS distribution, add `https://github.com/enecess/ha-charge-tally` as a custom repository of category **Integration**, download Charge Tally, then restart Home Assistant. This repository includes HACS metadata; it does not claim inclusion in the default HACS catalog. HACS installs the component directory from the repository; the separately built ZIP is for manual installation.
 
@@ -110,7 +110,7 @@ In Lovelace **storage resource mode**, the integration registers one local JavaS
 ```yaml
 lovelace:
   resources:
-    - url: /charge_tally/charge-tally-card.js?v=0.1.0
+    - url: /charge_tally/charge-tally-card.js?v=0.1.1
       type: module
 ```
 
@@ -125,7 +125,7 @@ show_chart: true
 # identity_id: REPLACE_WITH_IDENTITY_ID
 ```
 
-English/Chinese labels and HA theme variables are included. After an update, refresh cached resources; reconnecting or reloading the integration obtains a fresh authorized snapshot. If no points appear, check the integration state and permissions on the owned identity selects. A missing Integral/Utility Meter is repaired through the point's HA repair issue, not by recreating the ledger.
+The card and HA integration support English, Simplified Chinese, German, French and Polish. The card follows the HA interface language, matches regional variants (for example `de-DE`), and falls back to English for unsupported languages or missing translations. HA theme variables are supported. After an update, refresh cached resources; reconnecting or reloading the integration obtains a fresh authorized snapshot. If no points appear, check the integration state and permissions on the owned identity selects. A missing Integral/Utility Meter is repaired through the point's HA repair issue, not by recreating the ledger.
 
 ## Storage, backups and upgrades
 
@@ -133,7 +133,7 @@ The database is `<config>/charge_tally/ledger.sqlite3`. Records, priced segments
 
 Back up the **complete Home Assistant configuration**, including `charge_tally/`, config entries, the entity registry and `.storage/charge_tally.<entry_id>.helpers` ownership mapping. The ledger alone does not recreate point configuration or native helpers. Backup hooks pause writes and create `charge_tally/ledger.backup.sqlite3` using SQLite's consistent backup API, then resume queued work. A stale snapshot is not a replacement for the latest ledger. For manual file copies/restoration, stop Home Assistant first and restore mutually consistent configuration and ledger files.
 
-Before upgrading, keep a restorable full configuration backup and the matching previous integration code. Replace the entire component directory with the new package, retaining `<config>/charge_tally/`, then restart and check helper readiness, current record and totals. Do not copy release files into `.storage`. Version 0.1.0 uses the initial schema 1; there is no previously published schema migration to test. Unknown schema versions fail closed. Do not run older code against a newer ledger; roll back the matching configuration/database backup together with code.
+Before upgrading, keep a restorable full configuration backup and the matching previous integration code. Replace the entire component directory with the new package, retaining `<config>/charge_tally/`, then restart and check helper readiness, current record and totals. Do not copy release files into `.storage`. Version 0.1.1 uses the initial schema 1; there is no previously published schema migration to test. Unknown schema versions fail closed. Do not run older code against a newer ledger; roll back the matching configuration/database backup together with code.
 
 ## Verification and release build
 
@@ -160,3 +160,7 @@ License: [MIT](LICENSE).
 WebSocket `charge_tally/query` accepts either `calendar_period: daily|monthly|yearly` or a pair of timezone-aware `start` and `end` strings, never both. Optional `point_id` and `identity_id` filters apply to either mode. The default card periods and identity sensors use the calendar mode; UTC ranges can intentionally return different totals after an HA timezone change.
 
 For an unbound populated pre-release ledger, stop Charge Tally writes, create an SQLite-consistent backup, verify the original currency from the previous configuration, then use `Ledger.bind_currency(original_currency, confirm_existing=True)` on the retained database. This binds metadata only; it does not convert amounts or change records, price versions or revisions. Normal new installations and same-currency restores need no manual database work. A bound currency cannot be replaced through this API.
+
+### Maintaining translations
+
+Card text lives in `www/locales/<language>.js`, separate from DOM and accounting code. `www/card-i18n.js` registers catalogs and handles language matching, English fallback and text placeholders. HA native strings live in `translations/<language>.json`; `strings.json` is the canonical English schema. When adding a language, keep all keys and placeholders aligned, register the card catalog and extend the explicit release allowlist in `scripts/package.py`. Run the frontend, native translation and packaging tests. User-entered point and identity names are retained.

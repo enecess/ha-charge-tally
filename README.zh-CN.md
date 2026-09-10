@@ -4,11 +4,11 @@
 
 Charge Tally 读取 Home Assistant 中的电量、功率和电价实体，为多个充电点生成带共享身份的充电记录，提供实时统计、历史补录、修订和本地看板卡片。开始/结束动作只控制记账；读卡器、按钮和充电设备由你自己的 HA 自动化连接。
 
-版本 **0.1.0** 的兼容与测试基线是 **Home Assistant 2026.9.1**，Linux 测试环境使用 **Python 3.14.7**。尚未认证更高 HA 版本。集成没有额外的第三方 Python 运行依赖，前端不使用 CDN 或远程运行依赖。
+版本 **0.1.1** 的兼容与测试基线是 **Home Assistant 2026.9.1**，Linux 测试环境使用 **Python 3.14.7**。尚未认证更高 HA 版本。集成没有额外的第三方 Python 运行依赖，前端不使用 CDN 或远程运行依赖。
 
 ## 安装
 
-手动安装：把 `dist/charge_tally-0.1.0.zip` 解压到 HA 配置目录，确认最终路径是 `<config>/custom_components/charge_tally/manifest.json`，不要多套一层压缩包名称目录。随后重启 Home Assistant。
+手动安装：把 `dist/charge_tally-0.1.1.zip` 解压到 HA 配置目录，确认最终路径是 `<config>/custom_components/charge_tally/manifest.json`，不要多套一层压缩包名称目录。随后重启 Home Assistant。
 
 HACS 分发：把 `https://github.com/enecess/ha-charge-tally` 添加为 **Integration** 类别的自定义仓库，下载 Charge Tally 后重启 HA。仓库提供 HACS 元数据，不表示已经进入 HACS 默认目录。HACS 从仓库安装集成目录，单独生成的 ZIP 用于手动安装。
 
@@ -110,7 +110,7 @@ Lovelace **storage 资源模式**下，集成自动幂等注册一个本地 Java
 ```yaml
 lovelace:
   resources:
-    - url: /charge_tally/charge-tally-card.js?v=0.1.0
+    - url: /charge_tally/charge-tally-card.js?v=0.1.1
       type: module
 ```
 
@@ -125,7 +125,7 @@ show_chart: true
 # identity_id: REPLACE_WITH_IDENTITY_ID
 ```
 
-卡片支持中英文和 HA 主题。升级后刷新资源缓存，断线恢复或集成重载会获取新的授权快照。没有显示充电点时，检查集成运行状态和本点身份 select 的权限。缺失 Integral/Utility Meter 应通过点的 HA 修复提示修复，不要重建账本。
+卡片及 HA 集成支持简体中文、英语、德语、法语和波兰语。卡片跟随 HA 界面语言，匹配 `de-DE` 等地区变体；不支持的语言或缺失文案回退为英文，并支持 HA 主题。升级后刷新资源缓存，断线恢复或集成重载会获取新的授权快照。没有显示充电点时，检查集成运行状态和本点身份 select 的权限。缺失 Integral/Utility Meter 应通过点的 HA 修复提示修复，不要重建账本。
 
 ## 数据、备份与升级
 
@@ -133,7 +133,7 @@ show_chart: true
 
 备份应覆盖 **完整 HA 配置**，包括 `charge_tally/`、配置条目、实体注册表和 `.storage/charge_tally.<entry_id>.helpers` 所有权映射。仅账本无法重建充电点配置和原生辅助元素。备份 hooks 暂停写入，通过 SQLite 一致性备份 API 生成 `charge_tally/ledger.backup.sqlite3`，备份结束后继续处理排队事件。旧快照不能替代最新账本。手工复制/恢复文件应先停止 HA，再恢复相互一致的配置和账本。
 
-升级前保存可恢复的完整配置备份及对应旧版代码。用新包替换整个集成代码目录，保留 `<config>/charge_tally/`，重启后核对辅助元素状态、活动记录和总量；不要把发布文件复制到 `.storage`。0.1.0 使用初始 schema 1，没有已发布旧 schema 可做迁移验收。未知 schema 会拒绝加载。不要用旧代码打开新结构账本，回滚应同时恢复匹配的代码、配置和数据库备份。
+升级前保存可恢复的完整配置备份及对应旧版代码。用新包替换整个集成代码目录，保留 `<config>/charge_tally/`，重启后核对辅助元素状态、活动记录和总量；不要把发布文件复制到 `.storage`。0.1.1 使用初始 schema 1，没有已发布旧 schema 可做迁移验收。未知 schema 会拒绝加载。不要用旧代码打开新结构账本，回滚应同时恢复匹配的代码、配置和数据库备份。
 
 ## 测试与安装包
 
@@ -160,3 +160,7 @@ CI 固定 HA 2026.9.1、pytest 插件 0.13.364、pytest 9.0.3。打包脚本校�
 WebSocket `charge_tally/query` 支持二选一：`calendar_period: daily|monthly|yearly`，或同时提供带时区的 `start` 和 `end`。两种模式互斥，均支持 `point_id` 和 `identity_id` 筛选。卡片默认周期与身份实体使用日历模式；修改 HA 时区后，自选绝对范围与日历模式可能有意产生不同结果。
 
 已有数据但尚未绑定币种的预发布账本：先停止 Charge Tally 写入并创建 SQLite 一致性备份，核对原配置币种后，对保留数据库调用 `Ledger.bind_currency(原币种, confirm_existing=True)`。该操作仅绑定元数据，不转换金额、不更改记录、价格版本或修订。普通新安装和同币种恢复不需要人工改库；此 API 不能替换已经绑定的币种。
+
+### 维护翻译
+
+卡片文案位于 `www/locales/<语言>.js`，与 DOM 和记账代码分离；`www/card-i18n.js` 负责注册词典、语言匹配、英文回退和文本占位符。HA 原生文案位于 `translations/<语言>.json`，以 `strings.json` 为英文规范。新增语言时保持键与占位符一致，注册卡片词典并扩展 `scripts/package.py` 的发布文件白名单，运行前端、原生翻译及打包测试。用户输入的充电点、身份名称保留原值。

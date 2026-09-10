@@ -10,7 +10,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 class DetectionSwitch(TallyEntity, SwitchEntity):
     def __init__(self, runtime, sub):
-        super().__init__(runtime, sub.subentry_id, "detection", sub.data["name"] + " Detection")
+        super().__init__(runtime, sub.subentry_id, "detection", sub.data["name"] + " Detection", sub.data["name"])
 
     @property
     def is_on(self):

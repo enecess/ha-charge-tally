@@ -11,10 +11,17 @@ class TallyEntity(Entity):
     _attr_should_poll = False
     _attr_has_entity_name = True
 
-    def __init__(self, runtime, id_, key, name):
+    def __init__(self, runtime, id_, key, legacy_name, owner_name):
         self.runtime, self.id_ = runtime, id_
         self._attr_unique_id = runtime.entry.entry_id + ":" + id_ + ":" + key
-        self._attr_name = name
+        self._attr_translation_key = key
+        self._attr_translation_placeholders = {"name": owner_name}
+        self._legacy_name = legacy_name
+
+    @property
+    def suggested_object_id(self):
+        """Keep the original object ID format independent of display language."""
+        return self._legacy_name
 
     @property
     def point(self):

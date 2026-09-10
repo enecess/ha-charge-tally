@@ -27,7 +27,7 @@ class Energy(TallyEntity, SensorEntity):
     _attr_native_unit_of_measurement = "kWh"
 
     def __init__(self, runtime, sub):
-        super().__init__(runtime, sub.subentry_id, "energy", sub.data["name"] + " Energy")
+        super().__init__(runtime, sub.subentry_id, "energy", sub.data["name"] + " Energy", sub.data["name"])
 
     @property
     def native_value(self):
@@ -36,7 +36,7 @@ class Energy(TallyEntity, SensorEntity):
 
 class Status(TallyEntity, SensorEntity):
     def __init__(self, runtime, sub):
-        super().__init__(runtime, sub.subentry_id, "status", sub.data["name"] + " Status")
+        super().__init__(runtime, sub.subentry_id, "status", sub.data["name"] + " Status", sub.data["name"])
 
     @property
     def native_value(self):
@@ -50,7 +50,7 @@ class Status(TallyEntity, SensorEntity):
 
 class RecordSensor(TallyEntity, SensorEntity):
     def __init__(self, runtime, sub, metric):
-        super().__init__(runtime, sub.subentry_id, "record_" + metric, sub.data["name"] + " Record " + metric)
+        super().__init__(runtime, sub.subentry_id, "record_" + metric, sub.data["name"] + " Record " + metric, sub.data["name"])
         self.metric = metric
         self._attr_suggested_display_precision = 3 if metric == "energy" else 2
         self._attr_native_unit_of_measurement = "kWh" if metric == "energy" else runtime.entry.data["currency"]
@@ -71,7 +71,7 @@ class RecordSensor(TallyEntity, SensorEntity):
 
 class IdentitySensor(TallyEntity, SensorEntity):
     def __init__(self, runtime, id_, name, period, metric):
-        super().__init__(runtime, id_, period + "_" + metric, name + " " + period + " " + metric)
+        super().__init__(runtime, id_, period + "_" + metric, name + " " + period + " " + metric, name)
         self.period, self.metric = period, metric
         self._attr_suggested_display_precision = 3 if metric == "energy" else 2
         self._attr_native_unit_of_measurement = "kWh" if metric == "energy" else runtime.entry.data["currency"]

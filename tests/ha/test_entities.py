@@ -35,6 +35,63 @@ async def test_entities_publish_live_record_and_identity_totals(hass, tmp_path, 
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
+@pytest.mark.parametrize("language,point_names,identity_names", [
+    ("de", ["Garage Energie", "Garage Status", "Garage Energie des Eintrags", "Garage Kosten des Eintrags",
+            "Garage Identität", "Garage Ladeerkennung"],
+     ["Tagesenergie", "Tageskosten", "Monatsenergie", "Monatskosten", "Jahresenergie", "Jahreskosten", "Gesamtenergie", "Gesamtkosten"]),
+    ("fr", ["Garage Énergie", "Garage État", "Garage Énergie de l’enregistrement", "Garage Coût de l’enregistrement",
+            "Garage Identité", "Garage Détection de la recharge"],
+     ["Énergie du jour", "Coût du jour", "Énergie du mois", "Coût du mois", "Énergie de l’année", "Coût de l’année", "Énergie totale", "Coût total"]),
+    ("pl", ["Garage Energia", "Garage Stan", "Garage Energia wpisu", "Garage Koszt wpisu",
+            "Garage Tożsamość", "Garage Wykrywanie ładowania"],
+     ["Energia dzienna", "Koszt dzienny", "Energia miesięczna", "Koszt miesięczny", "Energia roczna", "Koszt roczny", "Energia całkowita", "Koszt całkowity"]),
+])
+async def test_native_entity_names_translate_without_changing_ids_or_user_names(
+    hass, tmp_path, language, point_names, identity_names
+):
+    hass.config.language = language
+    entry, runtime = await setup_runtime(hass, tmp_path)
+    registry = er.async_get(hass)
+    expected = {
+        ("sensor", "point", "energy"): ("Garage Energy", point_names[0], "Garage"),
+        ("sensor", "point", "status"): ("Garage Status", point_names[1], "Garage"),
+        ("sensor", "point", "record_energy"): ("Garage Record energy", point_names[2], "Garage"),
+        ("sensor", "point", "record_cost"): ("Garage Record cost", point_names[3], "Garage"),
+        ("select", "point", "identity"): ("Garage Identity", point_names[4], "Garage"),
+        ("switch", "point", "detection"): ("Garage Detection", point_names[5], "Garage"),
+    }
+    for identity_id, name in (("car", "Car"), ("unassigned", "Unassigned")):
+        for index, key in enumerate(("daily_energy", "daily_cost", "monthly_energy", "monthly_cost",
+                                     "yearly_energy", "yearly_cost", "total_energy", "total_cost")):
+            expected[("sensor", identity_id, key)] = (
+                name + " " + key.replace("_", " "), name + " " + identity_names[index], name
+            )
+    identifiers = {}
+    for (domain, identity_id, key), (legacy_name, translated_name, owner_name) in expected.items():
+        unique_id = entry.entry_id + ":" + identity_id + ":" + key
+        entity_id = registry.async_get_entity_id(domain, "charge_tally", unique_id)
+        assert entity_id == domain + "." + legacy_name.lower().replace(" ", "_")
+        registered = registry.async_get(entity_id)
+        assert registered.original_name == translated_name
+        assert registered.translation_key == key
+        assert hass.data[domain].get_entity(entity_id).translation_placeholders == {"name": owner_name}
+        assert hass.states.get(entity_id).attributes["friendly_name"] == translated_name
+        identifiers[unique_id] = entity_id
+    assert hass.states.get("sensor.garage_status").state == "idle"
+    assert hass.states.get("select.garage_identity").attributes["options"] == ["Car", "Unassigned"]
+    registry.async_update_entity("sensor.garage_energy", new_entity_id="sensor.my_meter", name="My meter")
+    identifiers[entry.entry_id + ":point:energy"] = "sensor.my_meter"
+    hass.config.language = "en"
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    for unique_id, entity_id in identifiers.items():
+        assert registry.async_get(entity_id).unique_id == unique_id
+    assert registry.async_get("sensor.garage_status").original_name == "Garage Status"
+    assert registry.async_get("sensor.my_meter").name == "My meter"
+    assert hass.states.get("sensor.my_meter").attributes["friendly_name"] == "My meter"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
 async def test_current_record_attributes_allow_automation_to_end_with_revision(hass, tmp_path, freezer):
     entry, runtime = await setup_runtime(hass, tmp_path)
     registry = er.async_get(hass)

@@ -1,0 +1,362 @@
+{
+  "title": "Charge Tally",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Rejestr Charge Tally",
+        "description": "Potwierdź walutę rejestru. Po konfiguracji nie będzie można jej zmienić.",
+        "data": {
+          "currency": "Waluta"
+        }
+      }
+    },
+    "error": {
+      "invalid_currency": "Wybierz prawidłowy trzyliterowy kod waluty.",
+      "currency_mismatch": "Zachowany rejestr używa innej waluty. Użyj jego pierwotnej waluty."
+    },
+    "abort": {
+      "single_instance_allowed": "Obsługiwany jest tylko jeden rejestr Charge Tally.",
+      "already_configured": "Charge Tally jest już skonfigurowany.",
+      "currency_unbound": "Ten rejestr z wersji przedpremierowej nie ma przypisanej waluty. Utwórz jego kopię zapasową i wyraźnie potwierdź pierwotną walutę przed przywróceniem."
+    }
+  },
+  "config_subentries": {
+    "point": {
+      "entry_type": "Punkt ładowania",
+      "initiate_flow": {
+        "user": "Dodaj punkt ładowania",
+        "reconfigure": "Skonfiguruj punkt ładowania"
+      },
+      "step": {
+        "user": {
+          "title": "Punkt ładowania",
+          "data": {
+            "name": "Nazwa",
+            "input_mode": "Tryb pomiaru energii"
+          }
+        },
+        "input": {
+          "title": "Źródła pomiarów",
+          "sections": {
+            "measurement": {
+              "name": "Pomiar i wykrywanie",
+              "data": {
+                "energy_entity": "Czujnik skumulowanej energii",
+                "power_entity": "Czujnik mocy",
+                "resetting": "Licznik może się zerować",
+                "max_gap_seconds": "Maksymalny interwał przypisywania (sekundy)",
+                "detection_enabled": "Automatyczne wykrywanie ładowania"
+              },
+              "data_description": {
+                "resetting": "Spadek odczytu licznika oznacza niekompletny interwał z wyzerowaniem licznika.",
+                "max_gap_seconds": "Dłuższe interwały stają się lukami wymagającymi sprawdzenia. Domyślnie: 600 sekund."
+              }
+            }
+          }
+        },
+        "detection": {
+          "title": "Automatyczne wykrywanie",
+          "data": {
+            "start_w": "Próg rozpoczęcia (W)",
+            "end_w": "Próg zakończenia (W)",
+            "start_seconds": "Czas potwierdzenia rozpoczęcia (sekundy)",
+            "end_seconds": "Czas potwierdzenia zakończenia (sekundy)"
+          }
+        },
+        "price": {
+          "title": "Taryfa energii elektrycznej",
+          "data": {
+            "mode": "Tryb ceny"
+          }
+        },
+        "static": {
+          "title": "Cena stała",
+          "description": "Podaj cenę w {currency}/kWh. Dozwolone są ceny zerowe i ujemne.",
+          "data": {
+            "value": "Cena za kWh"
+          }
+        },
+        "dynamic": {
+          "title": "Cena dynamiczna",
+          "data": {
+            "entity_id": "Czujnik ceny",
+            "unit": "Potwierdzona jednostka"
+          },
+          "data_description": {
+            "unit": "Wymagana, gdy źródło nie ma jednostki. Nie można zastąpić niezgodnej waluty źródła."
+          }
+        },
+        "tou": {
+          "title": "Dzienny harmonogram taryf czasowych",
+          "description": "Bieżące przedziały:\n{schedule}\n\nDodaj, edytuj lub usuń przedziały, a następnie zakończ, gdy obejmą całą dobę.",
+          "data": {
+            "action": "Działanie",
+            "row": "Przedział"
+          }
+        },
+        "tou_row": {
+          "title": "Edytuj przedział cenowy",
+          "description": "Użyj formatu HH:MM. Wpisz 24:00 jako koniec doby. Przedział taki jak 22:00–06:00 przechodzi przez północ.",
+          "data": {
+            "start": "Godzina rozpoczęcia",
+            "end": "Godzina zakończenia (24:00 = koniec doby)",
+            "price": "Cena za kWh"
+          }
+        },
+        "finish": {
+          "title": "Statystyki okresowe i podsumowanie",
+          "description": "{summary}\n\nUtwórz natywne liczniki energii dla wybranych okresów. Rozliczenia są zgodne z historią cen w rejestrze.",
+          "data": {
+            "periods": "Okresy statystyk energii"
+          }
+        }
+      },
+      "error": {
+        "invalid_name": "Wpisz nazwę.",
+        "invalid_currency": "Wybierz prawidłowy trzyliterowy kod waluty.",
+        "invalid_identity": "Wybierz, czy ta tożsamość jest włączona.",
+        "duplicate_name": "Tożsamość o tej nazwie już istnieje.",
+        "invalid_input_mode": "Wybierz tryb pomiaru.",
+        "invalid_source": "Wybierz istniejący czujnik o nieujemnych wartościach liczbowych.",
+        "invalid_energy_source": "Użyj czujnika skumulowanej energii w Wh, kWh lub MWh z klasą stanu total lub total_increasing.",
+        "invalid_power_source": "Użyj czujnika mocy mierzonej w W lub kW.",
+        "duplicate_source": "To źródło jest już przypisane do punktu ładowania.",
+        "invalid_detection": "Próg zakończenia musi być niższy od progu rozpoczęcia, a czasy muszą być dodatnie.",
+        "invalid_gap": "Maksymalny interwał przypisywania musi być dodatni.",
+        "invalid_price": "Podaj skończoną cenę; dozwolone są ceny zerowe i ujemne.",
+        "invalid_price_unit": "Użyj waluty tego rejestru za Wh, kWh lub MWh. Potwierdź jednostkę, jeśli źródło jej nie ma.",
+        "invalid_schedule": "Przedziały muszą obejmować całą dobę bez luk i nakładania się.",
+        "invalid_row": "Wybierz wiersz lub podaj godziny w formacie HH:MM i skończoną cenę. Użyj 24:00 jako końca doby; początek i koniec nie mogą być takie same.",
+        "invalid_periods": "Wybierz statystyki dzienne, miesięczne lub roczne bez powtórzeń."
+      },
+      "abort": {
+        "single_instance_allowed": "Obsługiwany jest tylko jeden rejestr Charge Tally.",
+        "already_configured": "Charge Tally jest już skonfigurowany.",
+        "reconfigure_successful": "Konfiguracja została zaktualizowana.",
+        "point_busy": "Zakończ bieżący wpis lub wykrywanie oczekujące na potwierdzenie przed zmianą ustawień pomiaru lub wykrywania.",
+        "runtime_unavailable": "Rejestr musi być załadowany, aby bezpiecznie zmienić ustawienia pomiaru lub wykrywania.",
+        "config_changed": "Ten punkt został zmieniony przez inne działanie. Otwórz konfigurację ponownie."
+      }
+    },
+    "identity": {
+      "entry_type": "Tożsamość",
+      "initiate_flow": {
+        "user": "Dodaj współdzieloną tożsamość",
+        "reconfigure": "Skonfiguruj tożsamość"
+      },
+      "step": {
+        "user": {
+          "title": "Współdzielona tożsamość",
+          "description": "Tożsamości są współdzielone między punktami ładowania. Wyłączenie lub usunięcie tożsamości zachowuje przypisanie historycznych wpisów.",
+          "data": {
+            "name": "Nazwa",
+            "enabled": "Włączona"
+          }
+        }
+      },
+      "error": {
+        "invalid_name": "Wpisz nazwę.",
+        "invalid_identity": "Wybierz, czy ta tożsamość jest włączona.",
+        "duplicate_name": "Tożsamość o tej nazwie już istnieje."
+      },
+      "abort": {
+        "reconfigure_successful": "Konfiguracja została zaktualizowana."
+      }
+    }
+  },
+  "selector": {
+    "input_mode": {
+      "options": {
+        "energy": "Tylko energia",
+        "power": "Tylko moc (natywny Integral)",
+        "energy_power": "Energia i moc"
+      }
+    },
+    "price_mode": {
+      "options": {
+        "static": "Stała",
+        "dynamic": "Czujnik dynamiczny",
+        "tou": "Dzienna taryfa czasowa"
+      }
+    },
+    "periods": {
+      "options": {
+        "daily": "Dzienne",
+        "monthly": "Miesięczne",
+        "yearly": "Roczne"
+      }
+    },
+    "schedule_action": {
+      "options": {
+        "add": "Dodaj przedział",
+        "edit": "Edytuj przedział",
+        "remove": "Usuń przedział",
+        "finish": "Zakończ harmonogram"
+      }
+    }
+  },
+  "issues": {
+    "helper_repair": {
+      "title": "Encje pomocnicze punktu ładowania wymagają naprawy",
+      "description": "Zarządzane encje pomocnicze dla {name} nie są gotowe: {error}. Potwierdź, aby odtworzyć brakujące lub zmienione encje pomocnicze należące do tej integracji. Historia ładowania zostanie zachowana.",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Napraw zarządzane encje pomocnicze",
+            "description": "Odtworzyć brakujące lub zmienione encje pomocnicze należące do tej integracji?"
+          }
+        },
+        "error": {
+          "repair_failed": "Naprawa nie powiodła się. Sprawdź stan źródła i encji pomocniczych, a następnie spróbuj ponownie."
+        },
+        "abort": {
+          "point_removed": "Punkt ładowania został usunięty lub integracja nie działa."
+        }
+      }
+    }
+  },
+  "services": {
+    "start": {
+      "name": "Rozpocznij rejestrowanie",
+      "description": "Rozpoczyna wpis o bieżącym czasie serwera.",
+      "fields": {
+        "point_id": {
+          "name": "ID punktu ładowania",
+          "description": "Stały identyfikator punktu ładowania; może zastąpić wybór encji."
+        },
+        "identity_id": {
+          "name": "ID tożsamości",
+          "description": "Stały identyfikator tożsamości. Przy rozpoczęciu domyślnie używana jest tożsamość wybrana dla punktu."
+        },
+        "request_id": {
+          "name": "ID żądania",
+          "description": "Unikatowy identyfikator tej operacji. Przy ponawianiu użyj tego samego identyfikatora i tych samych pól."
+        },
+        "entity_id": {
+          "name": "Encja tożsamości punktu (opcjonalnie)",
+          "description": "Wybierz encję wyboru tożsamości punktu lub wpisz ID punktu. Łączone odwołania muszą należeć do tego samego punktu."
+        }
+      }
+    },
+    "end": {
+      "name": "Zakończ rejestrowanie",
+      "description": "Kończy wpis o bieżącym czasie serwera.",
+      "fields": {
+        "point_id": {
+          "name": "ID punktu ładowania",
+          "description": "Stały identyfikator punktu ładowania; może zastąpić wybór encji."
+        },
+        "record_id": {
+          "name": "ID wpisu",
+          "description": "Wpis do zmiany. Bez ID wpisu używany jest aktywny wpis docelowego punktu."
+        },
+        "expected_revision": {
+          "name": "Oczekiwana rewizja wpisu",
+          "description": "Bieżąca rewizja wpisu z migawki lub szczegółów wpisu."
+        },
+        "request_id": {
+          "name": "ID żądania",
+          "description": "Unikatowy identyfikator tej operacji. Przy ponawianiu użyj tego samego identyfikatora i tych samych pól."
+        },
+        "entity_id": {
+          "name": "Encja tożsamości punktu (opcjonalnie)",
+          "description": "Wybierz encję wyboru tożsamości punktu lub wpisz ID punktu / ID wpisu. Łączone odwołania muszą należeć do tego samego punktu."
+        }
+      }
+    },
+    "reassign": {
+      "name": "Zmień tożsamość przypisaną do wpisu",
+      "description": "Przypisuje cały wpis do tożsamości bez ponownego przeliczania ceny.",
+      "fields": {
+        "point_id": {
+          "name": "ID punktu ładowania",
+          "description": "Stały identyfikator punktu ładowania; może zastąpić wybór encji."
+        },
+        "record_id": {
+          "name": "ID wpisu",
+          "description": "Wpis do zmiany. Bez ID wpisu używany jest aktywny wpis docelowego punktu."
+        },
+        "identity_id": {
+          "name": "ID tożsamości",
+          "description": "Stały identyfikator tożsamości. Przy rozpoczęciu domyślnie używana jest tożsamość wybrana dla punktu."
+        },
+        "expected_revision": {
+          "name": "Oczekiwana rewizja wpisu",
+          "description": "Bieżąca rewizja wpisu z migawki lub szczegółów wpisu."
+        },
+        "request_id": {
+          "name": "ID żądania",
+          "description": "Unikatowy identyfikator tej operacji. Przy ponawianiu użyj tego samego identyfikatora i tych samych pól."
+        },
+        "entity_id": {
+          "name": "Encja tożsamości punktu (opcjonalnie)",
+          "description": "Wybierz encję wyboru tożsamości punktu lub wpisz ID punktu / ID wpisu. Łączone odwołania muszą należeć do tego samego punktu."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "invalid_request": {
+      "message": "Nie można było zastosować żądania. Sprawdź dane wejściowe i stan punktu."
+    },
+    "conflict": {
+      "message": "Wpis lub żądanie uległy zmianie. Odśwież i spróbuj ponownie."
+    },
+    "stale_preview": {
+      "message": "Podgląd jest nieaktualny. Utwórz nowy podgląd."
+    },
+    "overlap": {
+      "message": "Interwał nakłada się na inny wpis w tym punkcie."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "energy": {
+        "name": "{name} Energia"
+      },
+      "status": {
+        "name": "{name} Stan"
+      },
+      "record_energy": {
+        "name": "{name} Energia wpisu"
+      },
+      "record_cost": {
+        "name": "{name} Koszt wpisu"
+      },
+      "daily_energy": {
+        "name": "{name} Energia dzienna"
+      },
+      "daily_cost": {
+        "name": "{name} Koszt dzienny"
+      },
+      "monthly_energy": {
+        "name": "{name} Energia miesięczna"
+      },
+      "monthly_cost": {
+        "name": "{name} Koszt miesięczny"
+      },
+      "yearly_energy": {
+        "name": "{name} Energia roczna"
+      },
+      "yearly_cost": {
+        "name": "{name} Koszt roczny"
+      },
+      "total_energy": {
+        "name": "{name} Energia całkowita"
+      },
+      "total_cost": {
+        "name": "{name} Koszt całkowity"
+      }
+    },
+    "select": {
+      "identity": {
+        "name": "{name} Tożsamość"
+      }
+    },
+    "switch": {
+      "detection": {
+        "name": "{name} Wykrywanie ładowania"
+      }
+    }
+  }
+}

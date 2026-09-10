@@ -1,7 +1,8 @@
-const chinese = language => language?.startsWith('zh');
+import {tr,locale} from './card-i18n.js?v=0.1.1';
 const numberFormats=new Map();
 export function formatDecimal(value,language='en',digits=3,minimum=0){
   if(value==null)return '—';
+  language=locale(language);
   const key=JSON.stringify([language,digits,minimum]);
   if(!numberFormats.has(key))numberFormats.set(key,new Intl.NumberFormat(language,{maximumFractionDigits:digits,minimumFractionDigits:minimum}));
   // Intl accepts decimal strings directly, without an intermediate binary float.
@@ -11,7 +12,7 @@ export function formatDecimal(value,language='en',digits=3,minimum=0){
 }
 export function formatCost(summary, currency = '', language = 'en') {
   const value = `${currency} ${formatDecimal(summary?.known_cost,language,2,2)}`.trim();
-  return summary?.cost_complete === true ? value : value + (chinese(language) ? '（已知小计 · 待补充）' : ' (known subtotal · pending)');
+  return summary?.cost_complete === true ? value : tr('costIncomplete',language,{value});
 }
 export function localInput(instant, timezone) {
   const parts = new Intl.DateTimeFormat('en-CA', {timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(new Date(instant));
@@ -96,24 +97,10 @@ export function identityRequest(point,identity) {
   if (!point?.identity_entity_id || point.active === false || !identity?.name) throw Object.assign(new Error('unavailable'),{code:'unavailable'});
   return {type:'call_service',domain:'select',service:'select_option',service_data:{entity_id:point.identity_entity_id,option:identity.name}};
 }
-const errors = {
-  stale_preview:['The preview is stale. Preview again before saving.','预览已过期，请重新预览后保存。'],
-  conflict:['Record changed. Refresh and try again.','记录已变更，请刷新后重试。'],
-  overlap:['This period overlaps another record. Adjust the time range.','与其他记录重叠，请调整起止时间。'],
-  unauthorized:['You do not have permission for this charging point.','没有此充电点的操作权限。'],
-  home_assistant_error:['Home Assistant could not apply the action. Check availability and permissions, then refresh.','Home Assistant 未能执行操作，请检查可用性和权限后刷新。'],
-  unavailable:['This charging point is unavailable. Refresh before operating.','充电点不可用，请刷新后操作。'],
-  nonexistent:['This local time does not exist (or is invalid). Choose another time.','此当地时间不存在或无效，请选择其他时间。'],
-  ambiguous:['This time occurs twice. Select the intended UTC instant.','此时间因夏令时出现两次，请选择对应 UTC 时刻。'],
-  timezone:['Accounting timezone is unavailable or invalid.','记账时区不可用或无效。'],
-  range:['End must be later than start.','结束时间必须晚于开始时间。'],
-  required:['Select a point and identity.','请选择充电点和身份。'],
-  energy:['Energy must be a nonnegative decimal string (up to 100 characters).','电量需为非负十进制数，最多 100 字符。'],
-  decimal:['Enter a finite decimal number (up to 100 characters).','请输入有限十进制数，最多 100 字符。'],
-  note:['Note must be 2000 characters or fewer.','备注最多 2000 字符。'],
-};
 export function errorMessage(error,language='en') {
-  return (errors[error?.code] || ['Request failed. Check inputs, refresh, and try again.','请求失败，请检查输入并刷新后重试。'])[chinese(language)?1:0];
+  const key='error.'+error?.code;
+  const message=tr(key,language);
+  return message===key ? tr('error.unknown',language) : message;
 }
 export function periodRange(period,timezone,now=new Date()) {
   const day=localInput(now,timezone).slice(0,10);
