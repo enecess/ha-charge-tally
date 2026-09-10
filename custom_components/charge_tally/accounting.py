@@ -146,11 +146,13 @@ class Accounting:
         versions = self.ledger.list_price_versions(point_id)
         persistent = {p['at']: p['price'] for p in versions if 'price' in p and instant(p['at']) < end}
         fallback, observed = {}, {}
-        for gap in self.ledger.get_checkpoint('_price_gaps:' + point_id) or []:
+        pruned_gaps = self.ledger.get_checkpoint('_price_gaps:' + point_id) or []
+        for gap in pruned_gaps:
             fallback[gap['start']] = None
         for observation in self.ledger.list_intervals(point_id, start.isoformat(), end.isoformat()):
             left, right = observation['start'], observation['end']
             context = [(at, 1, price) for at, price in persistent.items() if at <= left]
+            context.extend((gap['start'], -1, None) for gap in pruned_gaps if gap['start'] <= left)
             context.extend((at, 0, price) for at, price in observation['prices'] if at <= left)
             if context:
                 observed[left] = max(context, key=lambda item: (item[0], item[1]))[2]

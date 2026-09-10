@@ -239,6 +239,37 @@ class AccountingTests(unittest.TestCase):
         self.assertEqual(D(preview['record']['known_cost']), 4)
         self.assertFalse(preview['record']['cost_complete'])
 
+    def test_empty_price_observation_does_not_restore_pruned_price(self):
+        for day in (0, 1, 2):
+            self.ledger.put_price_version({'id': str(day), 'point_id': 'home',
+                                          'at': (T + timedelta(days=day)).isoformat(), 'price': str(day + 1)})
+        kept = self.manual(end=T + timedelta(seconds=30), energy_kwh='1')
+        del kept['cost']
+        self.app.commit_preview(self.app.preview(kept)['token'], 'kept')
+        self.ledger.prune(T + timedelta(days=200))
+        self.assertEqual([p['id'] for p in self.ledger.list_price_versions('home')], ['0', '2'])
+        left = T + timedelta(days=1, hours=1)
+        self.app.add_interval('home', left, left + timedelta(seconds=10), D(1), [])
+        data = self.manual(start=left, end=left + timedelta(seconds=10), energy_kwh='1')
+        del data['cost']
+        preview = self.app.preview(data)
+        self.assertFalse(preview['record']['cost_complete'])
+        self.assertIsNone(preview['segments'][0]['cost'])
+
+        restored = left + timedelta(seconds=10)
+        self.app.add_interval('home', restored, restored + timedelta(seconds=10), D(1), [(restored, D(4))])
+        data.update(start=restored, end=restored + timedelta(seconds=10))
+        preview = self.app.preview(data)
+        self.assertTrue(preview['record']['cost_complete'])
+        self.assertEqual(D(preview['record']['known_cost']), 4)
+
+        unavailable = restored + timedelta(seconds=10)
+        self.app.add_interval('home', unavailable, unavailable + timedelta(seconds=10), D(1), [(unavailable, None)])
+        data.update(start=unavailable, end=unavailable + timedelta(seconds=10))
+        preview = self.app.preview(data)
+        self.assertFalse(preview['record']['cost_complete'])
+        self.assertIsNone(preview['segments'][0]['cost'])
+
     def test_manual_preview_ignores_unrelated_observations_and_prices(self):
         preview = self.app.preview(self.manual(cost='6'))
         self.app.add_interval('work', T, T + timedelta(seconds=10), D(1), [])
