@@ -28,7 +28,7 @@ def date(value):
         if parsed is None or parsed.utcoffset() is None:
             raise ValueError
         return parsed.astimezone(UTC).isoformat()
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, OverflowError):
         raise vol.Invalid("Expected a timezone-aware ISO datetime") from None
 
 

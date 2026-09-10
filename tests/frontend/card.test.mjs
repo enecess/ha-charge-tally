@@ -151,6 +151,14 @@ const {ChargeTallyCard}=await import('../../custom_components/charge_tally/www/c
 const {RecordDialog}=await import('../../custom_components/charge_tally/www/card-dialog.js?v=0.1.0');
 const state=await import('../../custom_components/charge_tally/www/card-state.js');
 const {tr,summaryView,segmentTable}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.0');
+
+test('segment ranges use the record accounting timezone without altering UTC data',()=>{
+  const segments=[{local_date:'2025-12-31',start:'2025-12-31T15:00:00+00:00',end:'2025-12-31T16:00:00+00:00',energy_kwh:'7',cost:null}];
+  const before=structuredClone(segments);
+  const table=segmentTable(segments,'zh-Hans','CNY','Asia/Shanghai');
+  assert.equal(table.children[0].children[1].children[0].textContent,'2025-12-31 23:00:00 → 2026-01-01 00:00:00 (Asia/Shanghai)');
+  assert.deepEqual(segments,before);
+});
 test('long server decimals are formatted for display without changing payloads',()=>{
   const summary={energy_kwh:'0.285887930259482529870184281103830795',known_cost:'0.142943965129741264935092140551915398',cost_complete:false};
   const original=structuredClone(summary);

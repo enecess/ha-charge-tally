@@ -52,6 +52,7 @@ class RecordSensor(TallyEntity, SensorEntity):
     def __init__(self, runtime, sub, metric):
         super().__init__(runtime, sub.subentry_id, "record_" + metric, sub.data["name"] + " Record " + metric)
         self.metric = metric
+        self._attr_suggested_display_precision = 3 if metric == "energy" else 2
         self._attr_native_unit_of_measurement = "kWh" if metric == "energy" else runtime.entry.data["currency"]
 
     @property
@@ -72,6 +73,7 @@ class IdentitySensor(TallyEntity, SensorEntity):
     def __init__(self, runtime, id_, name, period, metric):
         super().__init__(runtime, id_, period + "_" + metric, name + " " + period + " " + metric)
         self.period, self.metric = period, metric
+        self._attr_suggested_display_precision = 3 if metric == "energy" else 2
         self._attr_native_unit_of_measurement = "kWh" if metric == "energy" else runtime.entry.data["currency"]
         self._attr_state_class = SensorStateClass.TOTAL
 

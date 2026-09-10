@@ -8,6 +8,7 @@ from homeassistant.config_entries import ConfigFlow, ConfigSubentryFlow, FlowTyp
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers import config_validation as cv, selector
+from homeassistant.helpers.translation import async_get_translations
 
 from .const import DOMAIN, INPUT_MODES, NAME, PERIODS, RESTRICTED_POINT_FIELDS
 from .config_validation import validate_detection, validate_name, validate_point, validate_price
@@ -352,7 +353,13 @@ class PointSubentryFlow(ConfigSubentryFlow):
                         return self.async_update_and_abort(entry, latest, title=data["name"], data=data)
                 else:
                     return self.async_create_entry(title=data["name"], data=data)
-        summary = f"{self._data['name']} · {self._data['input_mode']} · {self._data['price']['mode']}"
+        translations = await async_get_translations(
+            self.hass, self.context.get("language", self.hass.config.language), "selector", {DOMAIN}
+        )
+        prefix = f"component.{DOMAIN}.selector."
+        input_label = translations[prefix + f"input_mode.options.{self._data['input_mode']}"]
+        price_label = translations[prefix + f"price_mode.options.{self._data['price']['mode']}"]
+        summary = f"{self._data['name']} · {input_label} · {price_label}"
         return self.async_show_form(step_id="finish", data_schema=vol.Schema({
             vol.Required("periods", default=self._data.get("periods", list(PERIODS))): _choice(PERIODS, multiple=True, translation_key="periods"),
         }), description_placeholders={"summary": summary}, errors=errors)

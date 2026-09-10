@@ -220,7 +220,7 @@
       "fields": {
         "point_id": {
           "name": "充电点 ID",
-          "description": "稳定充电点 ID，或选择该点当前身份 select 作为目标。"
+          "description": "稳定的充电点 ID，可代替实体选择。"
         },
         "identity_id": {
           "name": "身份 ID",
@@ -229,6 +229,10 @@
         "request_id": {
           "name": "请求 ID",
           "description": "本次操作的唯一 ID；重试时保持 ID 和所有字段不变。"
+        },
+        "entity_id": {
+          "name": "充电点身份实体（可选）",
+          "description": "选择一个充电点身份 select，或填写充电点 ID。同时填写的定位信息必须属于同一点。"
         }
       }
     },
@@ -238,7 +242,7 @@
       "fields": {
         "point_id": {
           "name": "充电点 ID",
-          "description": "稳定充电点 ID，或选择该点当前身份 select 作为目标。"
+          "description": "稳定的充电点 ID，可代替实体选择。"
         },
         "record_id": {
           "name": "记录 ID",
@@ -251,6 +255,10 @@
         "request_id": {
           "name": "请求 ID",
           "description": "本次操作的唯一 ID；重试时保持 ID 和所有字段不变。"
+        },
+        "entity_id": {
+          "name": "充电点身份实体（可选）",
+          "description": "选择一个充电点身份 select，或填写充电点 ID / 记录 ID。同时填写的定位信息必须属于同一点。"
         }
       }
     },
@@ -260,7 +268,7 @@
       "fields": {
         "point_id": {
           "name": "充电点 ID",
-          "description": "稳定充电点 ID，或选择该点当前身份 select 作为目标。"
+          "description": "稳定的充电点 ID，可代替实体选择。"
         },
         "record_id": {
           "name": "记录 ID",
@@ -277,6 +285,10 @@
         "request_id": {
           "name": "请求 ID",
           "description": "本次操作的唯一 ID；重试时保持 ID 和所有字段不变。"
+        },
+        "entity_id": {
+          "name": "充电点身份实体（可选）",
+          "description": "选择一个充电点身份 select，或填写充电点 ID / 记录 ID。同时填写的定位信息必须属于同一点。"
         }
       }
     }

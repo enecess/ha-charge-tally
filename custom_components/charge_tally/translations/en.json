@@ -220,7 +220,7 @@
       "fields": {
         "point_id": {
           "name": "Charging point ID",
-          "description": "Stable point ID, or target its current identity select."
+          "description": "Stable charging point ID; may be used instead of entity selection."
         },
         "identity_id": {
           "name": "Identity ID",
@@ -229,6 +229,10 @@
         "request_id": {
           "name": "Request ID",
           "description": "Unique ID for this operation. Reuse the same ID and fields when retrying."
+        },
+        "entity_id": {
+          "name": "Point identity entity (optional)",
+          "description": "Select one point identity select, or enter a point ID. Combined references must belong to the same point."
         }
       }
     },
@@ -238,7 +242,7 @@
       "fields": {
         "point_id": {
           "name": "Charging point ID",
-          "description": "Stable point ID, or target its current identity select."
+          "description": "Stable charging point ID; may be used instead of entity selection."
         },
         "record_id": {
           "name": "Record ID",
@@ -251,6 +255,10 @@
         "request_id": {
           "name": "Request ID",
           "description": "Unique ID for this operation. Reuse the same ID and fields when retrying."
+        },
+        "entity_id": {
+          "name": "Point identity entity (optional)",
+          "description": "Select one point identity select, or enter a point ID / record ID. Combined references must belong to the same point."
         }
       }
     },
@@ -260,7 +268,7 @@
       "fields": {
         "point_id": {
           "name": "Charging point ID",
-          "description": "Stable point ID, or target its current identity select."
+          "description": "Stable charging point ID; may be used instead of entity selection."
         },
         "record_id": {
           "name": "Record ID",
@@ -277,6 +285,10 @@
         "request_id": {
           "name": "Request ID",
           "description": "Unique ID for this operation. Reuse the same ID and fields when retrying."
+        },
+        "entity_id": {
+          "name": "Point identity entity (optional)",
+          "description": "Select one point identity select, or enter a point ID / record ID. Combined references must belong to the same point."
         }
       }
     }

@@ -64,6 +64,14 @@ async def finish_static(hass, result, value=".5"):
     return await advance(hass, result, {"periods": ["daily", "monthly", "yearly"]})
 
 
+@pytest.mark.parametrize("language, expected", [("en", "Garage · Energy only · Static"), ("zh-Hans", "Garage · 仅电量 · 固定")])
+async def test_final_summary_uses_localized_mode_labels(hass, entry, language, expected):
+    hass.config.language = language
+    result = await advance(hass, await point_until_price(hass, entry), {"mode": "static"})
+    result = await advance(hass, result, {"value": "0.5"})
+    assert result["description_placeholders"]["summary"] == expected
+
+
 async def test_single_entry_currency_and_point_onboarding(hass):
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
     assert result["type"] == FlowResultType.FORM

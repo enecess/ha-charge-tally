@@ -1,9 +1,13 @@
 start:
-  target:
-    entity:
-      integration: charge_tally
-      domain: select
   fields:
+    entity_id:
+      required: false
+      selector:
+        entity:
+          filter:
+            integration: charge_tally
+            domain: select
+          multiple: false
     point_id:
       selector:
         text:
@@ -15,11 +19,15 @@ start:
       selector:
         text:
 end:
-  target:
-    entity:
-      integration: charge_tally
-      domain: select
   fields:
+    entity_id:
+      required: false
+      selector:
+        entity:
+          filter:
+            integration: charge_tally
+            domain: select
+          multiple: false
     point_id:
       selector:
         text:
@@ -37,11 +45,15 @@ end:
       selector:
         text:
 reassign:
-  target:
-    entity:
-      integration: charge_tally
-      domain: select
   fields:
+    entity_id:
+      required: false
+      selector:
+        entity:
+          filter:
+            integration: charge_tally
+            domain: select
+          multiple: false
     point_id:
       selector:
         text:

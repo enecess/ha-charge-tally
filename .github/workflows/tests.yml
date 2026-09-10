@@ -1,0 +1,55 @@
+name: Tests and installation archive
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  supported-baseline:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14.7'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.19.0'
+      - name: Install supported test baseline
+        run: python -m pip install -r requirements-test-ha.txt
+      - name: Real Home Assistant integration tests
+        run: python -m pytest tests/ha -q --show-capture=no --tb=short
+      - name: Core and durable recovery tests
+        run: python -m unittest discover -s tests/core -v
+      - name: Local frontend tests
+        run: node --test tests/frontend/*.test.mjs
+      - name: Validate source and create archive
+        run: |
+          git diff --check
+          python - <<'PY'
+          import ast, json, pathlib, subprocess, yaml
+          names = subprocess.check_output(['git', 'ls-files', '-z']).decode().split('\0')
+          for name in filter(None, names):
+              path = pathlib.Path(name)
+              if path.suffix not in {'.py', '.js', '.mjs', '.json', '.yaml', '.yml', '.toml', '.md'}:
+                  continue
+              data = path.read_bytes()
+              assert b'\r' not in data, f'Non-LF file: {name}'
+              text = data.decode('utf-8')
+              if path.suffix == '.py':
+                  ast.parse(text, filename=name)
+              elif path.suffix == '.json':
+                  json.loads(text)
+              elif path.suffix in {'.yaml', '.yml'}:
+                  yaml.safe_load(text)
+          PY
+          python scripts/package.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: charge-tally-installation
+          path: dist/charge_tally-*.zip
+          if-no-files-found: error

@@ -21,8 +21,8 @@ export function metric(label,value){const node=el('div',null,{class:'metric'});n
 export function quality(flags,language){return (flags||[]).map(flag=>tr(flag,language)).join(' · ');}
 export function summaryView(summary,currency,language){const node=el('div',null,{class:'grid'});node.append(metric(tr('energy',language),`${formatDecimal(summary?.energy_kwh,language)} kWh`),metric(tr('cost',language),formatCost(summary,currency,language)));return node;}
 export function dateText(value,timezone){if(!value)return '—';try{return localInput(value,timezone).replace('T',' ');}catch{return value;}}
-export function segmentTable(segments,language,currency){
+export function segmentTable(segments,language,currency,timezone="UTC"){
   const wrap=el('div',null,{class:'table-wrap'}),table=el('table'),head=el('tr');
   for(const label of ['from','energy','cost','quality'])head.append(el('th',tr(label,language),{scope:'col'}));table.append(head);
-  for(const segment of segments||[]){const row=el('tr');for(const text of [`${segment.local_date || ''}\n${segment.start} → ${segment.end}`,`${formatDecimal(segment.energy_kwh,language)} kWh`,segment.cost==null?tr('pending',language):formatCost({known_cost:segment.cost,cost_complete:true},currency,language),quality(segment.quality,language)])row.append(el('td',text));table.append(row);}wrap.append(table);return wrap;
+  for(const segment of segments||[]){const row=el('tr');for(const text of [`${dateText(segment.start,timezone)} → ${dateText(segment.end,timezone)} (${timezone})`,`${formatDecimal(segment.energy_kwh,language)} kWh`,segment.cost==null?tr('pending',language):formatCost({known_cost:segment.cost,cost_complete:true},currency,language),quality(segment.quality,language)])row.append(el('td',text));table.append(row);}wrap.append(table);return wrap;
 }
