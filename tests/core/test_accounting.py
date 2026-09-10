@@ -212,6 +212,33 @@ class AccountingTests(unittest.TestCase):
         self.assertEqual(D(result['known_cost']), 6)
         self.assertTrue(result['cost_complete'])
 
+    def test_adjacent_observed_prices_override_synthetic_end_boundaries(self):
+        for second_price, expected, complete in [('2', '6', True), ('4', '10', True), (None, '2', False)]:
+            with self.subTest(second_price=second_price):
+                point_id = 'adjacent-' + str(second_price)
+                self.ledger.put_point({'id': point_id, 'name': point_id})
+                boundary = T + timedelta(seconds=10)
+                end = T + timedelta(seconds=30)
+                self.app.add_interval(point_id, T, boundary, D('1'), [(T, D('2'))])
+                self.app.add_interval(point_id, boundary, end, D('2'), [(boundary, None if second_price is None else D(second_price))])
+                data = self.manual(point_id=point_id, end=end, energy_kwh='3')
+                del data['cost']
+                preview = self.app.preview(data)
+                self.assertEqual(D(preview['record']['known_cost']), D(expected))
+                self.assertEqual(preview['record']['cost_complete'], complete)
+                if second_price is None:
+                    self.assertIsNone(preview['segments'][-1]['cost'])
+
+    def test_observed_price_anchor_restores_after_uncovered_gap(self):
+        self.app.add_interval('home', T, T + timedelta(seconds=10), D(1), [(T, D(2))])
+        self.app.add_interval('home', T + timedelta(seconds=20), T + timedelta(seconds=30), D(1), [(T, D(2))])
+        data = self.manual(end=T + timedelta(seconds=30), energy_kwh='3')
+        del data['cost']
+        preview = self.app.preview(data)
+        self.assertEqual([None if s['cost'] is None else D(s['cost']) for s in preview['segments']], [D(2), None, D(2)])
+        self.assertEqual(D(preview['record']['known_cost']), 4)
+        self.assertFalse(preview['record']['cost_complete'])
+
     def test_manual_preview_ignores_unrelated_observations_and_prices(self):
         preview = self.app.preview(self.manual(cost='6'))
         self.app.add_interval('work', T, T + timedelta(seconds=10), D(1), [])

@@ -144,16 +144,24 @@ class Accounting:
 
     def _historical_prices(self, point_id, start, end):
         versions = self.ledger.list_price_versions(point_id)
-        timeline = {p['at']: p['price'] for p in versions if 'price' in p and instant(p['at']) < end}
+        persistent = {p['at']: p['price'] for p in versions if 'price' in p and instant(p['at']) < end}
+        fallback, observed = {}, {}
         for gap in self.ledger.get_checkpoint('_price_gaps:' + point_id) or []:
-            timeline.setdefault(gap['start'], None)
+            fallback[gap['start']] = None
         for observation in self.ledger.list_intervals(point_id, start.isoformat(), end.isoformat()):
             left, right = observation['start'], observation['end']
+            context = [(at, 1, price) for at, price in persistent.items() if at <= left]
+            context.extend((at, 0, price) for at, price in observation['prices'] if at <= left)
+            if context:
+                observed[left] = max(context, key=lambda item: (item[0], item[1]))[2]
+            else:
+                fallback[left] = None
             for at, price in observation['prices']:
-                if at < right:
-                    timeline.setdefault(at, price)
-            if not any(p['at'] <= right for p in versions):
-                timeline.setdefault(right, None)
+                if left < at < right:
+                    observed[at] = price
+            if not any(at <= right for at in persistent):
+                fallback[right] = None
+        timeline = {**fallback, **observed, **persistent}
         ordered = sorted(timeline.items())
         anchor = [(at, price) for at, price in ordered if instant(at) <= start]
         return anchor[-1:] + [(at, price) for at, price in ordered if start < instant(at) < end]
