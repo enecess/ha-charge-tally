@@ -107,3 +107,32 @@ async def test_reload_automatically_recovers_gap_from_actual_recorder(recorder_m
     assert Decimal(snapshot["records"][0]["energy_kwh"]) == 1
     assert "missing_energy" not in snapshot["records"][0]["quality"]
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_api_manual_preview_stales_after_actual_recorder_price_import(recorder_mock, hass, tmp_path, freezer, hass_ws_client):
+    start = dt_util.utcnow() + timedelta(seconds=1)
+    freezer.move_to(start)
+    hass.states.async_set("sensor.energy", "100", ENERGY)
+    hass.states.async_set("sensor.price", "2", {"unit_of_measurement": "CNY/kWh"})
+    await async_wait_recording_done(hass)
+    end = start + timedelta(seconds=30)
+    freezer.move_to(end)
+    hass.states.async_set("sensor.energy", "110", ENERGY)
+    await async_wait_recording_done(hass)
+    freezer.move_to(end + timedelta(seconds=30))
+    entry, runtime = await setup_runtime(hass, tmp_path, price={"mode": "dynamic", "entity_id": "sensor.price", "unit": "CNY/kWh"})
+    client = await hass_ws_client(hass)
+    data = {"point_id": "point", "identity_id": "car", "start": start.isoformat(), "end": end.isoformat()}
+    await client.send_json({"id": 1, "type": "charge_tally/preview", **data, "energy_kwh": "10"})
+    old = (await client.receive_json())["result"]
+    assert old["record"]["cost_complete"] is False
+    await runtime.async_command("preview", data)
+    await client.send_json({"id": 2, "type": "charge_tally/commit", "token": old["token"], "request_id": "old-price"})
+    assert (await client.receive_json())["error"]["code"] == "stale_preview"
+    await client.send_json({"id": 3, "type": "charge_tally/preview", **data, "energy_kwh": "10"})
+    fresh = (await client.receive_json())["result"]
+    assert Decimal(fresh["record"]["known_cost"]) == 20
+    assert fresh["record"]["cost_complete"] is True
+    await client.send_json({"id": 4, "type": "charge_tally/commit", "token": fresh["token"], "request_id": "fresh-price"})
+    assert (await client.receive_json())["success"] is True
+    await hass.config_entries.async_unload(entry.entry_id)

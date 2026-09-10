@@ -11,8 +11,9 @@ from homeassistant.helpers import config_validation as cv, selector
 from homeassistant.helpers.translation import async_get_translations
 
 from .const import DOMAIN, INPUT_MODES, NAME, PERIODS, RESTRICTED_POINT_FIELDS
-from .config_validation import validate_detection, validate_name, validate_point, validate_price
+from .config_validation import validate_detection, validate_identity_name, validate_name, validate_point, validate_price
 from .core.units import decimal_value, price_per_kwh
+from .ledger import retained_currency
 
 
 def _choice(options, *, multiple=False, translation_key=None):
@@ -49,17 +50,24 @@ class ChargeTallyConfigFlow(ConfigFlow, domain=DOMAIN):
         if self._async_current_entries():
             return self.async_abort(reason="single_instance_allowed")
         errors = {}
+        try:
+            retained = await self.hass.async_add_executor_job(retained_currency, self.hass.config.path("charge_tally/ledger.sqlite3"))
+        except ValueError as err:
+            return self.async_abort(reason=str(err))
         if user_input is not None:
             try:
                 currency = cv.currency(user_input["currency"].strip().upper())
             except (vol.Invalid, KeyError, AttributeError):
                 errors["base"] = "invalid_currency"
             else:
-                await self.async_set_unique_id(DOMAIN)
-                self._abort_if_unique_id_configured()
-                return self.async_create_entry(title=NAME, data={"currency": currency})
+                if retained is not None and retained != currency:
+                    errors["base"] = "currency_mismatch"
+                else:
+                    await self.async_set_unique_id(DOMAIN)
+                    self._abort_if_unique_id_configured()
+                    return self.async_create_entry(title=NAME, data={"currency": currency})
         return self.async_show_form(step_id="user", data_schema=vol.Schema({
-            vol.Required("currency", default=self.hass.config.currency): selector.TextSelector(),
+            vol.Required("currency", default=retained or self.hass.config.currency): selector.TextSelector(),
         }), errors=errors)
 
     async def async_on_create_entry(self, result):
@@ -82,7 +90,7 @@ class IdentitySubentryFlow(ConfigSubentryFlow):
         errors = {}
         if user_input is not None:
             try:
-                name = validate_name(user_input.get("name"))
+                name = validate_identity_name(user_input.get("name"))
                 enabled = user_input.get("enabled", True)
                 if not isinstance(enabled, bool):
                     raise ValueError("invalid_identity")

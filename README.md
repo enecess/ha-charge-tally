@@ -12,7 +12,7 @@ For a local installation, extract `dist/charge_tally-0.1.0.zip` into the Home As
 
 For HACS distribution, add `https://github.com/enecess/ha-charge-tally` as a custom repository of category **Integration**, download Charge Tally, then restart Home Assistant. This repository includes HACS metadata; it does not claim inclusion in the default HACS catalog. HACS installs the component directory from the repository; the separately built ZIP is for manual installation.
 
-Open **Settings → Devices & services → Integrations → Add integration → Charge Tally**. Confirm the ledger currency; initial setup continues to the first charging point. Open the Charge Tally integration to add/reconfigure points and shared identities. Only one parent ledger is supported. Configure the currency correctly at creation; the first version does not offer currency conversion or a currency reconfiguration flow.
+Open **Settings → Devices & services → Integrations → Add integration → Charge Tally**. Confirm the ledger currency; initial setup continues to the first charging point. Open the Charge Tally integration to add/reconfigure points and shared identities. Only one parent ledger is supported. The ledger permanently binds its confirmed currency, including after removing and recreating the integration. Setup reuses the retained currency and rejects another currency; no currency conversion is provided. A populated pre-release ledger without a binding must be backed up and have its original currency explicitly confirmed before loading; it is never silently relabelled.
 
 ## Inputs and prices
 
@@ -44,7 +44,7 @@ Manual records end manually. Ending an automatic record while power is high inhi
 
 The ledger splits observed energy at record boundaries, local midnight and price changes. Normal short intervals use elapsed-time allocation, marked **estimated**, with decimal conservation across segments. For example, 0.060 kWh over 23:59:50–00:00:20 gives 0.020/0.040 kWh on the two dates. Active and waiting-for-end records are **provisional**, and totals may decrease after backdating or corrections. Display precision does not round the ledger.
 
-Times are stored in UTC; each record retains its HA accounting timezone. Calendar days use that timezone, including daylight-saving transitions; durations use actual elapsed seconds. A timezone change affects new records, not historical dates. An ended record may remain **pending settlement** until the next energy reading covers its endpoint. That reading can settle the previous record and the next one without double counting.
+Times are stored in UTC; each record retains its HA accounting timezone. Calendar days use that timezone, including daylight-saving transitions; durations use actual elapsed seconds. A timezone change affects new records, not historical dates. Today/month/year choose the current HA calendar label, then include each record using its original accounting timezone and saved local dates. Completed counts belong to the original local start date; active counts include records overlapping the period. Custom start/end ranges retain absolute UTC intersection semantics. An ended record may remain **pending settlement** until the next energy reading covers its endpoint. That reading can settle the previous record and the next one without double counting.
 
 The default maximum automatic allocation interval is **600 seconds**. Longer intervals or explicit unavailable gaps are not silently assigned to an identity/date/price. Reliable cumulative deltas can still advance the native total while record allocation remains incomplete. Later retained/Recorder history may fill gaps; otherwise use a reviewed manual correction. Repeated equal readings refresh observation coverage without adding energy.
 
@@ -154,3 +154,9 @@ Automated acceptance uses real HA flows, Integral/Utility Meter, event delivery,
 Manual browser checks use a disposable official HA 2026.9.1 instance and synthetic sensors: configuration, automatic/manual records, identity locking/transfer, native meter differences and local card creation/history preview. No real charger, physical meter or existing user HA deployment was used. Other HA versions and provider-specific sensor behavior remain outside this baseline.
 
 License: [MIT](LICENSE).
+
+### Calendar query and retained pre-release currency
+
+WebSocket `charge_tally/query` accepts either `calendar_period: daily|monthly|yearly` or a pair of timezone-aware `start` and `end` strings, never both. Optional `point_id` and `identity_id` filters apply to either mode. The default card periods and identity sensors use the calendar mode; UTC ranges can intentionally return different totals after an HA timezone change.
+
+For an unbound populated pre-release ledger, stop Charge Tally writes, create an SQLite-consistent backup, verify the original currency from the previous configuration, then use `Ledger.bind_currency(original_currency, confirm_existing=True)` on the retained database. This binds metadata only; it does not convert amounts or change records, price versions or revisions. Normal new installations and same-currency restores need no manual database work. A bound currency cannot be replaced through this API.

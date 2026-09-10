@@ -1,13 +1,37 @@
 """Read current record revisions, independent of Home Assistant Recorder."""
 from decimal import Decimal, localcontext
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from .accounting import instant
 from .core.segments import split_interval
 from .core.tariffs import elapsed
 
 
-def summarize(ledger, start, end, identity_id=None, point_id=None):
+def calendar_bounds(label, timezone):
+    """Interpret a calendar label in the original record's accounting timezone."""
+    if len(label) not in (4, 7, 10):
+        raise ValueError('Invalid calendar label')
+    value = label + {4: '-01-01', 7: '-01', 10: ''}[len(label)]
+    start = datetime.strptime(value, '%Y-%m-%d').replace(tzinfo=ZoneInfo(timezone))
+    if start.strftime('%Y-%m-%d') != value:
+        raise ValueError('Invalid calendar label')
+    if len(label) == 4:
+        end = start.replace(year=start.year + 1)
+    elif len(label) == 7:
+        end = start.replace(year=start.year + (start.month == 12), month=start.month % 12 + 1)
+    else:
+        end = start + timedelta(days=1)
+    return instant(start), instant(end)
+
+
+def summarize(ledger, start, end, identity_id=None, point_id=None, *, calendar=None):
+    if calendar is not None and (start is not None or end is not None):
+        raise ValueError('Calendar and absolute range are mutually exclusive')
     start, end = instant(start) if start else None, instant(end) if end else None
+    if calendar is not None:
+        calendar_bounds(calendar, 'UTC')
+    absolute_start, absolute_end = start, end
     if start and end and end <= start:
         raise ValueError('Query end must follow start')
     result = dict(energy_kwh='0', known_cost='0', cost_complete=True, active_count=0, completed_count=0, quality=[], buckets=[])
@@ -19,6 +43,7 @@ def summarize(ledger, start, end, identity_id=None, point_id=None):
     with ledger.transaction(), localcontext() as ctx:
         ctx.prec = 36
         for record in ledger.list_records(point_id, identity_id):
+            start, end = calendar_bounds(calendar, record['timezone']) if calendar is not None else (absolute_start, absolute_end)
             begins = instant(record['start'])
             finishes = instant(record['end']) if record['end'] else None
             if (end and begins >= end) or (start and finishes and finishes <= start):

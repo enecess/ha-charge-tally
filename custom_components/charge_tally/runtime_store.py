@@ -10,6 +10,7 @@ from .accounting import Accounting, instant
 from .core.detection import Detector
 from .core.tariffs import DailySchedule
 from .core.units import energy_kwh, power_w, price_per_kwh
+from .config_validation import BUILTIN_IDENTITY_NAME, validate_identity_name
 from .ledger import Ledger
 from .queries import summarize
 
@@ -35,7 +36,12 @@ class RuntimeStore:
     def __init__(self, path, currency, timezone):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.ledger = Ledger(path)
-        self.accounting = Accounting(self.ledger)
+        try:
+            self.ledger.bind_currency(currency)
+        except BaseException:
+            self.ledger.close()
+            raise
+        self.accounting = Accounting(self.ledger, self.preview_prices, self.preview_price_basis)
         self.currency, self.timezone = currency, timezone
         self.states = self.ledger.get_checkpoint("runtime") or {}
         self.points = {}
@@ -65,8 +71,9 @@ class RuntimeStore:
             raise
 
     def configure(self, points, identities, at, timezone):
+        identities = {id_: {**data, "name": validate_identity_name(data["name"])} for id_, data in identities.items() if id_ != "unassigned"}
         self.timezone = timezone
-        identities = {**identities, "unassigned": {"name": "Unassigned", "enabled": True}}
+        identities = {**identities, "unassigned": {"name": BUILTIN_IDENTITY_NAME, "enabled": True}}
         for old in self.ledger.list_identities():
             if old["id"] not in identities:
                 self.ledger.put_identity({**old, "active": False})
@@ -149,6 +156,16 @@ class RuntimeStore:
                     if instant(gap["start"]) <= at < instant(gap["end"]):
                         result[at] = None
         return sorted(result.items())
+
+    def preview_prices(self, point_id, start, end):
+        return [(at.isoformat(), None if price is None else str(price)) for at, price in self.prices(point_id, start, end)]
+
+    def preview_price_basis(self, point_id, start, end):
+        versions = self.ledger.list_price_versions(point_id)
+        relevant = [version for index, version in enumerate(versions)
+                    if instant(version["at"]) < end
+                    and (index + 1 == len(versions) or instant(versions[index + 1]["at"]) > start)]
+        return {"timeline": self.preview_prices(point_id, start, end), "versions": relevant}
 
     def active(self, point_id):
         return next((r for r in self.ledger.list_records(point_id=point_id) if r["status"] == "active"), None)
@@ -360,9 +377,6 @@ class RuntimeStore:
             existing = self.ledger.get_record(data["record_id"]) if data.get("record_id") else {}
             if not existing:
                 data.setdefault("timezone", self.timezone)
-            if any(key in data for key in ("start", "end", "energy_kwh")):
-                basis = {**(existing or {}), **data}
-                data.setdefault("prices", self.prices(basis["point_id"], instant(basis["start"]), instant(basis["end"])))
             return self.accounting.preview(data)
         if command == "commit_preview":
             return self.accounting.commit_preview(**data)
@@ -374,7 +388,7 @@ class RuntimeStore:
         if command == "summary":
             return summarize(self.ledger, instant(data["start"]) if data.get("start") else None,
                              instant(data["end"]) if data.get("end") else None,
-                             identity_id=data.get("identity_id"), point_id=data.get("point_id"))
+                             identity_id=data.get("identity_id"), point_id=data.get("point_id"), calendar=self.calendar_label(data))
         raise ValueError("Unknown command")
 
     def snapshot(self, point_ids=None):
@@ -393,21 +407,28 @@ class RuntimeStore:
                 "detection_enabled": point.get("detection", {}).get("enabled", False),
                 "candidate": (state.get("detector") or {}).get("candidate"), "utility_entities": {}})
         identities = self.ledger.list_identities()
-        now = datetime.now(UTC).astimezone(ZoneInfo(self.timezone))
-        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        starts = {"total": None, "daily": today, "monthly": today.replace(day=1), "yearly": today.replace(month=1, day=1)}
         for identity in identities:
-            identity["summaries"] = {period: summarize(scoped, start, None, identity_id=identity["id"]) for period, start in starts.items()}
+            identity["summaries"] = {period: summarize(scoped, None, None, identity_id=identity["id"],
+                calendar=self.calendar_label({"calendar_period": period}) if period != "total" else None)
+                for period in ("total", "daily", "monthly", "yearly")}
         archived = [{**point, "identity_entity_id": None} for point in self.ledger.list_points()
                     if not point.get("active", True) and (point_ids is None or point["id"] in point_ids)]
         return {"currency": self.currency, "timezone": self.timezone, "identities": identities, "points": points, "archived_points": archived,
                 "records": scoped.list_records(), "summary": summarize(scoped, None, None),
                 "revision": self.ledger.data_version()}
 
+    def calendar_label(self, data):
+        if "calendar_period" not in data:
+            return None
+        if "start" in data or "end" in data or data["calendar_period"] not in ("daily", "monthly", "yearly"):
+            raise ValueError("Invalid calendar query")
+        today = datetime.now(UTC).astimezone(ZoneInfo(self.timezone)).date().isoformat()
+        return today[:{"daily": 10, "monthly": 7, "yearly": 4}[data["calendar_period"]]]
+
     def scoped_summary(self, point_ids, data):
         return summarize(ScopedLedger(self.ledger, point_ids), instant(data["start"]) if data.get("start") else None,
                          instant(data["end"]) if data.get("end") else None,
-                         identity_id=data.get("identity_id"), point_id=data.get("point_id"))
+                         identity_id=data.get("identity_id"), point_id=data.get("point_id"), calendar=self.calendar_label(data))
 
     def query(self, command, data, point_ids):
         allowed = [p["id"] for p in self.ledger.list_points()] if point_ids is None else point_ids

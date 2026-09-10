@@ -34,8 +34,10 @@ def totals(record, segments, quality=()):
 
 
 class Accounting:
-    def __init__(self, ledger):
+    def __init__(self, ledger, price_resolver=None, price_basis=None):
         self.ledger = ledger
+        self.price_resolver = price_resolver or self._historical_prices
+        self.price_basis = price_basis or self.price_resolver
 
     def _references(self, point_id, identity_id, original=None):
         point, identity = self.ledger.get_point(point_id), self.ledger.get_identity(identity_id)
@@ -251,10 +253,11 @@ class Accounting:
         basis = {'point': self.ledger.get_point(record['point_id']),
                  'identity': self.ledger.get_identity(record['identity_id']),
                  'record_revision': current['revision'] if current else None}
+        basis['point'] = {key: value for key, value in basis['point'].items() if key != 'price'}
         if dependencies.get('intervals'):
             basis['intervals'] = self.ledger.list_intervals(record['point_id'], record['start'], record['end'])
         if dependencies.get('prices'):
-            basis['prices'] = self._historical_prices(record['point_id'], instant(record['start']), instant(record['end']))
+            basis['prices'] = self.price_basis(record['point_id'], instant(record['start']), instant(record['end']))
         return sha256(encode(basis).encode()).hexdigest()
 
     def preview(self, data: dict):
@@ -286,7 +289,7 @@ class Accounting:
                 prices = data.get('prices', [])
                 if not prices and not explicit_cost:
                     dependencies['prices'] = True
-                    prices = self._historical_prices(record['point_id'], start, end)
+                    prices = self.price_resolver(record['point_id'], start, end)
                 prices = [(instant(at), None if price is None else decimal_value(price)) for at, price in prices]
                 segments = split_interval(start, end, energy, timezone, [] if explicit_cost else prices)
                 if explicit_cost:

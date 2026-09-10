@@ -48,7 +48,8 @@ WRITE = {vol.Required("request_id"): ID}
 SCHEMAS = {
     "snapshot": SCOPE,
     "subscribe": SCOPE,
-    "query": {**FILTER, vol.Required("start"): date, vol.Required("end"): date},
+    "query": {**FILTER, vol.Inclusive("start", "range"): date, vol.Inclusive("end", "range"): date,
+              vol.Optional("calendar_period"): vol.In(("daily", "monthly", "yearly"))},
     "records": {**FILTER, vol.Optional("record_id"): ID, vol.Optional("offset", default=0): vol.All(integer, vol.Range(min=0)),
                 vol.Optional("limit", default=50): vol.All(integer, vol.Range(min=1, max=100))},
     "preview": {**FILTER, vol.Optional("record_id"): ID, vol.Optional("expected_revision"): REV,
@@ -136,8 +137,14 @@ async def execute(hass, user, command, payload):
     if command == "snapshot":
         return await public_snapshot(runtime, user, data.get("point_id"))
     if command in ("query", "records"):
-        if command == "query" and datetime.fromisoformat(data["start"]) >= datetime.fromisoformat(data["end"]):
-            raise vol.Invalid("End must follow start")
+        if command == "query":
+            if "calendar_period" in data:
+                if "start" in data or "end" in data:
+                    raise vol.Invalid("Calendar and absolute range are mutually exclusive")
+            elif "start" not in data or "end" not in data:
+                raise vol.Invalid("A calendar period or complete absolute range is required")
+            elif datetime.fromisoformat(data["start"]) >= datetime.fromisoformat(data["end"]):
+                raise vol.Invalid("End must follow start")
         try:
             return await scoped_read(runtime, user, data.get("point_id"),
                 lambda ids: runtime.async_query("record" if data.get("record_id") else "summary" if command == "query" else command,

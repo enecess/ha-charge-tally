@@ -63,6 +63,10 @@ export function validateForm(form,timezone,record) {
 }
 const filters = config => Object.fromEntries(['point_id','identity_id'].filter(key=>config[key]).map(key=>[key,config[key]]));
 export function queryRequest(config,range) {
+  if ('calendar_period' in range) {
+    if (!['daily','monthly','yearly'].includes(range.calendar_period) || 'start' in range || 'end' in range) throw new Error('Invalid calendar period');
+    return {type:'charge_tally/query',...filters(config),calendar_period:range.calendar_period};
+  }
   if (!validateRange(range.start,range.end).valid) throw new Error('Invalid range');
   return {type:'charge_tally/query',...filters(config),start:range.start,end:range.end};
 }

@@ -1,6 +1,7 @@
 """A process exiting before COMMIT cannot partially change accounting data."""
 from pathlib import Path
 import sqlite3
+from contextlib import closing
 import subprocess
 import sys
 import tempfile
@@ -27,7 +28,7 @@ class ProcessRecoveryTests(unittest.TestCase):
     def test_unknown_schema_is_rejected_without_modifying_the_database(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "future.sqlite3"
-            with sqlite3.connect(path) as db:
+            with closing(sqlite3.connect(path)) as db, db:
                 db.execute("PRAGMA user_version=99")
                 db.execute("CREATE TABLE future_data (value TEXT)")
                 db.execute("INSERT INTO future_data VALUES ('preserved')")
@@ -76,5 +77,5 @@ class ProcessRecoveryTests(unittest.TestCase):
                     self.assertEqual(restored.get_checkpoint("cursor"), {"sequence": 2})
                 finally:
                     restored.close()
-                with sqlite3.connect(restored_path.as_uri() + "?mode=ro", uri=True) as db:
+                with closing(sqlite3.connect(restored_path.as_uri() + "?mode=ro", uri=True)) as db:
                     self.assertEqual(db.execute("PRAGMA integrity_check").fetchone(), ("ok",))

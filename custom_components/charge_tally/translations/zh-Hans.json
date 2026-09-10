@@ -11,11 +11,13 @@
       }
     },
     "error": {
-      "invalid_currency": "请输入有效的三字母币种代码。"
+      "invalid_currency": "请输入有效的三字母币种代码。",
+      "currency_mismatch": "保留账本使用其他币种，请使用账本原币种。"
     },
     "abort": {
       "single_instance_allowed": "只支持一个 Charge Tally 账本主条目。",
-      "already_configured": "Charge Tally 已配置。"
+      "already_configured": "Charge Tally 已配置。",
+      "currency_unbound": "此预发布账本尚未绑定币种；请备份并确认原币种后再恢复。"
     }
   },
   "config_subentries": {

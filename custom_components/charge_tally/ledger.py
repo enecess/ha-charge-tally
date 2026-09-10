@@ -3,10 +3,26 @@ from contextlib import closing, contextmanager
 from datetime import datetime, timedelta, timezone
 import json
 import sqlite3
+from pathlib import Path
+
+from .config_validation import identity_name_key
 
 
 def encode(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False)
+
+
+def retained_currency(path):
+    """Inspect a retained ledger without creating or changing it."""
+    if not Path(path).exists():
+        return None
+    with closing(sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True)) as db:
+        row = db.execute("SELECT data FROM checkpoints WHERE id='_currency'").fetchone()
+        if row:
+            return json.loads(row[0])
+        if any(db.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone() for table in ('points', 'records', 'price_versions', 'observations')):
+            raise ValueError('currency_unbound')
+    return None
 
 
 class Ledger:
@@ -27,6 +43,25 @@ class Ledger:
             self._db.execute('CREATE TABLE IF NOT EXISTS segments (record_id TEXT NOT NULL REFERENCES records(id), position INTEGER NOT NULL, observation_id TEXT REFERENCES observations(id), data TEXT NOT NULL, PRIMARY KEY(record_id,position))')
             self._db.execute('CREATE TABLE IF NOT EXISTS revisions (record_id TEXT NOT NULL REFERENCES records(id), revision INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY(record_id,revision))')
             self._db.execute('PRAGMA user_version=1')
+
+    @property
+    def currency(self):
+        return self.get_checkpoint('_currency')
+
+    def bind_currency(self, currency, *, confirm_existing=False):
+        """Bind once; pre-release data requires an explicit, backed-up confirmation."""
+        if not isinstance(currency, str) or len(currency) != 3 or not currency.isascii() or not currency.isalpha() or currency != currency.upper():
+            raise ValueError('invalid_currency')
+        with self.transaction():
+            if self.currency is not None:
+                if self.currency != currency:
+                    raise ValueError('currency_mismatch')
+                return
+            populated = any(self._db.execute(f'SELECT 1 FROM {table} LIMIT 1').fetchone()
+                            for table in ('points', 'records', 'price_versions', 'observations'))
+            if populated and not confirm_existing:
+                raise ValueError('currency_unbound')
+            self._put('checkpoints', '_currency', currency)
 
     @contextmanager
     def transaction(self):
@@ -72,7 +107,7 @@ class Ledger:
 
     def put_identity(self, data: dict):
         with self.transaction():
-            if data.get('active', True) and any(item.get('active', True) and item.get('name') == data.get('name') and item['id'] != data['id'] for item in self.list_identities()):
+            if data.get('active', True) and any(item.get('active', True) and identity_name_key(item.get('name')) == identity_name_key(data.get('name')) and item['id'] != data['id'] for item in self.list_identities()):
                 raise ValueError('Identity name must be unique')
             self._put('identities', data['id'], data)
             self._bump()

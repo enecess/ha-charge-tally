@@ -1,5 +1,5 @@
 import {styles} from './card-styles.js?v=0.1.0';
-import {Latest,Subscription,formatCost,formatDecimal,errorMessage,periodRange,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.0';
+import {Latest,Subscription,formatCost,formatDecimal,errorMessage,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.0';
 import {el,button,field,select,input,tr,metric,summaryView,quality,dateText} from './card-ui.js?v=0.1.0';
 import {RecordDialog} from './card-dialog.js?v=0.1.0';
 import './card-editor.js?v=0.1.0';
@@ -34,7 +34,7 @@ export class ChargeTallyCard extends HTMLElement {
   setFilter(key,value){this.filters[key]=value;this.offset=0;this.latest.invalidate();this.summary=null;this.page=null;this.render();this.refresh();}
   range(){
     if(this.period==='custom')return {start:resolveLocal(this.rangeStart+'T00:00',this.snapshot.timezone),end:resolveLocal(this.rangeEnd+'T00:00',this.snapshot.timezone)};
-    return periodRange(this.period,this.snapshot.timezone);
+    return {calendar_period:this.period};
   }
   refresh(newLiveIntent=false){
     if(newLiveIntent)this.pendingLive=null;

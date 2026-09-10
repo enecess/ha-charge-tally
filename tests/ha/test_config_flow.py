@@ -260,3 +260,33 @@ async def test_reconfigure_does_not_overwrite_change_while_guard_awaits(hass, en
     result = await finish_static(hass, result)
     assert result["reason"] == "config_changed"
     assert entry.subentries[subentry_id].data["name"] == "Concurrent rename"
+
+
+@pytest.mark.parametrize("name", ["Unassigned", " unASSIGNED "])
+async def test_reserved_identity_rejected_before_create_and_reconfigure(hass, entry, name):
+    result = await hass.config_entries.subentries.async_init((entry.entry_id, "identity"), context={"source": "user"})
+    result = await advance(hass, result, {"name": name, "enabled": True})
+    assert result["errors"] == {"base": "duplicate_name"}
+    assert not entry.subentries
+    result = await advance(hass, result, {"name": "Car", "enabled": False})
+    old_id = next(iter(entry.subentries))
+    result = await hass.config_entries.subentries.async_init((entry.entry_id, "identity"), context={"source": "reconfigure", "subentry_id": old_id})
+    result = await advance(hass, result, {"name": name, "enabled": True})
+    assert result["errors"] == {"base": "duplicate_name"}
+    assert entry.subentries[old_id].data == {"name": "Car", "enabled": False}
+
+
+async def test_currency_flow_uses_retained_ledger_binding(hass):
+    from pathlib import Path
+    from custom_components.charge_tally.runtime_store import RuntimeStore
+    def create():
+        store = RuntimeStore(str(Path(hass.config.path("charge_tally/ledger.sqlite3"))), "CNY", "UTC")
+        store.ledger.close()
+    await hass.async_add_executor_job(create)
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"currency": "USD"})
+    assert result["errors"] == {"base": "currency_mismatch"}
+    assert not hass.config_entries.async_entries(DOMAIN)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"currency": "CNY"})
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"]["currency"] == "CNY"

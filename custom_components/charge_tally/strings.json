@@ -11,11 +11,13 @@
       }
     },
     "error": {
-      "invalid_currency": "Choose a valid three-letter currency code."
+      "invalid_currency": "Choose a valid three-letter currency code.",
+      "currency_mismatch": "The retained ledger uses another currency. Use its original currency."
     },
     "abort": {
       "single_instance_allowed": "Only one Charge Tally ledger is supported.",
-      "already_configured": "Charge Tally is already configured."
+      "already_configured": "Charge Tally is already configured.",
+      "currency_unbound": "This pre-release ledger has no currency binding. Back it up and explicitly confirm its original currency before restoring."
     }
   },
   "config_subentries": {

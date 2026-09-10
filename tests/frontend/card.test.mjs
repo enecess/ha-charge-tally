@@ -226,3 +226,10 @@ test('note-only editing preserves a valid record entirely within one second',()=
   assert.equal(request.note,values.note);assert.equal('start' in request,false);assert.equal('end' in request,false);
   assert.throws(()=>previewRequest({...values,end:'2026-09-09T09:59:59'},'Asia/Shanghai',record),/range/);
 });
+
+
+test('default periods request ledger calendar membership without absolute clipping', () => {
+  for(const calendar_period of ['daily','monthly','yearly'])
+    assert.deepEqual(queryRequest({identity_id:'i'},{calendar_period}),{type:'charge_tally/query',identity_id:'i',calendar_period});
+  assert.throws(()=>queryRequest({},{calendar_period:'daily',start:'2026-01-01T00:00Z',end:'2026-01-02T00:00Z'}));
+});

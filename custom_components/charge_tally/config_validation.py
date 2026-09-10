@@ -15,6 +15,20 @@ def validate_name(value):
     return value.strip()
 
 
+BUILTIN_IDENTITY_NAME = "Unassigned"
+
+
+def identity_name_key(value):
+    return validate_name(value).casefold()
+
+
+def validate_identity_name(value):
+    name = validate_name(value)
+    if identity_name_key(name) == identity_name_key(BUILTIN_IDENTITY_NAME):
+        raise ValueError("duplicate_name")
+    return name
+
+
 def validate_detection(data):
     """Validate hysteresis and positive durations in watts and seconds."""
     if not isinstance(data, dict) or not isinstance(data.get("enabled", False), bool):

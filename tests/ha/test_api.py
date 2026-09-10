@@ -315,3 +315,40 @@ async def test_ws_rejects_malformed_input(hass, tmp_path, hass_ws_client, hass_r
     await client.send_json({"id": 1, **payload})
     assert (await client.receive_json())["error"]["code"] == "invalid_format"
     await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.parametrize("payload", [
+    {}, {"calendar_period": "weekly"}, {"calendar_period": "daily", "start": "2026-01-01T00:00:00Z", "end": "2026-01-02T00:00:00Z"},
+    {"start": "2026-01-01T00:00:00Z"},
+])
+async def test_calendar_query_strict_modes(hass, tmp_path, hass_ws_client, payload):
+    entry, runtime = await setup_runtime(hass, tmp_path)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "charge_tally/query", **payload})
+    assert (await client.receive_json())["success"] is False
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_calendar_query_matches_identity_snapshot(hass, tmp_path, hass_ws_client, monkeypatch):
+    from datetime import datetime, UTC
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            fixed = datetime(2026, 1, 1, 12, tzinfo=UTC)
+            return fixed.astimezone(tz) if tz else fixed.replace(tzinfo=None)
+    monkeypatch.setattr("custom_components.charge_tally.runtime_store.datetime", Clock)
+    entry, runtime = await setup_runtime(hass, tmp_path)
+    preview = await runtime.async_command("preview", {"point_id": "point", "identity_id": "car", "start": "2026-01-01T00:00:00+08:00", "end": "2026-01-01T01:00:00+08:00", "energy_kwh": "10", "cost": "10"})
+    await runtime.async_command("commit_preview", {"token": preview["token"], "request_id": "calendar"})
+    hass.config.time_zone = "UTC"
+    await runtime.async_refresh_config()
+    client = await hass_ws_client(hass)
+    for index, period in enumerate(("daily", "monthly", "yearly"), 1):
+        await client.send_json({"id": index, "type": "charge_tally/query", "calendar_period": period, "identity_id": "car"})
+        result = (await client.receive_json())["result"]
+        snapshot = await runtime.async_snapshot()
+        assert result == next(i for i in snapshot["identities"] if i["id"] == "car")["summaries"][period]
+        assert result["energy_kwh"] == "10"
+    await client.send_json({"id": 4, "type": "charge_tally/query", "start": "2026-01-01T00:00:00Z", "end": "2026-01-02T00:00:00Z"})
+    assert (await client.receive_json())["result"]["energy_kwh"] == "0"
+    await hass.config_entries.async_unload(entry.entry_id)
