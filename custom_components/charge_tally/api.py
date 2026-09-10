@@ -221,8 +221,15 @@ async def subscribe(hass, connection, msg):
             closed = True
             unsub()
             unsub = None
+    @callback
+    def unloaded():
+        if not closed:
+            try:
+                connection.send_event(msg["id"], {"type": "unloaded"})
+            finally:
+                cancel()
     connection.subscriptions[msg["id"]] = cancel
-    runtime.entry.async_on_unload(cancel)
+    runtime.entry.async_on_unload(unloaded)
     connection.send_result(msg["id"])
     await publish()
 

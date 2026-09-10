@@ -1,4 +1,5 @@
 """Public APIs must enforce point scope before exposing ledger data."""
+import asyncio
 import pytest
 from homeassistant.auth.permissions import PolicyPermissions
 from homeassistant.helpers import entity_registry as er
@@ -102,6 +103,8 @@ async def test_subscription_reauthorizes_and_standard_cancel_is_idempotent(hass,
     await client.send_json({"id": 2, "type": "unsubscribe_events", "subscription": 1})
     assert (await client.receive_json())["success"] is True
     await hass.config_entries.async_unload(entry.entry_id)
+    await client.send_json({"id": 3, "type": "ping"})
+    assert (await client.receive_json())["type"] == "pong"
 
 
 async def test_history_missing_coverage_edit_stale_overlap_and_void(hass, tmp_path, hass_ws_client):
@@ -207,11 +210,19 @@ async def test_subscription_ignores_foreign_change_and_reload_resolves_new_runti
     assert event["summary"]["active_count"] == 0
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
+    terminal = await asyncio.wait_for(client.receive_json(), 2)
+    assert terminal == {"id": 1, "type": "event", "event": {"type": "unloaded"}}
     await client.send_json({"id": 2, "type": "charge_tally/snapshot"})
     assert (await client.receive_json())["result"]["points"][0]["selected_identity_id"] == "car"
     await client.send_json({"id": 3, "type": "unsubscribe_events", "subscription": 1})
     assert (await client.receive_json())["success"]
+    await client.send_json({"id": 4, "type": "charge_tally/subscribe"})
+    assert (await client.receive_json())["success"]
+    fresh = (await client.receive_json())["event"]
+    assert fresh["generation"] == 1
+    assert fresh["points"][0]["selected_identity_id"] == "car"
     await hass.config_entries.async_unload(entry.entry_id)
+    assert (await client.receive_json())["event"] == {"type": "unloaded"}
 
 
 async def test_anchor_rename_tracks_permissions_and_wrong_owner_fails_closed(hass, tmp_path, hass_ws_client, hass_read_only_access_token, hass_read_only_user):

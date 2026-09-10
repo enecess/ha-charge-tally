@@ -1,4 +1,6 @@
 """Frontend resources use the real HA storage collection."""
+import re
+from urllib.parse import urljoin, urlsplit
 from homeassistant.components.lovelace import LovelaceData
 from homeassistant.components.lovelace.const import LOVELACE_DATA
 from homeassistant.components.lovelace.resources import ResourceStorageCollection, ResourceYAMLCollection
@@ -21,6 +23,21 @@ async def test_resource_registration_is_idempotent_and_serves_only_www(hass, tmp
     client = await hass_client()
     response = await client.get("/charge_tally/ledger.sqlite3")
     assert response.status == 404
+    # Fetch the actual module graph, including versioned relative imports.
+    queue, seen = [frontend.CARD_URL], set()
+    while queue:
+        url = queue.pop()
+        if url in seen:
+            continue
+        seen.add(url)
+        assert urlsplit(url).query == urlsplit(frontend.CARD_URL).query
+        response = await client.get(url)
+        assert response.status == 200
+        assert "javascript" in response.headers["Content-Type"]
+        assert "max-age" in response.headers["Cache-Control"]
+        source = await response.text()
+        queue.extend(urljoin(url, path) for path in re.findall(r"^import\s+(?:[^'\"]*?\s+from\s+)?['\"]([^'\"]+)['\"]", source, re.MULTILINE))
+    assert len(seen) == 6
 
 
 async def test_yaml_resources_return_manual_module_configuration(hass, hass_client):
