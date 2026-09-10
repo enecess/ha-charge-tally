@@ -1,0 +1,196 @@
+{
+  "title": "Charge Tally",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Charge Tally ledger",
+        "description": "Confirm the ledger currency. It cannot be changed after setup.",
+        "data": {
+          "currency": "Currency"
+        }
+      }
+    },
+    "error": {
+      "invalid_currency": "Choose a valid three-letter currency code."
+    },
+    "abort": {
+      "single_instance_allowed": "Only one Charge Tally ledger is supported.",
+      "already_configured": "Charge Tally is already configured."
+    }
+  },
+  "config_subentries": {
+    "point": {
+      "entry_type": "Charging point",
+      "initiate_flow": {
+        "user": "Add charging point",
+        "reconfigure": "Configure charging point"
+      },
+      "step": {
+        "user": {
+          "title": "Charging point",
+          "data": {
+            "name": "Name",
+            "input_mode": "Energy input mode"
+          }
+        },
+        "input": {
+          "title": "Measurement sources",
+          "sections": {
+            "measurement": {
+              "name": "Measurement and detection",
+              "data": {
+                "energy_entity": "Cumulative energy sensor",
+                "power_entity": "Power sensor",
+                "resetting": "Meter may reset",
+                "max_gap_seconds": "Maximum allocation interval (seconds)",
+                "detection_enabled": "Automatic charging detection"
+              },
+              "data_description": {
+                "resetting": "A falling meter reading marks an incomplete reset interval.",
+                "max_gap_seconds": "Longer intervals become gaps requiring review. Default: 600 seconds."
+              }
+            }
+          }
+        },
+        "detection": {
+          "title": "Automatic detection",
+          "data": {
+            "start_w": "Start threshold (W)",
+            "end_w": "End threshold (W)",
+            "start_seconds": "Start duration (seconds)",
+            "end_seconds": "End duration (seconds)"
+          }
+        },
+        "price": {
+          "title": "Electricity pricing",
+          "data": {
+            "mode": "Price mode"
+          }
+        },
+        "static": {
+          "title": "Static price",
+          "description": "Enter {currency}/kWh. Zero and negative prices are supported.",
+          "data": {
+            "value": "Price per kWh"
+          }
+        },
+        "dynamic": {
+          "title": "Dynamic price",
+          "data": {
+            "entity_id": "Price sensor",
+            "unit": "Confirmed unit"
+          },
+          "data_description": {
+            "unit": "Required when the source has no unit. A conflicting source currency cannot be overridden."
+          }
+        },
+        "tou": {
+          "title": "Daily time-of-use schedule",
+          "description": "Current periods:\n{schedule}\n\nAdd, edit or remove periods, then finish after the full day is covered.",
+          "data": {
+            "action": "Action",
+            "row": "Period"
+          }
+        },
+        "tou_row": {
+          "title": "Edit price period",
+          "description": "Use HH:MM. Enter 24:00 for end of day. A period such as 22:00–06:00 crosses midnight.",
+          "data": {
+            "start": "Start time",
+            "end": "End time (24:00 = end of day)",
+            "price": "Price per kWh"
+          }
+        },
+        "finish": {
+          "title": "Period statistics and summary",
+          "description": "{summary}\n\nCreate native energy meters for the selected periods. Billing follows the ledger's price history.",
+          "data": {
+            "periods": "Energy statistics periods"
+          }
+        }
+      },
+      "error": {
+        "invalid_name": "Enter a name.",
+        "invalid_currency": "Choose a valid three-letter currency code.",
+        "invalid_identity": "Choose whether this identity is enabled.",
+        "duplicate_name": "An identity with this name already exists.",
+        "invalid_input_mode": "Choose an input mode.",
+        "invalid_source": "Select an existing numeric, nonnegative sensor.",
+        "invalid_energy_source": "Use a cumulative Wh, kWh or MWh sensor with total or total_increasing state class.",
+        "invalid_power_source": "Use a power sensor measured in W or kW.",
+        "duplicate_source": "This source is already assigned to a charging point.",
+        "invalid_detection": "The end threshold must be below the start threshold; durations must be positive.",
+        "invalid_gap": "The maximum allocation interval must be positive.",
+        "invalid_price": "Enter a finite price; zero and negative prices are allowed.",
+        "invalid_price_unit": "Use this ledger's currency per Wh, kWh or MWh. Confirm the unit if the source has none.",
+        "invalid_schedule": "Periods must cover the entire day without gaps or overlaps.",
+        "invalid_row": "Select a row, or enter HH:MM times and a finite price. Use 24:00 for end of day; equal endpoints are invalid.",
+        "invalid_periods": "Select daily, monthly or yearly statistics without duplicates."
+      },
+      "abort": {
+        "single_instance_allowed": "Only one Charge Tally ledger is supported.",
+        "already_configured": "Charge Tally is already configured.",
+        "reconfigure_successful": "Configuration updated.",
+        "point_busy": "End the current record or detection candidate before changing measurement or detection settings.",
+        "runtime_unavailable": "The ledger must be loaded to safely change measurement or detection settings.",
+        "config_changed": "This point was changed by another action. Reopen configuration."
+      }
+    },
+    "identity": {
+      "entry_type": "Identity",
+      "initiate_flow": {
+        "user": "Add shared identity",
+        "reconfigure": "Configure identity"
+      },
+      "step": {
+        "user": {
+          "title": "Shared identity",
+          "description": "Identities are shared across charging points. Disabling or deleting one keeps historical record ownership.",
+          "data": {
+            "name": "Name",
+            "enabled": "Enabled"
+          }
+        }
+      },
+      "error": {
+        "invalid_name": "Enter a name.",
+        "invalid_identity": "Choose whether this identity is enabled.",
+        "duplicate_name": "An identity with this name already exists."
+      },
+      "abort": {
+        "reconfigure_successful": "Configuration updated."
+      }
+    }
+  },
+  "selector": {
+    "input_mode": {
+      "options": {
+        "energy": "Energy only",
+        "power": "Power only (native Integral)",
+        "energy_power": "Energy and power"
+      }
+    },
+    "price_mode": {
+      "options": {
+        "static": "Static",
+        "dynamic": "Dynamic sensor",
+        "tou": "Daily time-of-use"
+      }
+    },
+    "periods": {
+      "options": {
+        "daily": "Daily",
+        "monthly": "Monthly",
+        "yearly": "Yearly"
+      }
+    },
+    "schedule_action": {
+      "options": {
+        "add": "Add period",
+        "edit": "Edit period",
+        "remove": "Remove period",
+        "finish": "Finish schedule"
+      }
+    }
+  }
+}

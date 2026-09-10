@@ -1,0 +1,14 @@
+{
+  "domain": "charge_tally",
+  "name": "Charge Tally",
+  "documentation": "https://github.com/enecess/ha-charge-tally",
+  "issue_tracker": "https://github.com/enecess/ha-charge-tally/issues",
+  "version": "0.1.0",
+  "config_flow": true,
+  "integration_type": "helper",
+  "iot_class": "calculated",
+  "dependencies": ["sensor"],
+  "after_dependencies": ["integration", "utility_meter"],
+  "codeowners": [],
+  "requirements": []
+}

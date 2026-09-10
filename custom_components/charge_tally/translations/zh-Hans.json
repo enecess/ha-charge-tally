@@ -1,0 +1,196 @@
+{
+  "title": "Charge Tally",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Charge Tally 账本",
+        "description": "确认账本币种，配置完成后不能直接修改。",
+        "data": {
+          "currency": "币种"
+        }
+      }
+    },
+    "error": {
+      "invalid_currency": "请输入有效的三字母币种代码。"
+    },
+    "abort": {
+      "single_instance_allowed": "只支持一个 Charge Tally 账本主条目。",
+      "already_configured": "Charge Tally 已配置。"
+    }
+  },
+  "config_subentries": {
+    "point": {
+      "entry_type": "充电点",
+      "initiate_flow": {
+        "user": "添加充电点",
+        "reconfigure": "配置充电点"
+      },
+      "step": {
+        "user": {
+          "title": "充电点",
+          "data": {
+            "name": "名称",
+            "input_mode": "用电输入模式"
+          }
+        },
+        "input": {
+          "title": "用电数据",
+          "sections": {
+            "measurement": {
+              "name": "计量与识别",
+              "data": {
+                "energy_entity": "累计电量实体",
+                "power_entity": "功率实体",
+                "resetting": "表底可能重置",
+                "max_gap_seconds": "最大自动分摊间隔（秒）",
+                "detection_enabled": "智能充电识别"
+              },
+              "data_description": {
+                "resetting": "表底下降时按重置处理，并标记该区间不完整。",
+                "max_gap_seconds": "更长的区间标记为数据缺口，需要复核。默认 600 秒。"
+              }
+            }
+          }
+        },
+        "detection": {
+          "title": "智能识别参数",
+          "data": {
+            "start_w": "开始阈值（W）",
+            "end_w": "结束阈值（W）",
+            "start_seconds": "开始持续时间（秒）",
+            "end_seconds": "结束持续时间（秒）"
+          }
+        },
+        "price": {
+          "title": "电价模式",
+          "data": {
+            "mode": "电价模式"
+          }
+        },
+        "static": {
+          "title": "固定电价",
+          "description": "请输入 {currency}/kWh 单价，允许零和负电价。",
+          "data": {
+            "value": "每 kWh 单价"
+          }
+        },
+        "dynamic": {
+          "title": "动态电价",
+          "data": {
+            "entity_id": "电价实体",
+            "unit": "确认单位"
+          },
+          "data_description": {
+            "unit": "源实体没有单位时必须选择；不能覆盖源实体中不匹配的币种。"
+          }
+        },
+        "tou": {
+          "title": "每日分时电价",
+          "description": "当前时段：\n{schedule}\n\n逐项新增、编辑或移除时段，完整覆盖一天后完成。",
+          "data": {
+            "action": "操作",
+            "row": "时段"
+          }
+        },
+        "tou_row": {
+          "title": "编辑电价时段",
+          "description": "使用 HH:MM 格式，当天结束填 24:00。支持 22:00–06:00 这样的跨午夜时段。",
+          "data": {
+            "start": "开始时刻",
+            "end": "结束时刻（24:00 为当天结束）",
+            "price": "每 kWh 单价"
+          }
+        },
+        "finish": {
+          "title": "周期统计与摘要",
+          "description": "{summary}\n\n为所选周期创建原生电量统计辅助元素，费用由账本价格历史计算。",
+          "data": {
+            "periods": "电量统计周期"
+          }
+        }
+      },
+      "error": {
+        "invalid_name": "请输入名称。",
+        "invalid_currency": "请输入有效的三字母币种代码。",
+        "invalid_identity": "请选择是否启用此身份。",
+        "duplicate_name": "已有同名身份。",
+        "invalid_input_mode": "请选择用电输入模式。",
+        "invalid_source": "请选择现有的数值型传感器；数值必须非负。",
+        "invalid_energy_source": "请选择单位为 Wh、kWh 或 MWh，状态类别为 total 或 total_increasing 的累计电量传感器。",
+        "invalid_power_source": "请选择单位为 W 或 kW 的功率传感器。",
+        "duplicate_source": "此源实体已被充电点使用，不能重复计量。",
+        "invalid_detection": "结束阈值必须低于开始阈值；阈值须非负，持续时间必须大于零。",
+        "invalid_gap": "最大自动分摊间隔必须大于零。",
+        "invalid_price": "请输入有效的有限单价，允许零和负电价。",
+        "invalid_price_unit": "电价单位必须为账本币种每 Wh、kWh 或 MWh；源实体无单位时请明确选择。",
+        "invalid_schedule": "时段必须完整覆盖一天，不能重叠或留空。",
+        "invalid_row": "请选择时段，或输入 HH:MM 起止时刻与有效单价。当天结束可填 24:00；起止时刻不能相同。",
+        "invalid_periods": "请选择不重复的日、月、年统计周期。"
+      },
+      "abort": {
+        "single_instance_allowed": "只支持一个 Charge Tally 账本主条目。",
+        "already_configured": "Charge Tally 已配置。",
+        "reconfigure_successful": "配置已更新。",
+        "point_busy": "更改计量或识别设置前，请先结束当前记账并等待识别候选状态结束。",
+        "runtime_unavailable": "账本运行实例尚未加载，暂时无法安全更改计量或识别设置。",
+        "config_changed": "此充电点配置已被其他操作修改，请重新打开配置。"
+      }
+    },
+    "identity": {
+      "entry_type": "身份",
+      "initiate_flow": {
+        "user": "添加共享身份",
+        "reconfigure": "配置身份"
+      },
+      "step": {
+        "user": {
+          "title": "共享身份",
+          "description": "所有充电点共享身份。停用或删除配置后，历史记录仍保留原身份归属。",
+          "data": {
+            "name": "名称",
+            "enabled": "启用"
+          }
+        }
+      },
+      "error": {
+        "invalid_name": "请输入名称。",
+        "invalid_identity": "请选择是否启用此身份。",
+        "duplicate_name": "已有同名身份。"
+      },
+      "abort": {
+        "reconfigure_successful": "配置已更新。"
+      }
+    }
+  },
+  "selector": {
+    "input_mode": {
+      "options": {
+        "energy": "仅电量",
+        "power": "仅功率（原生 Integral）",
+        "energy_power": "电量加功率"
+      }
+    },
+    "price_mode": {
+      "options": {
+        "static": "固定",
+        "dynamic": "动态实体",
+        "tou": "每日分时"
+      }
+    },
+    "periods": {
+      "options": {
+        "daily": "日",
+        "monthly": "月",
+        "yearly": "年"
+      }
+    },
+    "schedule_action": {
+      "options": {
+        "add": "添加时段",
+        "edit": "编辑时段",
+        "remove": "移除时段",
+        "finish": "完成时段配置"
+      }
+    }
+  }
+}
