@@ -1,4 +1,4 @@
-"""Register only the packaged card directory and a Lovelace module resource."""
+"""Register the local card directory and a dashboard resource."""
 import asyncio
 from pathlib import Path
 
@@ -8,7 +8,7 @@ from homeassistant.const import EVENT_COMPONENT_LOADED
 from homeassistant.core import callback
 from homeassistant.setup import async_setup_component
 
-CARD_URL = "/charge_tally/charge-tally-card.js?v=0.1.1"
+CARD_URL = "/charge_tally/charge-tally-card.js?v=0.1.2"
 
 
 async def async_register(hass):
@@ -20,7 +20,8 @@ async def async_register(hass):
             ])
             hass.data["charge_tally_static_registered"] = True
         lovelace = hass.data.get(LOVELACE_DATA)
-        manual = lovelace is None or lovelace.resource_mode != "storage"
+        mode = getattr(lovelace, "resource_mode", getattr(lovelace, "mode", None))
+        manual = mode != "storage"
         if not manual:
             resources = lovelace.resources
             await resources.async_get_info()

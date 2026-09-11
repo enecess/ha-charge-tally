@@ -185,11 +185,29 @@ async def test_manual_record_with_configured_detector_stays_charging_and_cannot_
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_unavailable_source_immediately_prevents_manual_start(hass, tmp_path):
-    entry, runtime = await setup_runtime(hass, tmp_path)
-    hass.states.async_set("sensor.energy", "unavailable", ENERGY)
+@pytest.mark.parametrize("mode", ["energy", "energy_power", "power"])
+async def test_unavailable_source_immediately_prevents_manual_start(hass, tmp_path, mode):
+    entry, runtime = await setup_runtime(hass, tmp_path, mode=mode)
+    source, attrs = ("sensor.power", POWER) if mode == "power" else ("sensor.energy", ENERGY)
+    hass.states.async_set(source, "unavailable", attrs)
     with pytest.raises(ValueError):
         await runtime.async_command("start", {"point_id": "point", "request_id": "r1"})
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.parametrize("public", [False, True])
+async def test_source_unavailable_rejects_new_start_but_preserves_completed_request_replay(hass, tmp_path, public):
+    entry, runtime = await setup_runtime(hass, tmp_path)
+    async def start(request_id):
+        payload = {"point_id": "point", "request_id": request_id}
+        if public:
+            return await runtime.async_public_command("start", payload, "test-user", lambda: None)
+        return await runtime.async_command("start", payload)
+    first = await start("original")
+    hass.states.async_set("sensor.energy", "unavailable", ENERGY)
+    assert await start("original") == first
+    with pytest.raises(ValueError, match="valid measurement baseline"):
+        await start("new-intent")
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

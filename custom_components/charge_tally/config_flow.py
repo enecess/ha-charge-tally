@@ -4,7 +4,8 @@ import re
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow, ConfigSubentryFlow, FlowType
+from homeassistant import config_entries
+from homeassistant.config_entries import ConfigFlow, ConfigSubentryFlow
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers import config_validation as cv, selector
@@ -14,6 +15,9 @@ from .const import DOMAIN, INPUT_MODES, NAME, PERIODS, RESTRICTED_POINT_FIELDS
 from .config_validation import validate_detection, validate_identity_name, validate_name, validate_point, validate_price
 from .core.units import decimal_value, price_per_kwh
 from .ledger import retained_currency
+
+
+_NEXT_SUBENTRY_FLOW = getattr(getattr(config_entries, "FlowType", None), "CONFIG_SUBENTRIES_FLOW", None)
 
 
 def _choice(options, *, multiple=False, translation_key=None):
@@ -71,10 +75,12 @@ class ChargeTallyConfigFlow(ConfigFlow, domain=DOMAIN):
         }), errors=errors)
 
     async def async_on_create_entry(self, result):
+        if _NEXT_SUBENTRY_FLOW is None:
+            return result
         next_result = await self.hass.config_entries.subentries.async_init(
             (result["result"].entry_id, "point"), context={"source": "user"},
         )
-        result["next_flow"] = (FlowType.CONFIG_SUBENTRIES_FLOW, next_result["flow_id"])
+        result["next_flow"] = (_NEXT_SUBENTRY_FLOW, next_result["flow_id"])
         return result
 
 
@@ -84,7 +90,7 @@ class IdentitySubentryFlow(ConfigSubentryFlow):
         return await self.async_step_user(user_input)
 
     async def async_step_user(self, user_input=None):
-        entry = self._get_entry()
+        entry = self.hass.config_entries.async_get_known_entry(self.handler[0])
         editing = self._get_reconfigure_subentry() if self.source == "reconfigure" else None
         defaults = editing.data if editing else {"name": "", "enabled": True}
         errors = {}
@@ -239,7 +245,7 @@ class PointSubentryFlow(ConfigSubentryFlow):
                 return await self.async_step_finish()
         return self.async_show_form(step_id="static", data_schema=vol.Schema({
             vol.Required("value", default=self._data["price"].get("value", "")): selector.TextSelector(),
-        }), description_placeholders={"currency": self._get_entry().data["currency"]}, errors=errors)
+        }), description_placeholders={"currency": self.hass.config_entries.async_get_known_entry(self.handler[0]).data["currency"]}, errors=errors)
 
     def _dynamic_price(self, values):
         state = self.hass.states.get(values.get("entity_id", ""))
@@ -248,7 +254,7 @@ class PointSubentryFlow(ConfigSubentryFlow):
         source_unit = state.attributes.get("unit_of_measurement")
         unit = source_unit or values.get("unit")
         try:
-            price_per_kwh(0, unit, self._get_entry().data["currency"])
+            price_per_kwh(0, unit, self.hass.config_entries.async_get_known_entry(self.handler[0]).data["currency"])
             if source_unit and values.get("unit") and values["unit"] != source_unit:
                 raise ValueError
         except ValueError as err:
@@ -264,7 +270,7 @@ class PointSubentryFlow(ConfigSubentryFlow):
                 errors["base"] = str(err)
             else:
                 return await self.async_step_finish()
-        currency = self._get_entry().data["currency"]
+        currency = self.hass.config_entries.async_get_known_entry(self.handler[0]).data["currency"]
         fields = {vol.Required("entity_id"): _entity(), vol.Optional("unit"): _choice([f"{currency}/{unit}" for unit in ("Wh", "kWh", "MWh")])}
         schema = self.add_suggested_values_to_schema(vol.Schema(fields), self._data["price"])
         return self.async_show_form(step_id="dynamic", data_schema=schema, errors=errors)
@@ -328,7 +334,7 @@ class PointSubentryFlow(ConfigSubentryFlow):
     async def async_step_finish(self, user_input=None):
         errors = {}
         if user_input is not None:
-            entry = self._get_entry()
+            entry = self.hass.config_entries.async_get_known_entry(self.handler[0])
             editing = self._get_reconfigure_subentry() if self.source == "reconfigure" else None
             existing = [dict(sub.data) for sub in entry.subentries.values() if sub.subentry_type == "point" and sub != editing]
             try:

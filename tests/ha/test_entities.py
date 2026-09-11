@@ -1,6 +1,7 @@
 """Entity registry anchors, native periods, and mutable identity summaries."""
 from decimal import Decimal
-from types import MappingProxyType
+from types import MappingProxyType, SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
@@ -32,6 +33,26 @@ async def test_entities_publish_live_record_and_identity_totals(hass, tmp_path, 
     assert Decimal(hass.states.get(entity("car", "total_energy")).state) == 0
     registry.async_update_entity(select_id, new_entity_id="select.renamed_identity")
     assert (await runtime.async_snapshot())["points"][0]["identity_entity_id"] == "select.renamed_identity"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.parametrize("override", [
+    {"config_subentry_id": "car"}, {"config_entry_id": "another_entry"},
+    {"platform": "another_integration"}, {"unique_id": "another_entity"},
+    {"disabled": True},
+])
+async def test_rename_repair_does_not_adopt_unowned_or_disabled_entity(hass, tmp_path, override):
+    entry, _ = await setup_runtime(hass, tmp_path)
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id("select", "charge_tally", entry.entry_id + ":point:identity")
+    entity = hass.data["select"].get_entity(entity_id)
+    candidate = SimpleNamespace(config_subentry_id=None, config_entry_id=entry.entry_id,
+                                platform="charge_tally", unique_id=entity.unique_id, disabled=False)
+    for key, value in override.items():
+        setattr(candidate, key, value)
+    with patch.object(registry, "async_get", return_value=candidate), patch.object(registry, "async_update_entity") as update:
+        await entity.async_added_to_hass()
+        update.assert_not_called()
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

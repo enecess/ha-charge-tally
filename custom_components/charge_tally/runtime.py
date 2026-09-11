@@ -14,6 +14,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 
 from .accounting import instant
+from .core.units import energy_kwh, power_w
 from .native_helpers import NativeHelpers, HelperSetupError
 from .runtime_store import RuntimeStore
 from .history import HistorySource
@@ -64,9 +65,33 @@ class Runtime:
                     raise ValueError("Runtime is closed")
                 if authorize is not None:
                     authorize()
-                result, snapshot = await self._worker(self._store.apply, method, *args)
+                arguments = args
+                if method in ("command", "public_command") and args[0] == "start":
+                    arguments = (*args, self._measurement_available(args[1]["point_id"]))
+                result, snapshot = await self._worker(self._store.apply, method, *arguments)
                 self._publish(snapshot)
                 return result
+
+    def _measurement_available(self, point_id):
+        """Check current HA state even when its change event has not run yet."""
+        point = self.points.get(point_id)
+        if point is None:
+            return False
+        entity_id = (self._helper_results.get(point_id, {}).get("integral_entity_id")
+                     if point["input_mode"] == "power" else point.get("energy_entity"))
+        state = self.hass.states.get(entity_id) if entity_id else None
+        if state is None or state.attributes.get("state_class") not in ("total", "total_increasing"):
+            return False
+        try:
+            energy_kwh(state.state, state.attributes.get("unit_of_measurement"))
+            if point["input_mode"] == "power":
+                power = self.hass.states.get(point["power_entity"])
+                if power is None:
+                    return False
+                power_w(power.state, power.attributes.get("unit_of_measurement"))
+        except (ValueError, TypeError):
+            return False
+        return True
 
     def _publish(self, snapshot):
         self._revision += 1

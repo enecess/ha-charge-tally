@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from homeassistant.config_entries import ConfigFlow
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -85,11 +86,41 @@ async def test_single_entry_currency_and_point_onboarding(hass):
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"currency": "CNY"})
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["data"] == {"currency": "CNY"}
-    assert result["next_flow"][0] == "config_subentries_flow"
-    next_flow = hass.config_entries.subentries.async_get(result["next_flow"][1])
-    assert next_flow is not None
+    if hasattr(ConfigFlow, "async_on_create_entry"):
+        assert result["next_flow"][0] == "config_subentries_flow"
+        next_flow = hass.config_entries.subentries.async_get(result["next_flow"][1])
+        assert next_flow is not None
+    else:
+        assert "next_flow" not in result
+        manual = await hass.config_entries.subentries.async_init(
+            (result["result"].entry_id, "point"), context={"source": "user"},
+        )
+        assert manual["type"] == FlowResultType.FORM
+        assert manual["step_id"] == "user"
     duplicate = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
     assert duplicate["reason"] == "single_instance_allowed"
+
+
+async def test_older_ha_does_not_start_an_unreachable_followup_flow(hass, entry, monkeypatch):
+    from custom_components.charge_tally import config_flow
+    monkeypatch.setattr(config_flow, "_NEXT_SUBENTRY_FLOW", None, raising=False)
+    flow = config_flow.ChargeTallyConfigFlow()
+    flow.hass = hass
+    result = {"type": FlowResultType.CREATE_ENTRY, "result": entry}
+    before = hass.config_entries.subentries.async_progress()
+    assert await flow.async_on_create_entry(result) == result
+    assert "next_flow" not in result
+    assert hass.config_entries.subentries.async_progress() == before
+
+
+async def test_identity_form_without_newer_parent_entry_helper(hass, entry, monkeypatch):
+    from custom_components.charge_tally.config_flow import IdentitySubentryFlow
+    monkeypatch.setattr(IdentitySubentryFlow, "_get_entry", None, raising=False)
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, "identity"), context={"source": "user"},
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "user"
 
 
 @pytest.mark.parametrize(("mode", "detection"), [("energy", False), ("power", False), ("power", True), ("energy_power", True)])

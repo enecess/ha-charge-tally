@@ -28,6 +28,17 @@ class TallyEntity(Entity):
         return next((p for p in self.runtime.snapshot["points"] if p["id"] == self.id_), None)
 
     async def async_added_to_hass(self):
+        # Older HA versions drop the subentry when re-adding a renamed entity.
+        registry = er.async_get(self.hass)
+        registered = registry.async_get(self.entity_id)
+        entry = self.runtime.entry
+        if (registered is not None and registered.config_subentry_id is None
+                and registered.platform == "charge_tally"
+                and registered.config_entry_id == entry.entry_id
+                and registered.unique_id == self.unique_id
+                and self.id_ in entry.subentries and not registered.disabled):
+            self.registry_entry = registry.async_update_entity(
+                self.entity_id, config_subentry_id=self.id_)
         self.async_on_remove(async_dispatcher_connect(self.hass, self.runtime.update_signal, self._updated))
 
     @callback

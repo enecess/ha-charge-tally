@@ -43,8 +43,9 @@ async def test_flow_helpers_live_history_transfer_and_reload(hass, tmp_path, fre
     assert result["type"] == FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
     entry = result["result"]
-    # Close the automatic onboarding form before explicitly exercising both paths.
-    hass.config_entries.subentries.async_abort(result["next_flow"][1])
+    # Older HA opens the first point manually from the integration page.
+    if "next_flow" in result:
+        hass.config_entries.subentries.async_abort(result["next_flow"][1])
     point_a = await add_point(hass, entry, "Metered garage", "energy")
     point_b = await add_point(hass, entry, "Power garage", "power")
     identities = []

@@ -1,8 +1,8 @@
-import en from './locales/en.js?v=0.1.1';
-import zhHans from './locales/zh-Hans.js?v=0.1.1';
-import de from './locales/de.js?v=0.1.1';
-import fr from './locales/fr.js?v=0.1.1';
-import pl from './locales/pl.js?v=0.1.1';
+import en from './locales/en.js?v=0.1.2';
+import zhHans from './locales/zh-Hans.js?v=0.1.2';
+import de from './locales/de.js?v=0.1.2';
+import fr from './locales/fr.js?v=0.1.2';
+import pl from './locales/pl.js?v=0.1.2';
 
 const catalogs = {en, 'zh-Hans': zhHans, de, fr, pl};
 

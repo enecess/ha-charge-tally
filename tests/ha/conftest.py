@@ -1,4 +1,4 @@
-"""Fixtures use the pinned, real Linux Home Assistant runtime."""
+"""Fixtures exercise the real Home Assistant runtime."""
 import pytest
 import custom_components.charge_tally  # Load the worktree before HA adjusts package paths.
 

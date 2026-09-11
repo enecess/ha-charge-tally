@@ -1,4 +1,0 @@
-# Linux Python 3.14; acceptance baseline, independent of core unittest tests.
-homeassistant==2026.9.1
-pytest-homeassistant-custom-component==0.13.364
-pytest==9.0.3

@@ -282,7 +282,7 @@ class RuntimeStore:
                 self.accounting.end(active["id"], instant(event["at"]), uuid4().hex)
         state["detector"] = detector.snapshot()
 
-    def command(self, command, payload, now):
+    def command(self, command, payload, now, source_available=True):
         if command not in ("start", "end", "commit_preview"):
             return self._command(command, payload, now)
         key = "runtime_request:" + payload["request_id"]
@@ -291,7 +291,7 @@ class RuntimeStore:
             if previous["command"] != command or previous["payload"] != payload:
                 raise ValueError("Request ID reused with different content")
             return previous["result"]
-        result = self._command(command, payload, now)
+        result = self._command(command, payload, now, source_available)
         self.ledger.put_checkpoint(key, {"command": command, "payload": payload, "result": result})
         return result
 
@@ -299,7 +299,7 @@ class RuntimeStore:
         self.ledger.put_checkpoint("api_preview:" + token, {"principal": principal, "point_id": point_id,
             "expected_revision": expected_revision})
 
-    def public_command(self, command, payload, principal, now):
+    def public_command(self, command, payload, principal, now, source_available=True):
         from hashlib import sha256
         key = sha256((principal + ":" + payload["request_id"]).encode()).hexdigest()
         previous = self.ledger.get_checkpoint("api_request:" + key)
@@ -321,17 +321,17 @@ class RuntimeStore:
             data["request_id"] = "api:" + key
         if command == "commit":
             data.pop("expected_revision", None)
-        result = self.command("commit_preview" if command == "commit" else command, data, now)
+        result = self.command("commit_preview" if command == "commit" else command, data, now, source_available)
         self.ledger.put_checkpoint("api_request:" + key, {"command": command, "payload": payload, "result": result})
         return result
 
-    def _command(self, command, payload, now):
+    def _command(self, command, payload, now, source_available=True):
         data = dict(payload)
         if command == "start":
             point_id = data["point_id"]
             state = self.states[point_id]
             request_id = data["request_id"]
-            if not state.get("available") and self.ledger.get_request(request_id) is None:
+            if (not source_available or not state.get("available")) and self.ledger.get_request(request_id) is None:
                 raise ValueError("A valid measurement baseline is required; use historical entry")
             # Persist the original instant for retries that omit it.
             key = "command_time:" + request_id

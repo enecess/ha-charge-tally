@@ -1,5 +1,6 @@
 """Frontend resources use the real HA storage collection."""
 import re
+from types import SimpleNamespace
 from urllib.parse import urljoin, urlsplit
 from homeassistant.components.lovelace import LovelaceData
 from homeassistant.components.lovelace.const import LOVELACE_DATA
@@ -51,6 +52,16 @@ async def test_yaml_resources_return_manual_module_configuration(hass, hass_clie
     result = await frontend.async_register(hass)
     assert result == {"url": frontend.CARD_URL, "type": "module", "manual": True}
     assert resources.async_items() == []
+
+
+async def test_older_dashboard_mode_registers_the_card_without_duplicates(hass):
+    assert await async_setup_component(hass, "http", {})
+    resources = ResourceStorageCollection(hass, LovelaceStorage(hass, None))
+    hass.data[LOVELACE_DATA] = SimpleNamespace(mode="storage", resources=resources)
+    from custom_components.charge_tally import frontend
+    assert (await frontend.async_register(hass))["manual"] is False
+    await frontend.async_register(hass)
+    assert [item["url"] for item in resources.async_items()] == [frontend.CARD_URL]
 
 
 async def test_frontend_setup_failure_closes_runtime_and_removes_public_runtime(hass, tmp_path, monkeypatch):
