@@ -1,0 +1,385 @@
+{
+  "title": "Charge Tally",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Registro contabile Charge Tally",
+        "description": "Tutti i punti di ricarica e le registrazioni condividono questa valuta. Prima di aggiungere il primo punto di ricarica, puoi modificarla tramite Configura nella pagina dell’integrazione, purché il registro contabile non contenga dati contabili conservati. La valuta viene bloccata non appena esiste un punto, uno storico dei prezzi, dati del contatore o una registrazione, anche se il punto viene successivamente rimosso. Le sole identità non la bloccano. I prezzi dinamici devono utilizzare la stessa valuta; gli importi non vengono mai convertiti automaticamente. Quando ripristini un registro contabile conservato, seleziona prima la sua valuta originale.",
+        "data": {
+          "currency": "Valuta"
+        }
+      }
+    },
+    "error": {
+      "invalid_currency": "Scegli un codice valuta valido di tre lettere.",
+      "currency_mismatch": "Il registro contabile conservato utilizza un’altra valuta. Usa la sua valuta originale."
+    },
+    "abort": {
+      "single_instance_allowed": "È supportato un solo registro contabile Charge Tally.",
+      "already_configured": "Charge Tally è già configurato.",
+      "currency_unbound": "Questo registro contabile di una versione preliminare non ha una valuta associata. Esegui un backup e conferma esplicitamente la sua valuta originale prima del ripristino."
+    }
+  },
+  "config_subentries": {
+    "point": {
+      "entry_type": "Punto di ricarica",
+      "initiate_flow": {
+        "user": "Aggiungi punto di ricarica",
+        "reconfigure": "Configura punto di ricarica"
+      },
+      "step": {
+        "user": {
+          "title": "Punto di ricarica",
+          "data": {
+            "name": "Nome",
+            "input_mode": "Modalità di acquisizione dell’energia"
+          }
+        },
+        "input": {
+          "title": "Fonti di misurazione",
+          "sections": {
+            "measurement": {
+              "name": "Misurazione e rilevamento",
+              "data": {
+                "energy_entity": "Sensore di energia cumulativa",
+                "power_entity": "Sensore di potenza",
+                "resetting": "Il contatore può azzerarsi",
+                "max_gap_seconds": "Intervallo massimo di ripartizione (secondi)",
+                "detection_enabled": "Rilevamento automatico della ricarica"
+              },
+              "data_description": {
+                "resetting": "Una diminuzione della lettura del contatore indica un intervallo di azzeramento incompleto.",
+                "max_gap_seconds": "Gli intervalli più lunghi diventano lacune da verificare. Valore predefinito: 600 secondi."
+              }
+            }
+          }
+        },
+        "detection": {
+          "title": "Rilevamento automatico",
+          "data": {
+            "start_w": "Soglia di avvio (W)",
+            "end_w": "Soglia di fine (W)",
+            "start_seconds": "Durata di avvio (secondi)",
+            "end_seconds": "Durata di fine (secondi)"
+          }
+        },
+        "price": {
+          "title": "Tariffazione dell’energia elettrica",
+          "data": {
+            "mode": "Modalità di prezzo"
+          }
+        },
+        "static": {
+          "title": "Prezzo fisso",
+          "description": "Inserisci {currency}/kWh. Sono supportati prezzi pari a zero e negativi.",
+          "data": {
+            "value": "Prezzo per kWh"
+          }
+        },
+        "dynamic": {
+          "title": "Prezzo dinamico",
+          "data": {
+            "entity_id": "Sensore del prezzo",
+            "unit": "Unità confermata"
+          },
+          "data_description": {
+            "unit": "Obbligatoria quando la fonte non ha un’unità. Non è possibile sostituire una valuta della fonte in conflitto."
+          }
+        },
+        "tou": {
+          "title": "Programma giornaliero delle fasce orarie",
+          "description": "Fasce attuali:\n{schedule}\n\nAggiungi, modifica o rimuovi fasce, quindi completa il programma quando l’intera giornata è coperta.",
+          "data": {
+            "action": "Azione",
+            "row": "Fascia"
+          }
+        },
+        "tou_row": {
+          "title": "Modifica fascia di prezzo",
+          "description": "Usa HH:MM. Inserisci 24:00 per la fine della giornata. Una fascia come 22:00–06:00 attraversa la mezzanotte.",
+          "data": {
+            "start": "Ora di inizio",
+            "end": "Ora di fine (24:00 = fine della giornata)",
+            "price": "Prezzo per kWh"
+          }
+        },
+        "finish": {
+          "title": "Statistiche per periodo e riepilogo",
+          "description": "{summary}\n\nCrea contatori di energia nativi per i periodi selezionati. Il calcolo dei costi segue lo storico dei prezzi del registro contabile.",
+          "data": {
+            "periods": "Periodi delle statistiche energetiche"
+          }
+        }
+      },
+      "error": {
+        "invalid_name": "Inserisci un nome.",
+        "invalid_currency": "Scegli un codice valuta valido di tre lettere.",
+        "invalid_identity": "Scegli se questa identità è abilitata.",
+        "duplicate_name": "Esiste già un’identità con questo nome.",
+        "invalid_input_mode": "Scegli una modalità di acquisizione.",
+        "invalid_source": "Seleziona un sensore esistente con valori numerici non negativi.",
+        "invalid_energy_source": "Usa un sensore di energia cumulativa in Wh, kWh o MWh con classe di stato total o total_increasing.",
+        "invalid_power_source": "Usa un sensore di potenza con misurazioni in W o kW.",
+        "duplicate_source": "Questa fonte è già assegnata a un punto di ricarica.",
+        "invalid_detection": "La soglia di fine deve essere inferiore alla soglia di avvio; le durate devono essere positive.",
+        "invalid_gap": "L’intervallo massimo di ripartizione deve essere positivo.",
+        "invalid_price": "Inserisci un prezzo finito; sono ammessi prezzi pari a zero e negativi.",
+        "invalid_price_unit": "Usa la valuta di questo registro contabile per Wh, kWh o MWh. Conferma l’unità se la fonte non ne ha una.",
+        "invalid_schedule": "Le fasce devono coprire l’intera giornata senza lacune o sovrapposizioni.",
+        "invalid_row": "Seleziona una riga oppure inserisci orari in formato HH:MM e un prezzo finito. Usa 24:00 per la fine della giornata; inizio e fine non possono coincidere.",
+        "invalid_periods": "Seleziona statistiche giornaliere, mensili o annuali senza duplicati."
+      },
+      "abort": {
+        "single_instance_allowed": "È supportato un solo registro contabile Charge Tally.",
+        "already_configured": "Charge Tally è già configurato.",
+        "reconfigure_successful": "Configurazione aggiornata.",
+        "point_busy": "Termina la registrazione corrente o attendi la conclusione del rilevamento in sospeso prima di modificare le impostazioni di misurazione o rilevamento.",
+        "runtime_unavailable": "Il registro contabile deve essere caricato per modificare in sicurezza le impostazioni di misurazione o rilevamento.",
+        "config_changed": "La configurazione del punto di ricarica o del registro contabile è cambiata. Riapri la configurazione."
+      }
+    },
+    "identity": {
+      "entry_type": "Identità",
+      "initiate_flow": {
+        "user": "Aggiungi identità condivisa",
+        "reconfigure": "Configura identità"
+      },
+      "step": {
+        "user": {
+          "title": "Identità condivisa",
+          "description": "Le identità sono condivise tra i punti di ricarica. Disabilitando o eliminando un’identità, l’attribuzione delle registrazioni storiche viene conservata.",
+          "data": {
+            "name": "Nome",
+            "enabled": "Abilitata"
+          }
+        }
+      },
+      "error": {
+        "invalid_name": "Inserisci un nome.",
+        "invalid_identity": "Scegli se questa identità è abilitata.",
+        "duplicate_name": "Esiste già un’identità con questo nome."
+      },
+      "abort": {
+        "reconfigure_successful": "Configurazione aggiornata."
+      }
+    }
+  },
+  "selector": {
+    "input_mode": {
+      "options": {
+        "energy": "Solo energia",
+        "power": "Solo potenza (Integral nativo)",
+        "energy_power": "Energia e potenza"
+      }
+    },
+    "price_mode": {
+      "options": {
+        "static": "Fisso",
+        "dynamic": "Sensore dinamico",
+        "tou": "Fasce orarie giornaliere"
+      }
+    },
+    "periods": {
+      "options": {
+        "daily": "Giornaliero",
+        "monthly": "Mensile",
+        "yearly": "Annuale"
+      }
+    },
+    "schedule_action": {
+      "options": {
+        "add": "Aggiungi fascia",
+        "edit": "Modifica fascia",
+        "remove": "Rimuovi fascia",
+        "finish": "Completa programma"
+      }
+    }
+  },
+  "issues": {
+    "helper_repair": {
+      "title": "Gli aiutanti del punto di ricarica richiedono una riparazione",
+      "description": "Gli aiutanti gestiti per {name} non sono pronti: {error}. Conferma per ricreare gli aiutanti mancanti o modificati appartenenti a questa integrazione. Lo storico delle ricariche viene conservato.",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Ripara gli aiutanti gestiti",
+            "description": "Ricreare gli aiutanti mancanti o modificati appartenenti a questa integrazione?"
+          }
+        },
+        "error": {
+          "repair_failed": "Riparazione non riuscita. Controlla lo stato della fonte e degli aiutanti, quindi riprova."
+        },
+        "abort": {
+          "point_removed": "Il punto di ricarica è stato rimosso oppure l’integrazione non è in esecuzione."
+        }
+      }
+    }
+  },
+  "services": {
+    "start": {
+      "name": "Avvia contabilizzazione",
+      "description": "Avvia una registrazione all’ora corrente del server.",
+      "fields": {
+        "point_id": {
+          "name": "ID del punto di ricarica",
+          "description": "ID stabile del punto di ricarica; può essere utilizzato al posto della selezione dell’entità."
+        },
+        "identity_id": {
+          "name": "ID dell’identità",
+          "description": "ID stabile dell’identità. All’avvio viene usata per impostazione predefinita l’identità selezionata per il punto."
+        },
+        "request_id": {
+          "name": "ID della richiesta",
+          "description": "ID univoco per questa operazione. Riutilizza lo stesso ID e gli stessi campi quando riprovi."
+        },
+        "entity_id": {
+          "name": "Entità dell’identità del punto (facoltativa)",
+          "description": "Seleziona un’entità di selezione dell’identità del punto oppure inserisci un ID del punto. I riferimenti combinati devono appartenere allo stesso punto."
+        }
+      }
+    },
+    "end": {
+      "name": "Termina contabilizzazione",
+      "description": "Termina una registrazione all’ora corrente del server.",
+      "fields": {
+        "point_id": {
+          "name": "ID del punto di ricarica",
+          "description": "ID stabile del punto di ricarica; può essere utilizzato al posto della selezione dell’entità."
+        },
+        "record_id": {
+          "name": "ID della registrazione",
+          "description": "Registrazione da modificare. Senza un ID della registrazione, viene usata la registrazione attiva del punto di destinazione."
+        },
+        "expected_revision": {
+          "name": "Revisione prevista della registrazione",
+          "description": "Revisione corrente della registrazione ricavata dall’istantanea o dai dettagli della registrazione."
+        },
+        "request_id": {
+          "name": "ID della richiesta",
+          "description": "ID univoco per questa operazione. Riutilizza lo stesso ID e gli stessi campi quando riprovi."
+        },
+        "entity_id": {
+          "name": "Entità dell’identità del punto (facoltativa)",
+          "description": "Seleziona un’entità di selezione dell’identità del punto oppure inserisci un ID del punto / ID della registrazione. I riferimenti combinati devono appartenere allo stesso punto."
+        }
+      }
+    },
+    "reassign": {
+      "name": "Riassegna l’identità della registrazione",
+      "description": "Assegna l’intera registrazione a un’identità senza ricalcolarne il prezzo.",
+      "fields": {
+        "point_id": {
+          "name": "ID del punto di ricarica",
+          "description": "ID stabile del punto di ricarica; può essere utilizzato al posto della selezione dell’entità."
+        },
+        "record_id": {
+          "name": "ID della registrazione",
+          "description": "Registrazione da modificare. Senza un ID della registrazione, viene usata la registrazione attiva del punto di destinazione."
+        },
+        "identity_id": {
+          "name": "ID dell’identità",
+          "description": "ID stabile dell’identità. All’avvio viene usata per impostazione predefinita l’identità selezionata per il punto."
+        },
+        "expected_revision": {
+          "name": "Revisione prevista della registrazione",
+          "description": "Revisione corrente della registrazione ricavata dall’istantanea o dai dettagli della registrazione."
+        },
+        "request_id": {
+          "name": "ID della richiesta",
+          "description": "ID univoco per questa operazione. Riutilizza lo stesso ID e gli stessi campi quando riprovi."
+        },
+        "entity_id": {
+          "name": "Entità dell’identità del punto (facoltativa)",
+          "description": "Seleziona un’entità di selezione dell’identità del punto oppure inserisci un ID del punto / ID della registrazione. I riferimenti combinati devono appartenere allo stesso punto."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "invalid_request": {
+      "message": "Impossibile applicare la richiesta. Controlla i dati inseriti e lo stato del punto."
+    },
+    "conflict": {
+      "message": "La registrazione o la richiesta è cambiata. Aggiorna e riprova."
+    },
+    "stale_preview": {
+      "message": "L’anteprima non è più aggiornata. Crea una nuova anteprima."
+    },
+    "overlap": {
+      "message": "L’intervallo si sovrappone a un’altra registrazione di questo punto."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "energy": {
+        "name": "{name} Energia"
+      },
+      "status": {
+        "name": "{name} Stato"
+      },
+      "record_energy": {
+        "name": "{name} Energia della registrazione"
+      },
+      "record_cost": {
+        "name": "{name} Costo della registrazione"
+      },
+      "daily_energy": {
+        "name": "{name} energia giornaliera"
+      },
+      "daily_cost": {
+        "name": "{name} costo giornaliero"
+      },
+      "monthly_energy": {
+        "name": "{name} energia mensile"
+      },
+      "monthly_cost": {
+        "name": "{name} costo mensile"
+      },
+      "yearly_energy": {
+        "name": "{name} energia annuale"
+      },
+      "yearly_cost": {
+        "name": "{name} costo annuale"
+      },
+      "total_energy": {
+        "name": "{name} energia totale"
+      },
+      "total_cost": {
+        "name": "{name} costo totale"
+      }
+    },
+    "select": {
+      "identity": {
+        "name": "{name} Identità"
+      }
+    },
+    "switch": {
+      "detection": {
+        "name": "{name} Rilevamento"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configurazione del registro contabile",
+        "description": "Valuta corrente: **{currency}**. Questo registro contabile non è stato utilizzato, quindi puoi modificarne la valuta. Le identità vengono conservate. Le modifiche alla valuta sono consentite solo prima del primo punto di ricarica e in assenza di dati contabili conservati. L’aggiunta di un punto blocca la valuta, anche prima che venga registrata una ricarica. I prezzi dinamici devono utilizzare questa valuta. Non viene effettuata alcuna conversione valutaria.",
+        "data": {
+          "currency": "Valuta"
+        }
+      },
+      "locked": {
+        "title": "Valuta del registro contabile bloccata",
+        "description": "Valuta corrente: **{currency}**. Esiste un punto di ricarica oppure sono conservati dati sui prezzi, sul contatore o sulle registrazioni. La valuta non può essere modificata, nemmeno dopo aver rimosso i punti di ricarica o prima della prima ricarica. Gli importi storici e la loro valuta originale vengono conservati; non vengono convertiti né ricalcolati. Configura i punti di ricarica e le identità tramite le rispettive voci di configurazione."
+      }
+    },
+    "error": {
+      "invalid_currency": "Scegli un codice valuta valido di tre lettere.",
+      "save_failed": "Impossibile salvare la valuta. La valuta precedente è stata mantenuta. Riprova."
+    },
+    "abort": {
+      "config_changed": "La valuta del registro contabile è cambiata mentre questo modulo era aperto. Riapri Configura.",
+      "runtime_unavailable": "Il registro contabile non è caricato oppure è in fase di arresto. Carica l’integrazione e riapri Configura. Per modificare la valuta, il registro contabile deve essere in esecuzione."
+    }
+  }
+}

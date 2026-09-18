@@ -1,6 +1,6 @@
 # Charge Tally
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · **Polski**
+[English](README.md) · [简体中文](README.zh-CN.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · **Polski** · [Italiano](README.it.md)
 
 Śledź energię i koszty ładowania w Home Assistant. Charge Tally tworzy wpisy ładowania na podstawie istniejących czujników energii lub mocy. Każdy wpis możesz przypisać do pojazdu, kierowcy lub innej wybranej nazwy.
 
@@ -62,7 +62,7 @@ Aby dodać kolejny punkt ładowania lub tożsamość, otwórz **Charge Tally** w
 
 Edytuj pulpit, wybierz **Dodaj kartę** i wyszukaj **Charge Tally**. W edytorze karty wybierzesz wyświetlane punkty ładowania, tożsamości i informacje. Karta korzysta z języka i motywu Home Assistant.
 
-Karta jest zwykle dostępna automatycznie. Jeśli jej brakuje, najpierw odśwież przeglądarkę. Jeśli samodzielnie zarządzasz zasobami pulpitu, dodaj `/charge_tally/charge-tally-card.js?v=0.1.2` jako **Moduł JavaScript** i ponownie odśwież stronę.
+Karta jest zwykle dostępna automatycznie. Jeśli jej brakuje, najpierw odśwież przeglądarkę. Jeśli samodzielnie zarządzasz zasobami pulpitu, dodaj `/charge_tally/charge-tally-card.js?v=0.1.2-2` jako **Moduł JavaScript** i ponownie odśwież stronę.
 
 ## Tożsamości i wpisy ładowania
 

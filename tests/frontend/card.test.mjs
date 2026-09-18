@@ -154,10 +154,10 @@ globalThis.document={createElement:tag=>{const node=new TestNode();node.tagName=
 globalThis.window={customCards:[]};
 globalThis.customElements={get:()=>undefined,define:()=>{}};
 const {ChargeTallyCard}=await import('../../custom_components/charge_tally/www/charge-tally-card.js');
-const {RecordDialog}=await import('../../custom_components/charge_tally/www/card-dialog.js?v=0.1.2');
-const {ChargeTallyEditor}=await import('../../custom_components/charge_tally/www/card-editor.js?v=0.1.2');
+const {RecordDialog}=await import('../../custom_components/charge_tally/www/card-dialog.js?v=0.1.2-2');
+const {ChargeTallyEditor}=await import('../../custom_components/charge_tally/www/card-editor.js?v=0.1.2-2');
 const state=await import('../../custom_components/charge_tally/www/card-state.js');
-const {summaryView,segmentTable}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.2');
+const {summaryView,segmentTable}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.2-2');
 
 const visibleText=node=>[node.textContent||'',...(node.children||[]).map(visibleText)].join(' ');
 test('card and editor retranslate existing views when HA language changes',()=>{
@@ -174,6 +174,10 @@ test('card and editor retranslate existing views when HA language changes',()=>{
   card.hass={...hass,language:'pl'};editor.hass={...hass,language:'pl'};
   assert.match(visibleText(card.body),/Ponów|Spróbuj ponownie/);
   assert.match(visibleText(editor.shadowRoot),/Tytuł/);
+  card.hass={...hass,language:'it-IT'};editor.hass={...hass,language:'it-IT'};
+  assert.match(visibleText(card.body),/Riprova/);
+  assert.match(visibleText(editor.shadowRoot),/Titolo/);
+  assert.doesNotMatch(visibleText(card.body),/Réessayer|Erneut versuchen/);
 });
 
 test('switching language preserves an open draft, preview token and pending operation',()=>{

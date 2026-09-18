@@ -1,6 +1,6 @@
 # Charge Tally
 
-[English](README.md) · **简体中文** · [Deutsch](README.de.md) · [Français](README.fr.md) · [Polski](README.pl.md)
+[English](README.md) · **简体中文** · [Deutsch](README.de.md) · [Français](README.fr.md) · [Polski](README.pl.md) · [Italiano](README.it.md)
 
 在 Home Assistant 中记录充电电量和费用。Charge Tally 使用你已有的电量或功率传感器生成充电记录，并可将每条记录归属于车辆、驾驶人，或你自己命名的其他身份。
 
@@ -62,7 +62,7 @@
 
 编辑仪表盘，选择 **添加卡片**，搜索 **Charge Tally**。卡片编辑器可选择要显示的充电点、身份和信息。卡片会跟随 Home Assistant 的语言和主题。
 
-卡片通常会自动出现在列表中。如果找不到，先刷新浏览器。如果你自行管理仪表盘资源，请将 `/charge_tally/charge-tally-card.js?v=0.1.2` 添加为 **JavaScript 模块**，然后再次刷新。
+卡片通常会自动出现在列表中。如果找不到，先刷新浏览器。如果你自行管理仪表盘资源，请将 `/charge_tally/charge-tally-card.js?v=0.1.2-2` 添加为 **JavaScript 模块**，然后再次刷新。
 
 ## 使用身份和充电记录
 

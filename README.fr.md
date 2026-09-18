@@ -1,6 +1,6 @@
 # Charge Tally
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [Deutsch](README.de.md) · **Français** · [Polski](README.pl.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · [Deutsch](README.de.md) · **Français** · [Polski](README.pl.md) · [Italiano](README.it.md)
 
 Suivez l’énergie et le coût de vos recharges dans Home Assistant. Charge Tally utilise vos capteurs d’énergie ou de puissance existants pour créer des enregistrements de recharge, que vous pouvez attribuer à un véhicule, à une personne ou à tout autre nom de votre choix.
 
@@ -62,7 +62,7 @@ Pour ajouter un autre point de charge ou une identité, ouvrez **Charge Tally** 
 
 Modifiez votre tableau de bord, choisissez **Ajouter une carte** et recherchez **Charge Tally**. L’éditeur permet de choisir les points de charge, les identités et les informations à afficher. La carte reprend la langue et le thème de Home Assistant.
 
-La carte est normalement disponible automatiquement. Si elle manque, actualisez d’abord le navigateur. Si vous gérez vous-même les ressources du tableau de bord, ajoutez `/charge_tally/charge-tally-card.js?v=0.1.2` comme **Module JavaScript**, puis actualisez à nouveau.
+La carte est normalement disponible automatiquement. Si elle manque, actualisez d’abord le navigateur. Si vous gérez vous-même les ressources du tableau de bord, ajoutez `/charge_tally/charge-tally-card.js?v=0.1.2-2` comme **Module JavaScript**, puis actualisez à nouveau.
 
 ## Utiliser les identités et les enregistrements
 

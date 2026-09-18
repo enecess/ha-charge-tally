@@ -1,6 +1,6 @@
 # Charge Tally
 
-[English](README.md) · [简体中文](README.zh-CN.md) · **Deutsch** · [Français](README.fr.md) · [Polski](README.pl.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · **Deutsch** · [Français](README.fr.md) · [Polski](README.pl.md) · [Italiano](README.it.md)
 
 Behalte Ladeenergie und Kosten in Home Assistant im Blick. Charge Tally erstellt aus deinen vorhandenen Energie- oder Leistungssensoren Ladeeinträge. Jeden Eintrag kannst du einem Fahrzeug, einer Person oder einem frei gewählten Namen zuordnen.
 
@@ -62,7 +62,7 @@ Um einen weiteren Ladepunkt oder eine Identität hinzuzufügen, öffne **Charge 
 
 Bearbeite dein Dashboard, wähle **Karte hinzufügen** und suche nach **Charge Tally**. Im Karteneditor wählst du die angezeigten Ladepunkte, Identitäten und Informationen. Die Karte übernimmt Sprache und Design von Home Assistant.
 
-Die Karte steht normalerweise automatisch bereit. Fehlt sie, aktualisiere zuerst den Browser. Wenn du Dashboard-Ressourcen selbst verwaltest, füge `/charge_tally/charge-tally-card.js?v=0.1.2` als **JavaScript-Modul** hinzu und aktualisiere erneut.
+Die Karte steht normalerweise automatisch bereit. Fehlt sie, aktualisiere zuerst den Browser. Wenn du Dashboard-Ressourcen selbst verwaltest, füge `/charge_tally/charge-tally-card.js?v=0.1.2-2` als **JavaScript-Modul** hinzu und aktualisiere erneut.
 
 ## Identitäten und Ladeeinträge verwenden
 

@@ -40,7 +40,7 @@ async def test_resource_registration_is_idempotent_and_serves_only_www(hass, tmp
         queue.extend(urljoin(url, path) for path in re.findall(r"^import\s+(?:[^'\"]*?\s+from\s+)?['\"]([^'\"]+)['\"]", source, re.MULTILINE))
     paths = {urlsplit(url).path for url in seen}
     assert "/charge_tally/card-i18n.js" in paths
-    for language in ("en", "zh-Hans", "de", "fr", "pl"):
+    for language in ("en", "zh-Hans", "de", "fr", "pl", "it"):
         assert f"/charge_tally/locales/{language}.js" in paths
 
 
@@ -52,6 +52,22 @@ async def test_yaml_resources_return_manual_module_configuration(hass, hass_clie
     result = await frontend.async_register(hass)
     assert result == {"url": frontend.CARD_URL, "type": "module", "manual": True}
     assert resources.async_items() == []
+
+
+async def test_existing_resource_loads_new_locales_after_upgrade(hass):
+    assert await async_setup_component(hass, "http", {})
+    resources = ResourceStorageCollection(hass, LovelaceStorage(hass, None))
+    hass.data[LOVELACE_DATA] = LovelaceData("storage", {}, resources, {})
+    await resources.async_get_info()
+    old_url = "/charge_tally/charge-tally-card.js?v=0.1.2"
+    original = await resources.async_create_item({"url": old_url, "res_type": "module"})
+    from custom_components.charge_tally import frontend
+    await frontend.async_register(hass)
+    items = resources.async_items()
+    assert len(items) == 1
+    assert items[0]["id"] == original["id"]
+    assert items[0]["url"] == frontend.CARD_URL
+    assert items[0]["url"] != old_url
 
 
 async def test_older_dashboard_mode_registers_the_card_without_duplicates(hass):

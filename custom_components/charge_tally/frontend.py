@@ -8,7 +8,7 @@ from homeassistant.const import EVENT_COMPONENT_LOADED
 from homeassistant.core import callback
 from homeassistant.setup import async_setup_component
 
-CARD_URL = "/charge_tally/charge-tally-card.js?v=0.1.2"
+CARD_URL = "/charge_tally/charge-tally-card.js?v=0.1.2-2"
 
 
 async def async_register(hass):

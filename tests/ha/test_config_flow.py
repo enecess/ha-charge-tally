@@ -69,6 +69,7 @@ async def finish_static(hass, result, value=".5"):
     ("en", "Garage · Energy only · Static"), ("zh-Hans", "Garage · 仅电量 · 固定"),
     ("de", "Garage · Nur Energie · Fest"), ("fr", "Garage · Énergie uniquement · Fixe"),
     ("pl", "Garage · Tylko energia · Stała"),
+    ("it", "Garage · Solo energia · Fisso"),
 ])
 async def test_final_summary_uses_localized_mode_labels(hass, entry, language, expected):
     hass.config.language = language
@@ -278,6 +279,7 @@ async def test_multilingual_grouped_form_resources_load_in_ha(hass):
         ("en", "Cumulative energy sensor"), ("zh-Hans", "累计电量实体"),
         ("de", "Sensor für kumulierte Energie"), ("fr", "Capteur d’énergie cumulée"),
         ("pl", "Czujnik skumulowanej energii"),
+        ("it", "Sensore di energia cumulativa"),
     ):
         strings = await async_get_translations(hass, language, "config_subentries", {DOMAIN})
         assert strings[f"component.{DOMAIN}.config_subentries.point.step.input.sections.measurement.data.energy_entity"] == expected

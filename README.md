@@ -1,6 +1,6 @@
 # Charge Tally
 
-**English** · [简体中文](README.zh-CN.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Polski](README.pl.md)
+**English** · [简体中文](README.zh-CN.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Polski](README.pl.md) · [Italiano](README.it.md)
 
 Keep track of charging energy and costs in Home Assistant. Charge Tally uses your existing energy or power sensors to create charging records, and lets you assign each record to a vehicle, driver or another name of your choice.
 
@@ -62,7 +62,7 @@ To add another charging point or an identity, open **Charge Tally** under **Sett
 
 Edit your dashboard, select **Add card**, and search for **Charge Tally**. Its editor lets you choose the charging points, identities and information to display. The card follows your Home Assistant language and theme.
 
-The card is normally available automatically. If it is missing, refresh the browser first. If you manage dashboard resources yourself, add `/charge_tally/charge-tally-card.js?v=0.1.2` as a **JavaScript module**, then refresh again.
+The card is normally available automatically. If it is missing, refresh the browser first. If you manage dashboard resources yourself, add `/charge_tally/charge-tally-card.js?v=0.1.2-2` as a **JavaScript module**, then refresh again.
 
 ## Use identities and charging records
 

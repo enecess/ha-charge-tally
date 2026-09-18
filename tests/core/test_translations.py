@@ -7,7 +7,7 @@ import unittest
 
 
 INTEGRATION = Path(__file__).resolve().parents[2] / "custom_components" / "charge_tally"
-LANGUAGES = ("en", "zh-Hans", "de", "fr", "pl")
+LANGUAGES = ("en", "zh-Hans", "de", "fr", "pl", "it")
 
 
 def flatten(value, prefix=()):

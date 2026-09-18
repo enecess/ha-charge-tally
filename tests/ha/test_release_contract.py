@@ -25,7 +25,7 @@ def test_action_entity_selection_is_optional():
         validated = selector.validate_selector(field["selector"])
         assert validated["entity"]["multiple"] is False
         assert validated["entity"]["filter"] == [{"integration": "charge_tally", "domain": ["select"]}]
-        for language in ("en", "zh-Hans", "de", "fr", "pl"):
+        for language in ("en", "zh-Hans", "de", "fr", "pl", "it"):
             strings = json.loads((COMPONENT / "translations" / f"{language}.json").read_text())
             assert strings["services"][name]["fields"]["entity_id"]["description"]
 
