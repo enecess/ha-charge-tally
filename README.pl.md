@@ -38,7 +38,7 @@ Aby zainstalować ręcznie, skopiuj folder `custom_components/charge_tally` z re
 
 ## Konfiguracja pierwszego punktu ładowania
 
-1. **Wybierz walutę.** Obowiązuje ona we wszystkich punktach ładowania. Przed dodaniem pierwszego punktu można ją zmienić przez **Konfiguruj** na stronie integracji, jeśli rejestr nie zawiera zachowanych danych rozliczeniowych. Dodanie punktu blokuje walutę nawet przed pierwszym ładowaniem lub po usunięciu punktu. Same tożsamości jej nie blokują. Historyczne kwoty nie są automatycznie przeliczane.
+1. **Wybierz walutę.** Wszystkie punkty ładowania i wpisy używają jednej waluty. Można ją zmienić w Konfiguruj → Ustawienia księgi, gdy nie ma punktów (także zarchiwizowanych) ani danych księgowych. Same tożsamości jej nie blokują. Usunięcie punktu zachowuje historię i blokadę waluty. Usunięcie wszystkich punktów i ich danych przez Zarządzaj danymi archiwalnymi pozwala ponownie zmienić walutę. Ceny dynamiczne muszą używać tej samej waluty; kwoty nie są automatycznie przeliczane. Przy przywracaniu zachowanej księgi najpierw wybierz jej pierwotną walutę.
 2. **Nazwij punkt ładowania**, wybierz rodzaj posiadanych czujników, a następnie wskaż te czujniki.
 3. Jeśli masz czujnik mocy, zdecyduj, czy włączyć **automatyczne wykrywanie ładowania**. Ustaw progi mocy oraz czas, przez jaki muszą być spełnione, aby ładowanie się rozpoczęło lub zakończyło. Próg zakończenia musi być niższy od progu rozpoczęcia.
 4. **Wybierz cenę energii** zgodnie z poniższą tabelą.
@@ -100,7 +100,7 @@ Otwórz **Charge Tally → Konfiguruj → Zarządzaj danymi archiwalnymi**. List
 
 Usunięcie punktu usuwa jego wpisy księgi, rewizje, próbki i historię cen. Przed usunięciem tożsamości z wpisami przenieś wszystkie jej bieżące wpisy, w tym unieważnione, do tożsamości docelowej. Kwoty pozostaną bez zmian, a stare rewizje zachowają pierwotną nazwę tożsamości do audytu.
 
-Tych operacji nie można cofnąć w interfejsie. Dotyczą tylko księgi Charge Tally, a nie natywnej historii, statystyk ani kopii zapasowych Home Assistant. Czyszczenie archiwum nigdy nie odblokuje waluty wcześniej używanej księgi. Przy jej przywracaniu najpierw wybierz pierwotną walutę.
+Tych operacji nie można cofnąć w interfejsie. Dotyczą tylko księgi Charge Tally, a nie natywnej historii, statystyk ani kopii zapasowych Home Assistant. Walutę można zmienić tylko wtedy, gdy nie ma punktów ładowania (także zarchiwizowanych) ani zachowanych danych księgowych. Przy jej przywracaniu najpierw wybierz pierwotną walutę.
 
 ## Częste pytania
 

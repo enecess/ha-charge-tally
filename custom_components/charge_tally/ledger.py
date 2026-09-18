@@ -43,7 +43,8 @@ class Ledger:
             self._db.execute('CREATE TABLE IF NOT EXISTS segments (record_id TEXT NOT NULL REFERENCES records(id), position INTEGER NOT NULL, observation_id TEXT REFERENCES observations(id), data TEXT NOT NULL, PRIMARY KEY(record_id,position))')
             self._db.execute('CREATE TABLE IF NOT EXISTS revisions (record_id TEXT NOT NULL REFERENCES records(id), revision INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY(record_id,revision))')
             self._db.execute('PRAGMA user_version=1')
-            self.currency_change_allowed()
+            # Old releases permanently locked even completely cleared ledgers.
+            self._db.execute("DELETE FROM checkpoints WHERE id='_used_currency'")
 
     @property
     def currency(self):
@@ -66,17 +67,13 @@ class Ledger:
 
     def currency_change_allowed(self):
         """Keep archived and pending accounting evidence in its original currency."""
-        if self.get_checkpoint('_used_currency'):
-            return False
         populated = any(self._db.execute(f'SELECT 1 FROM {table} LIMIT 1').fetchone()
                         for table in ('points', 'records', 'price_versions', 'observations',
                                       'segments', 'revisions', 'previews', 'requests'))
-        if populated:
-            self._put('checkpoints', '_used_currency', True)
         return not populated
 
     def change_currency(self, currency, expected_currency):
-        """Rebind an unused ledger, checking its state in the same transaction."""
+        """Rebind an empty ledger, checking its state in the same transaction."""
         with self.transaction():
             if self.currency != expected_currency:
                 raise ValueError('config_changed')
@@ -138,7 +135,6 @@ class Ledger:
     def put_point(self, data: dict):
         with self.transaction():
             self._put('points', data['id'], data)
-            self._put('checkpoints', '_used_currency', True)
             self._bump()
 
     def get_identity(self, id: str):

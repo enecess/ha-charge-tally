@@ -131,13 +131,13 @@ class ArchiveTests(unittest.TestCase):
         manager.delete('identity', 'empty', preview['fingerprint'], set(), set())
         self.assertTrue(other.currency_change_allowed())
 
-    def test_old_database_usage_marker_survives_reopen_and_purge(self):
+    def test_old_usage_marker_does_not_lock_empty_ledger_after_purge_and_reopen(self):
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / 'ledger.db')
             ledger = Ledger(path)
             ledger.bind_currency('CNY')
             ledger.put_point(dict(id='old', name='Old', active=False))
-            ledger._db.execute("DELETE FROM checkpoints WHERE id='_used_currency'")
+            ledger._put('checkpoints', '_used_currency', True)
             ledger.close()
             ledger = Ledger(path)
             manager = ArchiveManager(ledger)
@@ -146,9 +146,9 @@ class ArchiveTests(unittest.TestCase):
             ledger.close()
             ledger = Ledger(path)
             try:
-                self.assertFalse(ledger.currency_change_allowed())
-                with self.assertRaisesRegex(ValueError, 'currency_locked'):
-                    ledger.change_currency('USD', 'CNY')
+                self.assertTrue(ledger.currency_change_allowed())
+                ledger.change_currency('USD', 'CNY')
+                self.assertEqual(ledger.currency, 'USD')
             finally:
                 ledger.close()
 

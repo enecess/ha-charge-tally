@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Rejestr Charge Tally",
-        "description": "- Wszystkie punkty ładowania i wpisy używają tej samej waluty.\n- Można ją zmienić przez Konfiguruj → Ustawienia księgi tylko przed dodaniem pierwszego punktu i gdy nie ma zachowanych danych księgowych. Same tożsamości nie blokują waluty.\n- Dodanie punktu lub zachowanie danych cen, licznika lub wpisów trwale blokuje walutę, nawet po usunięciu archiwum.\n- Ceny dynamiczne muszą używać tej samej waluty; kwoty nie są automatycznie przeliczane.\n- Przy przywracaniu zachowanej księgi najpierw wybierz jej pierwotną walutę.",
+        "description": "- Wszystkie punkty ładowania i wpisy używają jednej waluty.\n- Można ją zmienić w Konfiguruj → Ustawienia księgi, gdy nie ma punktów (także zarchiwizowanych) ani danych księgowych. Same tożsamości jej nie blokują.\n- Usunięcie punktu zachowuje historię i blokadę waluty. Usunięcie wszystkich punktów i ich danych przez Zarządzaj danymi archiwalnymi pozwala ponownie zmienić walutę.\n- Ceny dynamiczne muszą używać tej samej waluty; kwoty nie są automatycznie przeliczane.\n- Przy przywracaniu zachowanej księgi najpierw wybierz jej pierwotną walutę.",
         "data": {
           "currency": "Waluta"
         }
@@ -377,11 +377,11 @@
       },
       "locked": {
         "title": "Waluta rejestru zablokowana",
-        "description": "- Bieżąca waluta: **{currency}**.\n- Pierwszy punkt lub zachowane dane cen, licznika lub wpisów trwale blokują walutę, nawet przed pierwszym ładowaniem i po usunięciu punktów lub archiwum.\n- Historyczne kwoty zachowują pierwotną walutę i nie są przeliczane ani obliczane ponownie. Ceny dynamiczne muszą używać tej waluty.\n- Punkty i tożsamości konfiguruj w ich własnych wpisach konfiguracji."
+        "description": "- Bieżąca waluta: **{currency}**.\n- Punkty lub zachowane dane księgowe blokują walutę, także przed pierwszym ładowaniem. Samo usunięcie punktu jej nie odblokuje.\n- Usunięcie wszystkich punktów i ich danych przez Zarządzaj danymi archiwalnymi pozwala ponownie zmienić walutę.\n- Historyczne kwoty nie są przeliczane. Ceny dynamiczne muszą używać tej waluty.\n- Punkty i tożsamości konfiguruj w ich własnych wpisach."
       },
       "currency": {
         "title": "Ustawienia księgi",
-        "description": "- Bieżąca waluta: **{currency}**.\n- Ta księga nie była używana, więc można zmienić walutę. Tożsamości zostaną zachowane.\n- Zmiana jest możliwa tylko przed pierwszym punktem i bez zachowanych danych księgowych. Dodanie punktu blokuje walutę jeszcze przed pierwszym ładowaniem; usunięcie archiwum jej nie odblokuje.\n- Ceny dynamiczne muszą używać tej waluty; nie ma przeliczania walut.",
+        "description": "- Bieżąca waluta: **{currency}**.\n- Nie ma punktów ani danych księgowych, więc można zmienić walutę. Tożsamości zostaną zachowane.\n- Dodanie punktu blokuje walutę; usunięcie wszystkich punktów i ich danych pozwala zmienić ją ponownie.\n- Ceny dynamiczne muszą używać tej waluty; nie ma przeliczania walut.",
         "data": {
           "currency": "Waluta"
         }
@@ -413,7 +413,7 @@
       },
       "archive_confirm": {
         "title": "Potwierdź trwałą operację",
-        "description": "- Obiekt: **{name}**\n- Operacja: {operation}\n- Wpisy (w tym unieważnione): {records}\n- Unieważnione wpisy: {voided}\n- Rewizje: {revisions}\n- Zakres czasu (UTC): {start} – {end}\n- Energia: {energy} kWh\n- Znany koszt: {cost} {currency}\n- Tożsamość docelowa: {target}\n\nOperacja jest trwała i nie można jej cofnąć w interfejsie. Czyszczenie dotyczy tylko księgi Charge Tally; historia Recorder, natywne statystyki i kopie zapasowe Home Assistant są wyłączone. Ta operacja nie usuwa istniejącej blokady waluty.",
+        "description": "- Obiekt: **{name}**\n- Operacja: {operation}\n- Wpisy (w tym unieważnione): {records}\n- Unieważnione wpisy: {voided}\n- Rewizje: {revisions}\n- Zakres czasu (UTC): {start} – {end}\n- Energia: {energy} kWh\n- Znany koszt: {cost} {currency}\n- Tożsamość docelowa: {target}\n\nOperacja jest trwała i nie można jej cofnąć w interfejsie. Czyszczenie dotyczy tylko księgi Charge Tally; historia Recorder, natywne statystyki i kopie zapasowe Home Assistant są wyłączone. Walutę można zmienić tylko wtedy, gdy nie ma punktów ładowania (także zarchiwizowanych) ani zachowanych danych księgowych.",
         "data": {
           "confirm": "Rozumiem skutki i potwierdzam trwałe usunięcie"
         }

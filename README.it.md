@@ -40,7 +40,7 @@ Per l'installazione manuale, copia la cartella `custom_components/charge_tally` 
 
 Se il modulo del punto di ricarica non si apre automaticamente dopo la scelta della valuta, apri Charge Tally in **Impostazioni → Dispositivi e servizi** e scegli **Aggiungi punto di ricarica**.
 
-1. **Scegli la valuta.** Si applica a tutti i punti di ricarica. Puoi modificarla tramite **Configura** nella pagina dell'integrazione prima di aggiungere il primo punto di ricarica, purché il registro contabile non contenga dati contabili conservati. L'aggiunta di un punto blocca la valuta, anche prima della prima ricarica o dopo la rimozione del punto. Le sole identità non la bloccano. Gli importi storici non vengono mai convertiti o ricalcolati automaticamente.
+1. **Scegli la valuta.** Tutti i punti di ricarica e i record condividono la stessa valuta. Puoi modificarla in Configura → Impostazioni del registro quando non restano punti (anche archiviati) né dati contabili. Le sole identità non la bloccano. Rimuovere un punto conserva la cronologia e il blocco. Eliminare tutti i punti e i relativi dati tramite Gestisci dati archiviati consente di modificare di nuovo la valuta. I prezzi dinamici devono usare la stessa valuta; gli importi non vengono convertiti automaticamente. Per ripristinare un registro conservato, scegli prima la sua valuta originale.
 2. **Assegna un nome al punto di ricarica**, scegli quali sensori hai e selezionali.
 3. Se hai un sensore di potenza, scegli se abilitare il **rilevamento automatico della ricarica**. Imposta i livelli di potenza e per quanto tempo devono essere mantenuti prima dell'inizio o della fine della ricarica. Il livello di fine deve essere inferiore a quello di avvio.
 4. **Scegli il prezzo dell'elettricità** usando la tabella seguente.
@@ -100,7 +100,7 @@ Apri **Charge Tally → Configura → Gestisci dati archiviati**. Sono elencati 
 
 Eliminare un punto rimuove i suoi record del registro, revisioni, campioni e cronologia prezzi. Prima di eliminare un’identità con record, trasferisci tutti i suoi record attuali, inclusi quelli annullati, a un’identità destinataria. Gli importi restano invariati e le vecchie revisioni mantengono il nome dell’identità originale per la verifica.
 
-Queste operazioni non sono annullabili nell’interfaccia e riguardano solo il registro Charge Tally, non la cronologia nativa, le statistiche o i backup di Home Assistant. La pulizia degli archivi non sblocca mai la valuta di un registro già usato. Per ripristinarlo, scegli prima la valuta originale.
+Queste operazioni non sono annullabili nell’interfaccia e riguardano solo il registro Charge Tally, non la cronologia nativa, le statistiche o i backup di Home Assistant. La valuta può essere modificata solo quando non restano punti di ricarica (anche archiviati) né dati contabili. Per ripristinarlo, scegli prima la valuta originale.
 
 ## Domande frequenti
 

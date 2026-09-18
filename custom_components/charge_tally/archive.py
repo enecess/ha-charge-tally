@@ -144,8 +144,6 @@ class ArchiveManager:
                 raise ValueError('archive_target')
             if summary['fingerprint'] != fingerprint:
                 raise ValueError('archive_stale')
-            # Persist evidence of use before removing the final accounting rows.
-            self.ledger.currency_change_allowed()
             db = self.ledger._db
             if kind == 'point':
                 for record_id, revision, _ in related['revisions']:

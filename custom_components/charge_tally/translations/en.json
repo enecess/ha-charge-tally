@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Charge Tally ledger",
-        "description": "- All charging points and records share one currency.\n- Change it in Configure → Ledger settings only before the first charging point and while no accounting data is retained. Identities alone do not lock it.\n- Adding a point or retaining price, meter or record data locks the currency permanently, even after archive cleanup.\n- Dynamic prices must use the same currency; amounts are never converted automatically.\n- When restoring a retained ledger, select its original currency first.",
+        "description": "- All charging points and records share one currency.\n- Change it in Configure → Ledger settings when no charging points (including archived points) or accounting data remain. Identities alone do not lock it.\n- Removing a point keeps its history and the currency lock; fully clearing points and related data through Manage archived data allows changes again.\n- Dynamic prices must use the same currency; amounts are never converted automatically.\n- When restoring a retained ledger, select its original currency first.",
         "data": {
           "currency": "Currency"
         }
@@ -377,11 +377,11 @@
       },
       "locked": {
         "title": "Ledger currency locked",
-        "description": "- Current currency: **{currency}**.\n- The first charging point or retained price, meter or record data permanently locks the currency, even before the first charge and after removing points or archives.\n- Historical amounts keep their original currency and are not converted or recalculated. Dynamic prices must use this currency.\n- Configure charging points and identities through their own entries."
+        "description": "- Current currency: **{currency}**.\n- Charging points or retained accounting data lock the currency, even before the first charge. Removing a point alone does not unlock it.\n- Currency changes become available after all points and related data are cleared through Manage archived data.\n- Historical amounts are not converted or recalculated. Dynamic prices must use this currency.\n- Configure charging points and identities through their own entries."
       },
       "currency": {
         "title": "Ledger settings",
-        "description": "- Current currency: **{currency}**.\n- This unused ledger allows currency changes; identities are preserved.\n- Changes are allowed only before the first charging point and with no retained accounting data. Adding a point locks it even before the first charge; archive cleanup does not unlock it.\n- Dynamic prices must match; no currency conversion is performed.",
+        "description": "- Current currency: **{currency}**.\n- No charging points or accounting data remain, so you can change the currency. Identities are preserved.\n- Adding a point locks it; fully clearing all points and related data allows changes again.\n- Dynamic prices must match; no currency conversion is performed.",
         "data": {
           "currency": "Currency"
         }
@@ -413,7 +413,7 @@
       },
       "archive_confirm": {
         "title": "Confirm permanent operation",
-        "description": "- Item: **{name}**\n- Operation: {operation}\n- Records (including voided): {records}\n- Voided records: {voided}\n- Revisions: {revisions}\n- Time range (UTC): {start} – {end}\n- Energy: {energy} kWh\n- Known cost: {cost} {currency}\n- Receiving identity: {target}\n\nThis operation is permanent and cannot be undone in the interface. Cleanup affects only the Charge Tally ledger; Home Assistant recorder history, native statistics and backups are excluded. This operation does not remove an existing currency lock.",
+        "description": "- Item: **{name}**\n- Operation: {operation}\n- Records (including voided): {records}\n- Voided records: {voided}\n- Revisions: {revisions}\n- Time range (UTC): {start} – {end}\n- Energy: {energy} kWh\n- Known cost: {cost} {currency}\n- Receiving identity: {target}\n\nThis operation is permanent and cannot be undone in the interface. Cleanup affects only the Charge Tally ledger; Home Assistant recorder history, native statistics and backups are excluded. Currency changes become available only when no charging points (including archived points) or accounting data remain.",
         "data": {
           "confirm": "I understand the impact and confirm permanent deletion"
         }

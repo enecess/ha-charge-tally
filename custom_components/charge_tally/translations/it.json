@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Registro contabile Charge Tally",
-        "description": "- Tutti i punti di ricarica e i record condividono la stessa valuta.\n- Puoi modificarla in Configura → Impostazioni del registro solo prima del primo punto e in assenza di dati contabili conservati. Le sole identità non la bloccano.\n- Un punto o dati conservati di prezzi, contatori o record bloccano la valuta in modo permanente, anche dopo la pulizia degli archivi.\n- I prezzi dinamici devono usare la stessa valuta; gli importi non vengono convertiti automaticamente.\n- Per ripristinare un registro conservato, scegli prima la sua valuta originale.",
+        "description": "- Tutti i punti di ricarica e i record condividono la stessa valuta.\n- Puoi modificarla in Configura → Impostazioni del registro quando non restano punti (anche archiviati) né dati contabili. Le sole identità non la bloccano.\n- Rimuovere un punto conserva la cronologia e il blocco. Eliminare tutti i punti e i relativi dati tramite Gestisci dati archiviati consente di modificare di nuovo la valuta.\n- I prezzi dinamici devono usare la stessa valuta; gli importi non vengono convertiti automaticamente.\n- Per ripristinare un registro conservato, scegli prima la sua valuta originale.",
         "data": {
           "currency": "Valuta"
         }
@@ -377,11 +377,11 @@
       },
       "locked": {
         "title": "Valuta del registro contabile bloccata",
-        "description": "- Valuta attuale: **{currency}**.\n- Il primo punto o dati conservati di prezzi, contatori o record bloccano la valuta in modo permanente, anche prima della prima ricarica e dopo l’eliminazione di punti o archivi.\n- Gli importi storici mantengono la valuta originale, senza conversioni o ricalcoli. I prezzi dinamici devono usare questa valuta.\n- Configura punti e identità tramite le rispettive voci di configurazione."
+        "description": "- Valuta attuale: **{currency}**.\n- I punti o i dati contabili conservati bloccano la valuta, anche prima della prima ricarica. Rimuovere un punto non basta a sbloccarla.\n- Eliminando tutti i punti e i relativi dati tramite Gestisci dati archiviati puoi modificarla di nuovo.\n- Gli importi storici non vengono convertiti o ricalcolati. I prezzi dinamici devono usare questa valuta.\n- Configura punti e identità tramite le rispettive voci."
       },
       "currency": {
         "title": "Impostazioni del registro",
-        "description": "- Valuta attuale: **{currency}**.\n- Questo registro non è stato usato: puoi modificare la valuta. Le identità vengono conservate.\n- La modifica è possibile solo prima del primo punto e senza dati contabili conservati. Un punto blocca la valuta anche prima della prima ricarica; eliminare gli archivi non la sblocca.\n- I prezzi dinamici devono usare questa valuta; non viene effettuata alcuna conversione.",
+        "description": "- Valuta attuale: **{currency}**.\n- Non restano punti né dati contabili: puoi modificare la valuta. Le identità vengono conservate.\n- Aggiungere un punto blocca la valuta; eliminare tutti i punti e i relativi dati consente di modificarla di nuovo.\n- I prezzi dinamici devono usare questa valuta; non viene effettuata alcuna conversione.",
         "data": {
           "currency": "Valuta"
         }
@@ -413,7 +413,7 @@
       },
       "archive_confirm": {
         "title": "Conferma operazione permanente",
-        "description": "- Oggetto: **{name}**\n- Operazione: {operation}\n- Record (inclusi annullati): {records}\n- Record annullati: {voided}\n- Revisioni: {revisions}\n- Intervallo temporale (UTC): {start} – {end}\n- Energia: {energy} kWh\n- Costo noto: {cost} {currency}\n- Identità destinataria: {target}\n\nQuesta operazione è permanente e non può essere annullata nell’interfaccia. La pulizia riguarda solo il registro Charge Tally; cronologia Recorder, statistiche native e backup di Home Assistant sono esclusi. Questa operazione non rimuove un blocco della valuta già esistente.",
+        "description": "- Oggetto: **{name}**\n- Operazione: {operation}\n- Record (inclusi annullati): {records}\n- Record annullati: {voided}\n- Revisioni: {revisions}\n- Intervallo temporale (UTC): {start} – {end}\n- Energia: {energy} kWh\n- Costo noto: {cost} {currency}\n- Identità destinataria: {target}\n\nQuesta operazione è permanente e non può essere annullata nell’interfaccia. La pulizia riguarda solo il registro Charge Tally; cronologia Recorder, statistiche native e backup di Home Assistant sono esclusi. La valuta può essere modificata solo quando non restano punti di ricarica (anche archiviati) né dati contabili.",
         "data": {
           "confirm": "Comprendo le conseguenze e confermo l’eliminazione permanente"
         }

@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Registre Charge Tally",
-        "description": "- Tous les points de charge et les enregistrements partagent la même devise.\n- Vous pouvez la modifier dans Configurer → Paramètres du registre uniquement avant le premier point de charge et sans données comptables conservées. Les identités seules ne la verrouillent pas.\n- Un point de charge ou des données de prix, de compteur ou d’enregistrement verrouillent définitivement la devise, même après suppression des archives.\n- Les prix dynamiques doivent utiliser la même devise ; les montants ne sont jamais convertis automatiquement.\n- Pour restaurer un registre conservé, choisissez d’abord sa devise d’origine.",
+        "description": "- Tous les points de charge et enregistrements partagent une devise.\n- Modifiez-la dans Configurer → Paramètres du registre si aucun point (même archivé) ni aucune donnée comptable ne subsiste. Les identités seules ne la verrouillent pas.\n- Supprimer un point conserve son historique et le verrouillage. Nettoyer tous les points et leurs données via Gérer les données archivées permet de modifier à nouveau la devise.\n- Les prix dynamiques doivent utiliser cette devise ; aucun montant n’est converti automatiquement.\n- Pour restaurer un registre conservé, choisissez d’abord sa devise d’origine.",
         "data": {
           "currency": "Devise"
         }
@@ -377,11 +377,11 @@
       },
       "locked": {
         "title": "Devise du registre verrouillée",
-        "description": "- Devise actuelle : **{currency}**.\n- Le premier point de charge ou des données de prix, de compteur ou d’enregistrement verrouillent définitivement la devise, même avant la première charge et après suppression des points ou des archives.\n- Les montants historiques gardent leur devise, sans conversion ni recalcul. Les prix dynamiques doivent utiliser cette devise.\n- Configurez les points de charge et les identités dans leurs propres entrées."
+        "description": "- Devise actuelle : **{currency}**.\n- Les points de charge ou les données comptables conservées verrouillent la devise, même avant la première charge. Supprimer un point ne suffit pas.\n- Nettoyer tous les points et leurs données via Gérer les données archivées permet de modifier à nouveau la devise.\n- Les montants historiques ne sont ni convertis ni recalculés. Les prix dynamiques doivent utiliser cette devise.\n- Configurez les points et identités dans leurs propres entrées."
       },
       "currency": {
         "title": "Paramètres du registre",
-        "description": "- Devise actuelle : **{currency}**.\n- Ce registre est inutilisé : sa devise peut être modifiée. Les identités sont conservées.\n- La modification exige l’absence de premier point de charge et de données comptables conservées. Un point verrouille la devise avant même la première charge ; supprimer les archives ne la déverrouille pas.\n- Les prix dynamiques doivent utiliser cette devise ; aucune conversion n’est effectuée.",
+        "description": "- Devise actuelle : **{currency}**.\n- Aucun point de charge ni aucune donnée comptable ne subsiste : vous pouvez modifier la devise. Les identités sont conservées.\n- Ajouter un point verrouille la devise ; nettoyer tous les points et leurs données permet de la modifier à nouveau.\n- Les prix dynamiques doivent utiliser cette devise ; aucune conversion n’est effectuée.",
         "data": {
           "currency": "Devise"
         }
@@ -413,7 +413,7 @@
       },
       "archive_confirm": {
         "title": "Confirmer l’opération définitive",
-        "description": "- Objet : **{name}**\n- Opération : {operation}\n- Enregistrements (annulés inclus) : {records}\n- Enregistrements annulés : {voided}\n- Révisions : {revisions}\n- Période (UTC) : {start} – {end}\n- Énergie : {energy} kWh\n- Coût connu : {cost} {currency}\n- Identité destinataire : {target}\n\nCette opération est définitive et irréversible dans l’interface. Le nettoyage concerne uniquement le registre Charge Tally ; l’historique Recorder, les statistiques natives et les sauvegardes Home Assistant sont exclus. Cette opération ne supprime pas un verrouillage existant de la devise.",
+        "description": "- Objet : **{name}**\n- Opération : {operation}\n- Enregistrements (annulés inclus) : {records}\n- Enregistrements annulés : {voided}\n- Révisions : {revisions}\n- Période (UTC) : {start} – {end}\n- Énergie : {energy} kWh\n- Coût connu : {cost} {currency}\n- Identité destinataire : {target}\n\nCette opération est définitive et irréversible dans l’interface. Le nettoyage concerne uniquement le registre Charge Tally ; l’historique Recorder, les statistiques natives et les sauvegardes Home Assistant sont exclus. La devise peut être modifiée uniquement si aucun point de charge (même archivé) ni aucune donnée comptable ne subsiste.",
         "data": {
           "confirm": "Je comprends les conséquences et confirme la suppression définitive"
         }

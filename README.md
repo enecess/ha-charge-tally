@@ -40,7 +40,7 @@ For a manual installation, copy the repository's `custom_components/charge_tally
 
 If the charging-point form does not open automatically after choosing the currency, open Charge Tally under **Settings → Devices & services** and choose **Add charging point**.
 
-1. **Choose your currency.** It applies to all charging points. You can change it using **Configure** on the integration page before adding the first charging point, provided the ledger has no retained accounting data. Adding a point locks the currency, even before the first charge or after the point is removed. Identities alone do not lock it. Historical amounts are never automatically converted or recalculated.
+1. **Choose your currency.** All charging points and records share one currency. Change it in Configure → Ledger settings when no charging points (including archived points) or accounting data remain. Identities alone do not lock it. Removing a point keeps its history and the currency lock; fully clearing points and related data through Manage archived data allows changes again. Dynamic prices must use the same currency; amounts are never converted automatically. When restoring a retained ledger, select its original currency first.
 2. **Name the charging point**, choose which sensors you have, and select them.
 3. If you have a power sensor, choose whether to enable **automatic charging detection**. Set the power levels and how long they must last before charging starts or ends. The end level must be lower than the start level.
 4. **Choose your electricity price** using the table below.
@@ -100,7 +100,7 @@ Open **Charge Tally → Configure → Manage archived data**. Only charging poin
 
 Deleting a charging point removes its ledger records, revisions, samples and price history. Before deleting an identity with records, transfer all its current records, including voided records, to a receiving identity. Amounts stay unchanged and old revisions retain the original identity name for audit.
 
-These operations cannot be undone in the interface and affect only the Charge Tally ledger, not Home Assistant native history, statistics or backups. Archive cleanup never unlocks the currency of a previously used ledger. When restoring a retained ledger, choose its original currency first.
+These operations cannot be undone in the interface and affect only the Charge Tally ledger, not Home Assistant native history, statistics or backups. Currency changes become available only when no charging points (including archived points) or accounting data remain. When restoring a retained ledger, choose its original currency first.
 
 ## Common questions
 

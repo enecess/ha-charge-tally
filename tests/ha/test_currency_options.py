@@ -2,6 +2,7 @@
 import asyncio
 import sqlite3
 from datetime import timedelta
+from decimal import Decimal
 
 import pytest
 from homeassistant.data_entry_flow import FlowResultType
@@ -105,7 +106,7 @@ async def test_locked_options_preserve_historical_amounts_and_revisions(hass, tm
     await hass.async_block_till_done()
     assert entry.data["currency"] == "CNY"
     assert await runtime.async_query("record", {"record_id": record["id"]}) == before
-    assert runtime.snapshot["summary"]["known_cost"] == "12.34"
+    assert Decimal(runtime.snapshot["summary"]["known_cost"]) == Decimal("12.34")
 
 
 @pytest.mark.parametrize("remove_point", [False, True])

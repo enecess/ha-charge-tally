@@ -38,7 +38,7 @@ Pour une installation manuelle, copiez le dossier `custom_components/charge_tall
 
 ## Configurer votre premier point de charge
 
-1. **Choisissez votre devise.** Elle s’applique à tous les points de charge. Avant le premier point, vous pouvez la modifier via **Configurer** sur la page de l’intégration, si aucune donnée comptable n’est conservée. L’ajout d’un point verrouille la devise, même avant la première charge ou après suppression du point. Les identités seules ne la verrouillent pas. Les montants historiques ne sont jamais automatiquement convertis ni recalculés.
+1. **Choisissez votre devise.** Tous les points de charge et enregistrements partagent une devise. Modifiez-la dans Configurer → Paramètres du registre si aucun point (même archivé) ni aucune donnée comptable ne subsiste. Les identités seules ne la verrouillent pas. Supprimer un point conserve son historique et le verrouillage. Nettoyer tous les points et leurs données via Gérer les données archivées permet de modifier à nouveau la devise. Les prix dynamiques doivent utiliser cette devise ; aucun montant n’est converti automatiquement. Pour restaurer un registre conservé, choisissez d’abord sa devise d’origine.
 2. **Nommez le point de charge**, choisissez le type de capteurs dont vous disposez, puis sélectionnez-les.
 3. Si vous avez un capteur de puissance, choisissez d’activer ou non la **détection automatique de recharge**. Réglez les seuils de puissance et leur durée avant le début ou la fin d’une recharge. Le seuil de fin doit être inférieur au seuil de début.
 4. **Choisissez votre tarif d’électricité** à l’aide du tableau ci-dessous.
@@ -100,7 +100,7 @@ Ouvrez **Charge Tally → Configurer → Gérer les données archivées**. Seuls
 
 Supprimer un point de charge efface ses enregistrements du registre, révisions, mesures et historique des prix. Avant de supprimer une identité ayant des enregistrements, transférez tous ses enregistrements actuels, y compris ceux annulés, vers une identité destinataire. Les montants restent inchangés ; les anciennes révisions conservent le nom d’identité d’origine pour l’audit.
 
-Ces opérations sont irréversibles dans l’interface et concernent uniquement le registre Charge Tally, pas l’historique natif, les statistiques ou les sauvegardes Home Assistant. Le nettoyage des archives ne déverrouille jamais la devise d’un registre déjà utilisé. Lors d’une restauration, choisissez d’abord sa devise d’origine.
+Ces opérations sont irréversibles dans l’interface et concernent uniquement le registre Charge Tally, pas l’historique natif, les statistiques ou les sauvegardes Home Assistant. La devise peut être modifiée uniquement si aucun point de charge (même archivé) ni aucune donnée comptable ne subsiste. Lors d’une restauration, choisissez d’abord sa devise d’origine.
 
 ## Questions fréquentes
 

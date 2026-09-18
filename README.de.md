@@ -38,7 +38,7 @@ Für eine manuelle Installation kopierst du den Ordner `custom_components/charge
 
 ## Den ersten Ladepunkt einrichten
 
-1. **Wähle deine Währung.** Sie gilt für alle Ladepunkte. Vor dem ersten Ladepunkt kannst du sie über **Konfigurieren** auf der Integrationsseite ändern, sofern keine Abrechnungsdaten gespeichert sind. Ein Ladepunkt sperrt die Währung, auch vor dem ersten Ladevorgang oder nach dem Entfernen des Punkts. Identitäten allein sperren sie nicht. Historische Beträge werden nicht automatisch umgerechnet oder neu berechnet.
+1. **Wähle deine Währung.** Alle Ladepunkte und Einträge verwenden dieselbe Währung. Unter Konfigurieren → Bucheinstellungen lässt sie sich ändern, wenn keine Ladepunkte (auch keine archivierten) und keine Buchungsdaten vorhanden sind. Identitäten allein sperren sie nicht. Das Entfernen eines Ladepunkts behält Verlauf und Währungssperre bei. Erst die vollständige Bereinigung aller Punkte und zugehörigen Daten über Archivdaten verwalten ermöglicht Änderungen. Dynamische Preise müssen dieselbe Währung verwenden; Beträge werden nicht automatisch umgerechnet. Wähle beim Wiederherstellen eines gespeicherten Buchs zuerst dessen ursprüngliche Währung.
 2. **Gib dem Ladepunkt einen Namen**, wähle die Art deiner Sensoren und anschließend die Sensoren selbst.
 3. Mit einem Leistungssensor kannst du die **automatische Ladeerkennung** aktivieren. Lege fest, welche Leistung wie lange anliegen muss, bevor ein Ladevorgang beginnt oder endet. Die Endschwelle muss unter der Startschwelle liegen.
 4. **Lege deinen Strompreis fest**, wie in der folgenden Tabelle beschrieben.
@@ -100,7 +100,7 @@ Mit **Eintrag stornieren** schließt du einen falschen Eintrag aus den Summen au
 
 Beim Löschen eines Ladepunkts werden seine Bucheinträge, Revisionen, Messwerte und sein Preisverlauf entfernt. Vor dem Löschen einer Identität mit Einträgen müssen alle aktuellen Einträge, einschließlich stornierter, an eine Empfängeridentität übertragen werden. Beträge bleiben unverändert; alte Revisionen behalten den ursprünglichen Identitätsnamen zur Prüfung.
 
-Diese Vorgänge können in der Oberfläche nicht rückgängig gemacht werden. Sie betreffen nur das Charge Tally-Buch, nicht den nativen Verlauf, Statistiken oder Sicherungen von Home Assistant. Das Bereinigen des Archivs entsperrt niemals die Währung eines bereits verwendeten Buchs. Wählen Sie beim Wiederherstellen zuerst dessen ursprüngliche Währung.
+Diese Vorgänge können in der Oberfläche nicht rückgängig gemacht werden. Sie betreffen nur das Charge Tally-Buch, nicht den nativen Verlauf, Statistiken oder Sicherungen von Home Assistant. Die Währung kann erst wieder geändert werden, wenn keine Ladepunkte (auch keine archivierten) und keine Buchungsdaten mehr vorhanden sind. Wählen Sie beim Wiederherstellen zuerst dessen ursprüngliche Währung.
 
 ## Häufige Fragen
 

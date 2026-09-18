@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Charge Tally-Abrechnungsbuch",
-        "description": "- Alle Ladepunkte und Einträge verwenden dieselbe Währung.\n- Änderungen unter Konfigurieren → Bucheinstellungen sind nur vor dem ersten Ladepunkt und ohne gespeicherte Buchungsdaten möglich. Identitäten allein sperren die Währung nicht.\n- Ein Ladepunkt oder gespeicherte Preis-, Zähler- oder Eintragsdaten sperren die Währung dauerhaft, auch nach dem Löschen archivierter Daten.\n- Dynamische Preise müssen dieselbe Währung verwenden; Beträge werden nicht automatisch umgerechnet.\n- Wählen Sie beim Wiederherstellen eines gespeicherten Buchs zuerst dessen ursprüngliche Währung.",
+        "description": "- Alle Ladepunkte und Einträge verwenden dieselbe Währung.\n- Unter Konfigurieren → Bucheinstellungen lässt sie sich ändern, wenn keine Ladepunkte (auch keine archivierten) und keine Buchungsdaten vorhanden sind. Identitäten allein sperren sie nicht.\n- Das Entfernen eines Ladepunkts behält Verlauf und Währungssperre bei. Erst die vollständige Bereinigung aller Punkte und zugehörigen Daten über Archivdaten verwalten ermöglicht Änderungen.\n- Dynamische Preise müssen dieselbe Währung verwenden; Beträge werden nicht automatisch umgerechnet.\n- Wähle beim Wiederherstellen eines gespeicherten Buchs zuerst dessen ursprüngliche Währung.",
         "data": {
           "currency": "Währung"
         }
@@ -377,11 +377,11 @@
       },
       "locked": {
         "title": "Währung gesperrt",
-        "description": "- Aktuelle Währung: **{currency}**.\n- Der erste Ladepunkt oder gespeicherte Preis-, Zähler- oder Eintragsdaten sperren die Währung dauerhaft, auch vor dem ersten Laden und nach dem Löschen von Ladepunkten oder Archiven.\n- Historische Beträge behalten ihre Währung und werden nicht umgerechnet oder neu berechnet. Dynamische Preise müssen diese Währung verwenden.\n- Konfigurieren Sie Ladepunkte und Identitäten über deren eigene Einträge."
+        "description": "- Aktuelle Währung: **{currency}**.\n- Ladepunkte oder gespeicherte Buchungsdaten sperren die Währung, auch vor dem ersten Laden. Das Entfernen eines Punkts allein hebt die Sperre nicht auf.\n- Nach vollständiger Bereinigung aller Punkte und zugehörigen Daten über Archivdaten verwalten ist eine Änderung wieder möglich.\n- Historische Beträge werden weder umgerechnet noch neu berechnet. Dynamische Preise müssen diese Währung verwenden.\n- Konfiguriere Ladepunkte und Identitäten über ihre eigenen Einträge."
       },
       "currency": {
         "title": "Bucheinstellungen",
-        "description": "- Aktuelle Währung: **{currency}**.\n- Dieses Buch ist unbenutzt; die Währung kann geändert werden. Identitäten bleiben erhalten.\n- Änderungen sind nur vor dem ersten Ladepunkt und ohne gespeicherte Buchungsdaten möglich. Ein Ladepunkt sperrt die Währung schon vor dem ersten Laden; auch das Löschen des Archivs hebt die Sperre nicht auf.\n- Dynamische Preise müssen dieselbe Währung verwenden; es erfolgt keine Umrechnung.",
+        "description": "- Aktuelle Währung: **{currency}**.\n- Es sind keine Ladepunkte oder Buchungsdaten vorhanden. Die Währung kann geändert werden; Identitäten bleiben erhalten.\n- Ein Ladepunkt sperrt die Währung. Die vollständige Bereinigung aller Punkte und zugehörigen Daten ermöglicht Änderungen wieder.\n- Dynamische Preise müssen dieselbe Währung verwenden; es erfolgt keine Umrechnung.",
         "data": {
           "currency": "Währung"
         }
@@ -413,7 +413,7 @@
       },
       "archive_confirm": {
         "title": "Dauerhaften Vorgang bestätigen",
-        "description": "- Objekt: **{name}**\n- Vorgang: {operation}\n- Einträge (einschließlich stornierter): {records}\n- Stornierte Einträge: {voided}\n- Revisionen: {revisions}\n- Zeitraum (UTC): {start} – {end}\n- Energie: {energy} kWh\n- Bekannte Kosten: {cost} {currency}\n- Empfängeridentität: {target}\n\nDieser Vorgang ist dauerhaft und kann in der Oberfläche nicht rückgängig gemacht werden. Nur das Charge Tally-Buch wird bereinigt; Home Assistant Recorder-Verlauf, native Statistiken und Sicherungen bleiben unberührt. Dieser Vorgang hebt eine bestehende Währungssperre nicht auf.",
+        "description": "- Objekt: **{name}**\n- Vorgang: {operation}\n- Einträge (einschließlich stornierter): {records}\n- Stornierte Einträge: {voided}\n- Revisionen: {revisions}\n- Zeitraum (UTC): {start} – {end}\n- Energie: {energy} kWh\n- Bekannte Kosten: {cost} {currency}\n- Empfängeridentität: {target}\n\nDieser Vorgang ist dauerhaft und kann in der Oberfläche nicht rückgängig gemacht werden. Nur das Charge Tally-Buch wird bereinigt; Home Assistant Recorder-Verlauf, native Statistiken und Sicherungen bleiben unberührt. Die Währung kann erst wieder geändert werden, wenn keine Ladepunkte (auch keine archivierten) und keine Buchungsdaten mehr vorhanden sind.",
         "data": {
           "confirm": "Ich verstehe die Auswirkungen und bestätige das dauerhafte Löschen"
         }
