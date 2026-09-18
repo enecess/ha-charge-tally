@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Rejestr Charge Tally",
-        "description": "Wszystkie punkty i wpisy używają tej waluty. Przed dodaniem pierwszego punktu można ją zmienić przez Konfiguruj na stronie integracji, jeśli rejestr nie zawiera zachowanych danych rozliczeniowych. Punkt, historia cen, pomiary lub wpisy blokują walutę, również po usunięciu punktu. Same tożsamości jej nie blokują. Ceny dynamiczne muszą używać tej samej waluty; kwoty nie są automatycznie przeliczane. Przy przywracaniu rejestru najpierw wybierz jego pierwotną walutę.",
+        "description": "- Wszystkie punkty ładowania i wpisy używają tej samej waluty.\n- Można ją zmienić przez Konfiguruj → Ustawienia księgi tylko przed dodaniem pierwszego punktu i gdy nie ma zachowanych danych księgowych. Same tożsamości nie blokują waluty.\n- Dodanie punktu lub zachowanie danych cen, licznika lub wpisów trwale blokuje walutę, nawet po usunięciu archiwum.\n- Ceny dynamiczne muszą używać tej samej waluty; kwoty nie są automatycznie przeliczane.\n- Przy przywracaniu zachowanej księgi najpierw wybierz jej pierwotną walutę.",
         "data": {
           "currency": "Waluta"
         }
@@ -193,6 +193,13 @@
         "remove": "Usuń przedział",
         "finish": "Zakończ harmonogram"
       }
+    },
+    "archive_action": {
+      "options": {
+        "delete_point": "Trwale usuń punkt, jego wpisy, rewizje, próbki i historię cen",
+        "delete_identity": "Usuń tożsamość; stare rewizje zachowają jej pierwotną nazwę do audytu",
+        "transfer_identity": "Przenieś wszystkie wymienione wpisy do wybranej tożsamości bez zmiany kwot, usuń tożsamość źródłową i zachowaj jej pierwotną nazwę w starych rewizjach"
+      }
     }
   },
   "issues": {
@@ -362,24 +369,75 @@
   "options": {
     "step": {
       "init": {
-        "title": "Konfiguracja rejestru",
-        "description": "Obecna waluta: **{currency}**. Rejestr nie był używany, więc można zmienić walutę. Tożsamości zostaną zachowane. Zmiana jest możliwa tylko przed dodaniem pierwszego punktu i bez zachowanych danych rozliczeniowych. Dodanie punktu blokuje walutę nawet przed pierwszym ładowaniem. Ceny dynamiczne muszą używać tej waluty. Nie następuje przeliczenie kursowe.",
-        "data": {
-          "currency": "Waluta"
+        "title": "Konfiguracja księgi",
+        "menu_options": {
+          "currency": "Ustawienia księgi",
+          "archive": "Zarządzaj danymi archiwalnymi"
         }
       },
       "locked": {
         "title": "Waluta rejestru zablokowana",
-        "description": "Obecna waluta: **{currency}**. Istnieje punkt lub zachowane dane cen, pomiarów lub wpisów. Waluty nie można zmienić nawet po usunięciu punktów lub przed pierwszym ładowaniem. Historyczne kwoty i ich waluta pozostają bez zmian, bez przeliczania. Punkty i tożsamości można skonfigurować w ich własnych wpisach."
+        "description": "- Bieżąca waluta: **{currency}**.\n- Pierwszy punkt lub zachowane dane cen, licznika lub wpisów trwale blokują walutę, nawet przed pierwszym ładowaniem i po usunięciu punktów lub archiwum.\n- Historyczne kwoty zachowują pierwotną walutę i nie są przeliczane ani obliczane ponownie. Ceny dynamiczne muszą używać tej waluty.\n- Punkty i tożsamości konfiguruj w ich własnych wpisach konfiguracji."
+      },
+      "currency": {
+        "title": "Ustawienia księgi",
+        "description": "- Bieżąca waluta: **{currency}**.\n- Ta księga nie była używana, więc można zmienić walutę. Tożsamości zostaną zachowane.\n- Zmiana jest możliwa tylko przed pierwszym punktem i bez zachowanych danych księgowych. Dodanie punktu blokuje walutę jeszcze przed pierwszym ładowaniem; usunięcie archiwum jej nie odblokuje.\n- Ceny dynamiczne muszą używać tej waluty; nie ma przeliczania walut.",
+        "data": {
+          "currency": "Waluta"
+        }
+      },
+      "archive": {
+        "title": "Zarządzaj danymi archiwalnymi",
+        "menu_options": {
+          "archive_points": "Archiwalne punkty ładowania",
+          "archive_identities": "Archiwalne tożsamości"
+        }
+      },
+      "archive_select": {
+        "title": "Wybierz obiekt archiwalny",
+        "description": "Dostępne są tylko obiekty z usuniętym wpisem konfiguracji. Wyłączenie wpisu nie oznacza archiwizacji.",
+        "data": {
+          "object_id": "Obiekt archiwalny"
+        }
+      },
+      "archive_empty": {
+        "title": "Brak obiektów archiwalnych",
+        "description": "Brak obiektów archiwalnych tego typu. Zatwierdź, aby wrócić do menu konfiguracji."
+      },
+      "archive_target": {
+        "title": "Przenieś wpisy tożsamości",
+        "description": "Przenieś wszystkie bieżące wpisy tożsamości **{name}** ({records}), w tym unieważnione, do wybranej tożsamości. Kwoty pozostaną bez zmian. Stare rewizje zachowają pierwotną nazwę tożsamości do audytu.",
+        "data": {
+          "target_identity_id": "Tożsamość docelowa"
+        }
+      },
+      "archive_confirm": {
+        "title": "Potwierdź trwałą operację",
+        "description": "- Obiekt: **{name}**\n- Operacja: {operation}\n- Wpisy (w tym unieważnione): {records}\n- Unieważnione wpisy: {voided}\n- Rewizje: {revisions}\n- Zakres czasu (UTC): {start} – {end}\n- Energia: {energy} kWh\n- Znany koszt: {cost} {currency}\n- Tożsamość docelowa: {target}\n\nOperacja jest trwała i nie można jej cofnąć w interfejsie. Czyszczenie dotyczy tylko księgi Charge Tally; historia Recorder, natywne statystyki i kopie zapasowe Home Assistant są wyłączone. Ta operacja nie usuwa istniejącej blokady waluty.",
+        "data": {
+          "confirm": "Rozumiem skutki i potwierdzam trwałe usunięcie"
+        }
+      },
+      "archive_done": {
+        "title": "Operacja archiwum zakończona",
+        "description": "Zakończono operację dla **{name}**. Usunięte wpisy: {deleted}. Przeniesione wpisy: {transferred}."
       }
     },
     "error": {
       "invalid_currency": "Wybierz prawidłowy trzyliterowy kod waluty.",
-      "save_failed": "Nie udało się zapisać waluty. Poprzednia waluta została zachowana. Spróbuj ponownie."
+      "save_failed": "Nie udało się zapisać waluty. Poprzednia waluta została zachowana. Spróbuj ponownie.",
+      "confirm_required": "Najpierw potwierdź, że rozumiesz skutki.",
+      "archive_target": "Wybierz dostępną tożsamość docelową.",
+      "archive_failed": "Operacja archiwum nie powiodła się. Odśwież podgląd i spróbuj ponownie."
     },
     "abort": {
       "config_changed": "Waluta zmieniła się, gdy formularz był otwarty. Otwórz ponownie Konfiguruj.",
-      "runtime_unavailable": "Rejestr nie jest załadowany lub jest zatrzymywany. Załaduj integrację i ponownie otwórz Konfiguruj."
+      "runtime_unavailable": "Księga nie jest załadowana lub jest zatrzymywana. Załaduj integrację i ponownie otwórz Konfiguruj.",
+      "archive_not_found": "Obiekt archiwalny już nie istnieje.",
+      "archive_configured": "Ten obiekt nadal ma wpis konfiguracji. Najpierw go usuń; samo wyłączenie nie wystarczy.",
+      "archive_busy": "Obiekt jest używany. Zakończ aktywne wpisy lub oczekujące wykrywanie i spróbuj ponownie.",
+      "archive_stale": "Dane archiwum zmieniły się. Otwórz podgląd ponownie przed zatwierdzeniem.",
+      "archive_target": "Tożsamość docelowa nie jest już dostępna. Otwórz podgląd ponownie."
     }
   }
 }

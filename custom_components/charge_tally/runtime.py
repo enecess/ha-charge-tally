@@ -360,6 +360,87 @@ class Runtime:
             point["identity_entity_id"] = entity_id if anchor and anchor.config_entry_id == self.entry.entry_id and anchor.config_subentry_id == point["id"] and not anchor.disabled else None
         return result
 
+    def _archive_configuration(self, kind=None, object_id=None, target_identity_id=None):
+        self._check_currency_runtime()
+        points, identities = self._config()
+        configured = points if kind == "point" else identities
+        if object_id is not None and (object_id in configured or object_id == "unassigned"):
+            raise ValueError("archive_configured")
+        if target_identity_id is not None and target_identity_id != "unassigned":
+            target = identities.get(target_identity_id)
+            if target is None or not target.get("enabled", True):
+                raise ValueError("archive_target")
+        return points, identities
+
+    async def _archive_read(self, method, kind=None, object_id=None, target_identity_id=None):
+        self._check_currency_runtime()
+        async with self._config_lock:
+            while True:
+                await self._gate.wait()
+                async with self._lock:
+                    if not self._gate.is_set():
+                        continue
+                    points, identities = self._archive_configuration(kind, object_id, target_identity_id)
+                    args = (points, identities) if kind is None else (kind, object_id, points, identities, target_identity_id)
+                    result = await self._worker(getattr(self._store, method), *args)
+                    latest = self._archive_configuration(kind, object_id, target_identity_id)
+                    if latest != (points, identities):
+                        continue
+                    return result
+
+    async def async_archive_catalog(self):
+        return await self._archive_read("archive_catalog")
+
+    async def async_archive_preview(self, kind, object_id, target_identity_id=None):
+        return await self._archive_read("archive_preview", kind, object_id, target_identity_id)
+
+    @staticmethod
+    async def _archive_settle(task):
+        """Drain an already dispatched worker before releasing serialization."""
+        while not task.done():
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError:
+                continue
+        return task.result()
+
+    async def async_archive_delete(self, kind, object_id, fingerprint, target_identity_id=None):
+        self._check_currency_runtime()
+        async with self._config_lock:
+            while True:
+                await self._gate.wait()
+                async with self._lock:
+                    if not self._gate.is_set():
+                        continue
+                    points, identities = self._archive_configuration(kind, object_id, target_identity_id)
+                    prepare = asyncio.create_task(self._worker(
+                        self._store.archive_prepare, kind, object_id, fingerprint,
+                        points, identities, target_identity_id,
+                    ))
+                    try:
+                        result, snapshot = await asyncio.shield(prepare)
+                        _, latest_identities = self._archive_configuration(kind, object_id, target_identity_id)
+                        if target_identity_id not in (None, "unassigned") and (
+                            identities.get(target_identity_id) != latest_identities.get(target_identity_id)
+                        ):
+                            raise ValueError("archive_stale")
+                    except BaseException:
+                        try:
+                            await self._archive_settle(prepare)
+                        except BaseException:
+                            pass
+                        rollback = asyncio.create_task(self._worker(self._store.archive_finish, False))
+                        await self._archive_settle(rollback)
+                        raise
+                    # Live configuration validation is the linearization point.
+                    # No await separates validation from dispatching the commit.
+                    commit = self.hass.loop.run_in_executor(
+                        self.executor, partial(self._store.archive_finish, True)
+                    )
+                    await self._archive_settle(commit)
+                    self._publish(snapshot)
+                    return result
+
     async def _read(self, function, *args):
         await self._gate.wait()
         async with self._lock:

@@ -60,6 +60,71 @@ class RuntimeStore:
         self.ledger.change_currency(currency, expected_currency)
         self.currency = currency
 
+    def archive_catalog(self, points, identities):
+        from .archive import ArchiveManager
+        catalog = ArchiveManager(self.ledger).catalog(points, identities)
+        catalog["targets"] = [item for item in catalog["targets"]
+                              if item["id"] == "unassigned" or identities[item["id"]].get("enabled", True)]
+        return catalog
+
+    def _archive_guard(self, kind, object_id, points):
+        for point_id, state in self.states.items():
+            detector = state.get("detector") or {}
+            if (kind == "identity" and point_id in points
+                    and detector.get("candidate") and detector.get("identity_id") == object_id):
+                raise ValueError("archive_busy")
+
+    def archive_preview(self, kind, object_id, points, identities, target_identity_id=None):
+        from .archive import ArchiveManager
+        self._archive_guard(kind, object_id, points)
+        return ArchiveManager(self.ledger).preview(kind, object_id, points, identities, target_identity_id)
+
+    def archive_prepare(self, kind, object_id, fingerprint, points, identities, target_identity_id=None):
+        """Keep deletion uncommitted until HA revalidates live configuration."""
+        from .archive import ArchiveManager
+        self._archive_guard(kind, object_id, points)
+        previous = deepcopy(self.states)
+        transaction = self.ledger.transaction()
+        transaction.__enter__()
+        self._archive_transaction = (transaction, previous)
+        try:
+            result = ArchiveManager(self.ledger).delete(
+                kind, object_id, fingerprint, points, identities, target_identity_id
+            )
+            if kind == "point":
+                self.states.pop(object_id, None)
+            else:
+                for point_id, state in self.states.items():
+                    if state.get("selected_identity_id") == object_id:
+                        state["selected_identity_id"] = target_identity_id or "unassigned"
+                    if point_id not in points and (state.get("detector") or {}).get("identity_id") == object_id:
+                        state["detector"] = None
+            self.ledger.put_checkpoint("runtime", self.states)
+            return result, self.snapshot()
+        except BaseException:
+            self.archive_finish(False)
+            raise
+
+    def archive_finish(self, commit):
+        pending = getattr(self, "_archive_transaction", None)
+        if pending is None:
+            return
+        transaction, previous = pending
+        self._archive_transaction = None
+        committed = False
+        try:
+            if commit:
+                transaction.__exit__(None, None, None)
+                committed = True
+            else:
+                error = RuntimeError("Archive transaction cancelled")
+                transaction.__exit__(type(error), error, None)
+        finally:
+            if not committed:
+                if self.ledger._db.in_transaction:
+                    self.ledger._db.rollback()
+                self.states = previous
+
     def apply(self, method, *args):
         previous = deepcopy(self.states)
         points = deepcopy(self.points)

@@ -62,7 +62,7 @@ Um einen weiteren Ladepunkt oder eine Identität hinzuzufügen, öffne **Charge 
 
 Bearbeite dein Dashboard, wähle **Karte hinzufügen** und suche nach **Charge Tally**. Im Karteneditor wählst du die angezeigten Ladepunkte, Identitäten und Informationen. Die Karte übernimmt Sprache und Design von Home Assistant.
 
-Die Karte steht normalerweise automatisch bereit. Fehlt sie, aktualisiere zuerst den Browser. Wenn du Dashboard-Ressourcen selbst verwaltest, füge `/charge_tally/charge-tally-card.js?v=0.1.2-2` als **JavaScript-Modul** hinzu und aktualisiere erneut.
+Die Karte steht normalerweise automatisch bereit. Fehlt sie, aktualisiere zuerst den Browser. Wenn du Dashboard-Ressourcen selbst verwaltest, füge `/charge_tally/charge-tally-card.js?v=0.1.2-3` als **JavaScript-Modul** hinzu und aktualisiere erneut.
 
 ## Identitäten und Ladeeinträge verwenden
 
@@ -93,6 +93,14 @@ Mit **Eintrag stornieren** schließt du einen falschen Eintrag aus den Summen au
 - **Ladevorgang läuft noch:** Werte können sich mit weiteren Messungen oder der Bestätigung der endgültigen Endzeit ändern.
 - **Kosten ausstehend:** Einige Preise fehlen. Der angezeigte bekannte Betrag ist nur ein Teil der Kosten und noch kein Endbetrag.
 - **Zähler- und Eintragssummen können abweichen:** Zähler erfassen auch Energie außerhalb von Ladeeinträgen, etwa Standby-Verbrauch. Identitätssummen enthalten nur zugeordnete Einträge. Eine Korrektur aktualisiert die Eintragsstatistik, nicht den Zählerverlauf.
+
+## Archivierte Daten verwalten
+
+Öffnen Sie **Charge Tally → Konfigurieren → Archivierte Daten verwalten**. Nur Ladepunkte und Identitäten mit gelöschten Konfigurationseinträgen werden aufgeführt; Deaktivieren reicht nicht aus. Prüfen Sie Eintrags- und Revisionszahlen, UTC-Zeitraum, Energie und bekannte Kosten und bestätigen Sie das dauerhafte Löschen ausdrücklich.
+
+Beim Löschen eines Ladepunkts werden seine Bucheinträge, Revisionen, Messwerte und sein Preisverlauf entfernt. Vor dem Löschen einer Identität mit Einträgen müssen alle aktuellen Einträge, einschließlich stornierter, an eine Empfängeridentität übertragen werden. Beträge bleiben unverändert; alte Revisionen behalten den ursprünglichen Identitätsnamen zur Prüfung.
+
+Diese Vorgänge können in der Oberfläche nicht rückgängig gemacht werden. Sie betreffen nur das Charge Tally-Buch, nicht den nativen Verlauf, Statistiken oder Sicherungen von Home Assistant. Das Bereinigen des Archivs entsperrt niemals die Währung eines bereits verwendeten Buchs. Wählen Sie beim Wiederherstellen zuerst dessen ursprüngliche Währung.
 
 ## Häufige Fragen
 

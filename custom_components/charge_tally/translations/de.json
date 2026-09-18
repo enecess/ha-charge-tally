@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Charge Tally-Abrechnungsbuch",
-        "description": "Alle Ladepunkte und Einträge verwenden diese Währung. Vor dem ersten Ladepunkt können Sie sie über Konfigurieren auf der Integrationsseite ändern, sofern keine Abrechnungsdaten gespeichert sind. Sobald ein Ladepunkt, Preisverlauf, Messdaten oder Einträge existieren, ist die Währung gesperrt, auch nach dem Entfernen des Ladepunkts. Identitäten allein sperren sie nicht. Dynamische Preise müssen dieselbe Währung verwenden; Beträge werden nicht automatisch umgerechnet. Wählen Sie beim Wiederherstellen zunächst die ursprüngliche Währung.",
+        "description": "- Alle Ladepunkte und Einträge verwenden dieselbe Währung.\n- Änderungen unter Konfigurieren → Bucheinstellungen sind nur vor dem ersten Ladepunkt und ohne gespeicherte Buchungsdaten möglich. Identitäten allein sperren die Währung nicht.\n- Ein Ladepunkt oder gespeicherte Preis-, Zähler- oder Eintragsdaten sperren die Währung dauerhaft, auch nach dem Löschen archivierter Daten.\n- Dynamische Preise müssen dieselbe Währung verwenden; Beträge werden nicht automatisch umgerechnet.\n- Wählen Sie beim Wiederherstellen eines gespeicherten Buchs zuerst dessen ursprüngliche Währung.",
         "data": {
           "currency": "Währung"
         }
@@ -193,6 +193,13 @@
         "remove": "Zeitraum entfernen",
         "finish": "Zeitplan abschließen"
       }
+    },
+    "archive_action": {
+      "options": {
+        "delete_point": "Ladepunkt, Einträge, Revisionen, Messwerte und Preisverlauf dauerhaft löschen",
+        "delete_identity": "Identität löschen; alte Revisionen behalten ihren ursprünglichen Namen zur Prüfung",
+        "transfer_identity": "Alle aufgeführten Einträge ohne Betragsänderung an die gewählte Identität übertragen, die Quellidentität löschen und ihren ursprünglichen Namen in alten Revisionen erhalten"
+      }
     }
   },
   "issues": {
@@ -362,24 +369,75 @@
   "options": {
     "step": {
       "init": {
-        "title": "Abrechnungsbuch konfigurieren",
-        "description": "Aktuelle Währung: **{currency}**. Das Abrechnungsbuch ist unbenutzt; Sie können die Währung ändern. Identitäten bleiben erhalten. Änderungen sind nur vor dem ersten Ladepunkt und ohne gespeicherte Abrechnungsdaten möglich. Ein Ladepunkt sperrt die Währung bereits vor dem ersten Ladevorgang. Dynamische Preise müssen dieselbe Währung verwenden. Es erfolgt keine Währungsumrechnung.",
-        "data": {
-          "currency": "Währung"
+        "title": "Buchkonfiguration",
+        "menu_options": {
+          "currency": "Bucheinstellungen",
+          "archive": "Archivierte Daten verwalten"
         }
       },
       "locked": {
         "title": "Währung gesperrt",
-        "description": "Aktuelle Währung: **{currency}**. Ein Ladepunkt oder gespeicherte Preis-, Mess- oder Eintragsdaten existieren. Die Währung kann auch nach dem Entfernen der Ladepunkte oder vor dem ersten Ladevorgang nicht geändert werden. Historische Beträge und ihre Währung bleiben erhalten und werden nicht umgerechnet oder neu berechnet. Ladepunkte und Identitäten werden über ihre eigenen Einträge konfiguriert."
+        "description": "- Aktuelle Währung: **{currency}**.\n- Der erste Ladepunkt oder gespeicherte Preis-, Zähler- oder Eintragsdaten sperren die Währung dauerhaft, auch vor dem ersten Laden und nach dem Löschen von Ladepunkten oder Archiven.\n- Historische Beträge behalten ihre Währung und werden nicht umgerechnet oder neu berechnet. Dynamische Preise müssen diese Währung verwenden.\n- Konfigurieren Sie Ladepunkte und Identitäten über deren eigene Einträge."
+      },
+      "currency": {
+        "title": "Bucheinstellungen",
+        "description": "- Aktuelle Währung: **{currency}**.\n- Dieses Buch ist unbenutzt; die Währung kann geändert werden. Identitäten bleiben erhalten.\n- Änderungen sind nur vor dem ersten Ladepunkt und ohne gespeicherte Buchungsdaten möglich. Ein Ladepunkt sperrt die Währung schon vor dem ersten Laden; auch das Löschen des Archivs hebt die Sperre nicht auf.\n- Dynamische Preise müssen dieselbe Währung verwenden; es erfolgt keine Umrechnung.",
+        "data": {
+          "currency": "Währung"
+        }
+      },
+      "archive": {
+        "title": "Archivierte Daten verwalten",
+        "menu_options": {
+          "archive_points": "Archivierte Ladepunkte",
+          "archive_identities": "Archivierte Identitäten"
+        }
+      },
+      "archive_select": {
+        "title": "Archiviertes Objekt auswählen",
+        "description": "Nur Objekte mit gelöschtem Konfigurationseintrag stehen zur Auswahl. Das Deaktivieren eines Eintrags archiviert ihn nicht.",
+        "data": {
+          "object_id": "Archiviertes Objekt"
+        }
+      },
+      "archive_empty": {
+        "title": "Keine archivierten Objekte",
+        "description": "Es gibt keine archivierten Objekte dieses Typs. Absenden führt zurück zum Konfigurationsmenü."
+      },
+      "archive_target": {
+        "title": "Identitätseinträge übertragen",
+        "description": "Alle {records} aktuellen Einträge von **{name}**, einschließlich stornierter Einträge, werden der gewählten Identität zugeordnet. Beträge bleiben unverändert. Alte Revisionen behalten den ursprünglichen Identitätsnamen zur Prüfung.",
+        "data": {
+          "target_identity_id": "Empfängeridentität"
+        }
+      },
+      "archive_confirm": {
+        "title": "Dauerhaften Vorgang bestätigen",
+        "description": "- Objekt: **{name}**\n- Vorgang: {operation}\n- Einträge (einschließlich stornierter): {records}\n- Stornierte Einträge: {voided}\n- Revisionen: {revisions}\n- Zeitraum (UTC): {start} – {end}\n- Energie: {energy} kWh\n- Bekannte Kosten: {cost} {currency}\n- Empfängeridentität: {target}\n\nDieser Vorgang ist dauerhaft und kann in der Oberfläche nicht rückgängig gemacht werden. Nur das Charge Tally-Buch wird bereinigt; Home Assistant Recorder-Verlauf, native Statistiken und Sicherungen bleiben unberührt. Dieser Vorgang hebt eine bestehende Währungssperre nicht auf.",
+        "data": {
+          "confirm": "Ich verstehe die Auswirkungen und bestätige das dauerhafte Löschen"
+        }
+      },
+      "archive_done": {
+        "title": "Archivvorgang abgeschlossen",
+        "description": "Vorgang für **{name}** abgeschlossen. Gelöschte Einträge: {deleted}. Übertragene Einträge: {transferred}."
       }
     },
     "error": {
       "invalid_currency": "Wählen Sie einen gültigen Währungscode aus drei Buchstaben.",
-      "save_failed": "Die Währung konnte nicht gespeichert werden. Die bisherige Währung bleibt erhalten. Versuchen Sie es erneut."
+      "save_failed": "Die Währung konnte nicht gespeichert werden. Die bisherige Währung bleibt erhalten. Versuchen Sie es erneut.",
+      "confirm_required": "Bestätigen Sie zuerst, dass Sie die Auswirkungen verstehen.",
+      "archive_target": "Wählen Sie eine verfügbare Empfängeridentität.",
+      "archive_failed": "Der Archivvorgang ist fehlgeschlagen. Aktualisieren Sie die Vorschau und versuchen Sie es erneut."
     },
     "abort": {
       "config_changed": "Die Währung wurde geändert, während dieses Formular geöffnet war. Öffnen Sie Konfigurieren erneut.",
-      "runtime_unavailable": "Das Abrechnungsbuch ist nicht geladen oder wird beendet. Laden Sie die Integration und öffnen Sie Konfigurieren erneut."
+      "runtime_unavailable": "Das Buch ist nicht geladen oder wird gestoppt. Laden Sie die Integration und öffnen Sie Konfigurieren erneut.",
+      "archive_not_found": "Das archivierte Objekt existiert nicht mehr.",
+      "archive_configured": "Dieses Objekt hat noch einen Konfigurationseintrag. Löschen Sie ihn zuerst; Deaktivieren reicht nicht aus.",
+      "archive_busy": "Das Objekt wird verwendet. Beenden Sie aktive Einträge oder Erkennungskandidaten und versuchen Sie es erneut.",
+      "archive_stale": "Die Archivdaten haben sich geändert. Öffnen Sie die Vorschau vor der Bestätigung erneut.",
+      "archive_target": "Die Empfängeridentität ist nicht mehr verfügbar. Öffnen Sie die Vorschau erneut."
     }
   }
 }

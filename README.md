@@ -62,7 +62,7 @@ To add another charging point or an identity, open **Charge Tally** under **Sett
 
 Edit your dashboard, select **Add card**, and search for **Charge Tally**. Its editor lets you choose the charging points, identities and information to display. The card follows your Home Assistant language and theme.
 
-The card is normally available automatically. If it is missing, refresh the browser first. If you manage dashboard resources yourself, add `/charge_tally/charge-tally-card.js?v=0.1.2-2` as a **JavaScript module**, then refresh again.
+The card is normally available automatically. If it is missing, refresh the browser first. If you manage dashboard resources yourself, add `/charge_tally/charge-tally-card.js?v=0.1.2-3` as a **JavaScript module**, then refresh again.
 
 ## Use identities and charging records
 
@@ -93,6 +93,14 @@ Use **Void record** to exclude an incorrect record from totals. Its previous det
 - **Charging in progress:** figures can change as more readings arrive or the final end time is confirmed.
 - **Pending cost:** some prices are missing. The displayed known amount is only part of the cost, not the final bill.
 - **Meter totals and record totals can differ:** meters include energy used outside charging records, such as standby usage. Identity totals include only their assigned records. Correcting a record updates record statistics, not the meter's history.
+
+## Manage archived data
+
+Open **Charge Tally → Configure → Manage archived data**. Only charging points and identities whose configuration entries have been deleted are listed; disabling an entry is not enough. Review the record and revision counts, UTC time range, energy and known cost, then explicitly confirm permanent deletion.
+
+Deleting a charging point removes its ledger records, revisions, samples and price history. Before deleting an identity with records, transfer all its current records, including voided records, to a receiving identity. Amounts stay unchanged and old revisions retain the original identity name for audit.
+
+These operations cannot be undone in the interface and affect only the Charge Tally ledger, not Home Assistant native history, statistics or backups. Archive cleanup never unlocks the currency of a previously used ledger. When restoring a retained ledger, choose its original currency first.
 
 ## Common questions
 

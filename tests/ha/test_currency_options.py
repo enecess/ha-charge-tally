@@ -21,6 +21,13 @@ async def setup_entry(hass, tmp_path):
     return entry
 
 
+async def open_currency(hass, entry):
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    if result["type"] == FlowResultType.MENU:
+        return await hass.config_entries.options.async_configure(result["flow_id"], {"next_step_id": "currency"})
+    return result
+
+
 async def add_subentry(hass, entry, kind, data):
     result = await hass.config_entries.subentries.async_init((entry.entry_id, kind), context={"source": "user"})
     return await hass.config_entries.subentries.async_configure(result["flow_id"], data)
@@ -43,8 +50,8 @@ async def test_options_change_unused_currency_and_reload_identity_units(hass, tm
     await add_subentry(hass, entry, "identity", {"name": "Car", "enabled": True})
     await hass.async_block_till_done()
     identity_id = next(iter(entry.subentries))
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    assert result["step_id"] == "init"
+    result = await open_currency(hass, entry)
+    assert result["step_id"] == "currency"
     assert result["data_schema"]({}) == {"currency": "CNY"}
     result = await hass.config_entries.options.async_configure(result["flow_id"], {"currency": " usd "})
     assert result["type"] == FlowResultType.CREATE_ENTRY
@@ -60,7 +67,7 @@ async def test_options_change_unused_currency_and_reload_identity_units(hass, tm
 
 async def test_options_reject_invalid_currency_without_changes(hass, tmp_path):
     entry = await setup_entry(hass, tmp_path)
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await open_currency(hass, entry)
     result = await hass.config_entries.options.async_configure(result["flow_id"], {"currency": "invalid"})
     assert result["errors"] == {"base": "invalid_currency"}
     assert entry.data["currency"] == "CNY"
@@ -72,7 +79,7 @@ async def test_options_unchanged_currency_preserves_options_and_runtime(hass, tm
     hass.config_entries.async_update_entry(entry, options={"future_option": True})
     await hass.async_block_till_done()
     runtime = entry.runtime_data
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await open_currency(hass, entry)
     result = await hass.config_entries.options.async_configure(result["flow_id"], {"currency": "CNY"})
     await hass.async_block_till_done()
     assert result["type"] == FlowResultType.CREATE_ENTRY
@@ -92,7 +99,7 @@ async def test_locked_options_preserve_historical_amounts_and_revisions(hass, tm
     })
     record = await runtime.async_command("commit_preview", {"token": preview["token"], "request_id": "historical"})
     before = await runtime.async_query("record", {"record_id": record["id"]})
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await open_currency(hass, entry)
     assert result["step_id"] == "locked"
     await hass.config_entries.options.async_configure(result["flow_id"], {})
     await hass.async_block_till_done()
@@ -109,19 +116,19 @@ async def test_options_lock_used_ledger_even_after_point_removal(hass, tmp_path,
         hass.config_entries.async_remove_subentry(entry, next(iter(entry.subentries)))
         await hass.async_block_till_done()
     before = await entry.runtime_data.async_snapshot()
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await open_currency(hass, entry)
     assert result["step_id"] == "locked"
     assert result["description_placeholders"]["currency"] == "CNY"
     assert "currency" not in result["data_schema"].schema
     result = await hass.config_entries.options.async_configure(result["flow_id"], {})
-    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.MENU
     assert entry.data["currency"] == "CNY"
     assert (await entry.runtime_data.async_snapshot())["records"] == before["records"]
 
 
 async def test_options_recheck_when_point_added_while_form_open(hass, tmp_path):
     entry = await setup_entry(hass, tmp_path)
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await open_currency(hass, entry)
     await add_point(hass, entry)
     result = await hass.config_entries.options.async_configure(result["flow_id"], {"currency": "USD"})
     assert result["step_id"] == "locked"
@@ -145,7 +152,7 @@ async def test_incomplete_point_cannot_relabel_prices_after_currency_change(hass
     for data in prices:
         point = await hass.config_entries.subentries.async_configure(point["flow_id"], data)
     assert point["step_id"] == "finish"
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await open_currency(hass, entry)
     await hass.config_entries.options.async_configure(result["flow_id"], {"currency": "USD"})
     await hass.async_block_till_done()
     point = await hass.config_entries.subentries.async_configure(point["flow_id"], {"periods": []})
@@ -157,14 +164,14 @@ async def test_incomplete_point_cannot_relabel_prices_after_currency_change(hass
 async def test_options_unloaded_entry_explains_unavailable_runtime(hass, tmp_path):
     entry = await setup_entry(hass, tmp_path)
     assert await hass.config_entries.async_unload(entry.entry_id)
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await open_currency(hass, entry)
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "runtime_unavailable"
 
 
 async def test_options_report_write_failure_without_changing_currency(hass, tmp_path, monkeypatch):
     entry = await setup_entry(hass, tmp_path)
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await open_currency(hass, entry)
 
     def fail_write(*args):
         raise sqlite3.OperationalError("disk full")
@@ -179,7 +186,7 @@ async def test_options_report_write_failure_without_changing_currency(hass, tmp_
 
 async def test_options_reject_stale_form_after_another_currency_change(hass, tmp_path):
     entry = await setup_entry(hass, tmp_path)
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await open_currency(hass, entry)
     await entry.runtime_data.async_change_currency("USD", "CNY")
     await hass.async_block_till_done()
     result = await hass.config_entries.options.async_configure(result["flow_id"], {"currency": "EUR"})

@@ -1,12 +1,11 @@
 """Native Home Assistant configuration for the ledger and its subentries."""
 from copy import deepcopy
 import re
-import sqlite3
 
 import voluptuous as vol
 
 from homeassistant import config_entries
-from homeassistant.config_entries import ConfigFlow, ConfigSubentryFlow, OptionsFlow
+from homeassistant.config_entries import ConfigFlow, ConfigSubentryFlow
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers import config_validation as cv, selector
@@ -16,6 +15,7 @@ from .const import DOMAIN, INPUT_MODES, NAME, PERIODS, RESTRICTED_POINT_FIELDS
 from .config_validation import validate_detection, validate_identity_name, validate_name, validate_point, validate_price
 from .core.units import decimal_value, price_per_kwh
 from .ledger import retained_currency
+from .options_flow import LedgerOptionsFlow
 
 
 _NEXT_SUBENTRY_FLOW = getattr(getattr(config_entries, "FlowType", None), "CONFIG_SUBENTRIES_FLOW", None)
@@ -88,50 +88,6 @@ class ChargeTallyConfigFlow(ConfigFlow, domain=DOMAIN):
         )
         result["next_flow"] = (_NEXT_SUBENTRY_FLOW, next_result["flow_id"])
         return result
-
-
-class LedgerOptionsFlow(OptionsFlow):
-    """Expose ledger settings without relabeling historical amounts."""
-
-    def __init__(self):
-        self._original_currency = None
-
-    async def async_step_init(self, user_input=None):
-        entry = self.config_entry
-        runtime = getattr(entry, "runtime_data", None)
-        if runtime is None:
-            return self.async_abort(reason="runtime_unavailable")
-        errors = {}
-        try:
-            if not await runtime.async_currency_change_allowed():
-                return await self.async_step_locked()
-            if self._original_currency is None:
-                self._original_currency = entry.data["currency"]
-            if user_input is not None:
-                try:
-                    currency = cv.currency(user_input["currency"].strip().upper())
-                except (vol.Invalid, KeyError, AttributeError):
-                    errors["base"] = "invalid_currency"
-                else:
-                    await runtime.async_change_currency(currency, self._original_currency)
-                    return self.async_create_entry(title="", data=dict(entry.options))
-        except ValueError as err:
-            if str(err) == "currency_locked":
-                return await self.async_step_locked()
-            if str(err) in ("config_changed", "runtime_unavailable"):
-                return self.async_abort(reason=str(err))
-            raise
-        except (OSError, sqlite3.Error):
-            errors["base"] = "save_failed"
-        return self.async_show_form(step_id="init", data_schema=vol.Schema({
-            vol.Required("currency", default=entry.data["currency"]): selector.TextSelector(),
-        }), description_placeholders={"currency": entry.data["currency"]}, errors=errors)
-
-    async def async_step_locked(self, user_input=None):
-        if user_input is not None:
-            return self.async_create_entry(title="", data=dict(self.config_entry.options))
-        return self.async_show_form(step_id="locked", data_schema=vol.Schema({}),
-                                    description_placeholders={"currency": self.config_entry.data["currency"]})
 
 
 class IdentitySubentryFlow(ConfigSubentryFlow):

@@ -62,7 +62,7 @@ Aby dodać kolejny punkt ładowania lub tożsamość, otwórz **Charge Tally** w
 
 Edytuj pulpit, wybierz **Dodaj kartę** i wyszukaj **Charge Tally**. W edytorze karty wybierzesz wyświetlane punkty ładowania, tożsamości i informacje. Karta korzysta z języka i motywu Home Assistant.
 
-Karta jest zwykle dostępna automatycznie. Jeśli jej brakuje, najpierw odśwież przeglądarkę. Jeśli samodzielnie zarządzasz zasobami pulpitu, dodaj `/charge_tally/charge-tally-card.js?v=0.1.2-2` jako **Moduł JavaScript** i ponownie odśwież stronę.
+Karta jest zwykle dostępna automatycznie. Jeśli jej brakuje, najpierw odśwież przeglądarkę. Jeśli samodzielnie zarządzasz zasobami pulpitu, dodaj `/charge_tally/charge-tally-card.js?v=0.1.2-3` jako **Moduł JavaScript** i ponownie odśwież stronę.
 
 ## Tożsamości i wpisy ładowania
 
@@ -93,6 +93,14 @@ Użyj **Unieważnij wpis**, aby wykluczyć błędny wpis z podsumowań. Jego wcz
 - **Ładowanie w toku:** wartości mogą się zmieniać wraz z kolejnymi odczytami lub po potwierdzeniu ostatecznego czasu zakończenia.
 - **Koszt do uzupełnienia:** brakuje niektórych cen. Wyświetlana znana kwota to tylko część kosztu, a nie kwota końcowa.
 - **Sumy liczników i wpisów mogą się różnić:** liczniki obejmują też energię zużytą poza wpisami ładowania, na przykład w trybie czuwania. Podsumowania tożsamości obejmują tylko przypisane do niej wpisy. Poprawienie wpisu aktualizuje statystyki wpisów, a nie historię licznika.
+
+## Zarządzaj danymi archiwalnymi
+
+Otwórz **Charge Tally → Konfiguruj → Zarządzaj danymi archiwalnymi**. Lista zawiera tylko punkty i tożsamości z usuniętymi wpisami konfiguracji; samo wyłączenie nie wystarczy. Sprawdź liczbę wpisów i rewizji, zakres czasu UTC, energię oraz znany koszt i wyraźnie potwierdź trwałe usunięcie.
+
+Usunięcie punktu usuwa jego wpisy księgi, rewizje, próbki i historię cen. Przed usunięciem tożsamości z wpisami przenieś wszystkie jej bieżące wpisy, w tym unieważnione, do tożsamości docelowej. Kwoty pozostaną bez zmian, a stare rewizje zachowają pierwotną nazwę tożsamości do audytu.
+
+Tych operacji nie można cofnąć w interfejsie. Dotyczą tylko księgi Charge Tally, a nie natywnej historii, statystyk ani kopii zapasowych Home Assistant. Czyszczenie archiwum nigdy nie odblokuje waluty wcześniej używanej księgi. Przy jej przywracaniu najpierw wybierz pierwotną walutę.
 
 ## Częste pytania
 

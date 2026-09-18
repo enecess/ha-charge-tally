@@ -62,7 +62,7 @@ Pour ajouter un autre point de charge ou une identité, ouvrez **Charge Tally** 
 
 Modifiez votre tableau de bord, choisissez **Ajouter une carte** et recherchez **Charge Tally**. L’éditeur permet de choisir les points de charge, les identités et les informations à afficher. La carte reprend la langue et le thème de Home Assistant.
 
-La carte est normalement disponible automatiquement. Si elle manque, actualisez d’abord le navigateur. Si vous gérez vous-même les ressources du tableau de bord, ajoutez `/charge_tally/charge-tally-card.js?v=0.1.2-2` comme **Module JavaScript**, puis actualisez à nouveau.
+La carte est normalement disponible automatiquement. Si elle manque, actualisez d’abord le navigateur. Si vous gérez vous-même les ressources du tableau de bord, ajoutez `/charge_tally/charge-tally-card.js?v=0.1.2-3` comme **Module JavaScript**, puis actualisez à nouveau.
 
 ## Utiliser les identités et les enregistrements
 
@@ -93,6 +93,14 @@ Utilisez **Invalider l’enregistrement** pour exclure un enregistrement incorre
 - **Recharge en cours :** les chiffres peuvent évoluer à l’arrivée de nouveaux relevés ou à la confirmation de l’heure de fin définitive.
 - **Coût en attente :** certains prix manquent. Le montant connu affiché ne représente qu’une partie du coût, pas le montant final.
 - **Les totaux des compteurs et des enregistrements peuvent différer :** les compteurs incluent l’énergie consommée hors des enregistrements, par exemple en veille. Les totaux par identité incluent uniquement les enregistrements attribués à cette identité. Corriger un enregistrement actualise ses statistiques, pas l’historique du compteur.
+
+## Gérer les données archivées
+
+Ouvrez **Charge Tally → Configurer → Gérer les données archivées**. Seuls les points de charge et les identités dont les entrées de configuration ont été supprimées sont listés ; les désactiver ne suffit pas. Vérifiez les nombres d’enregistrements et de révisions, la période UTC, l’énergie et le coût connu, puis confirmez explicitement la suppression définitive.
+
+Supprimer un point de charge efface ses enregistrements du registre, révisions, mesures et historique des prix. Avant de supprimer une identité ayant des enregistrements, transférez tous ses enregistrements actuels, y compris ceux annulés, vers une identité destinataire. Les montants restent inchangés ; les anciennes révisions conservent le nom d’identité d’origine pour l’audit.
+
+Ces opérations sont irréversibles dans l’interface et concernent uniquement le registre Charge Tally, pas l’historique natif, les statistiques ou les sauvegardes Home Assistant. Le nettoyage des archives ne déverrouille jamais la devise d’un registre déjà utilisé. Lors d’une restauration, choisissez d’abord sa devise d’origine.
 
 ## Questions fréquentes
 

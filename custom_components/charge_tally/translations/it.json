@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Registro contabile Charge Tally",
-        "description": "Tutti i punti di ricarica e le registrazioni condividono questa valuta. Prima di aggiungere il primo punto di ricarica, puoi modificarla tramite Configura nella pagina dell’integrazione, purché il registro contabile non contenga dati contabili conservati. La valuta viene bloccata non appena esiste un punto, uno storico dei prezzi, dati del contatore o una registrazione, anche se il punto viene successivamente rimosso. Le sole identità non la bloccano. I prezzi dinamici devono utilizzare la stessa valuta; gli importi non vengono mai convertiti automaticamente. Quando ripristini un registro contabile conservato, seleziona prima la sua valuta originale.",
+        "description": "- Tutti i punti di ricarica e i record condividono la stessa valuta.\n- Puoi modificarla in Configura → Impostazioni del registro solo prima del primo punto e in assenza di dati contabili conservati. Le sole identità non la bloccano.\n- Un punto o dati conservati di prezzi, contatori o record bloccano la valuta in modo permanente, anche dopo la pulizia degli archivi.\n- I prezzi dinamici devono usare la stessa valuta; gli importi non vengono convertiti automaticamente.\n- Per ripristinare un registro conservato, scegli prima la sua valuta originale.",
         "data": {
           "currency": "Valuta"
         }
@@ -193,6 +193,13 @@
         "remove": "Rimuovi fascia",
         "finish": "Completa programma"
       }
+    },
+    "archive_action": {
+      "options": {
+        "delete_point": "Elimina definitivamente punto, record, revisioni, campioni e cronologia prezzi",
+        "delete_identity": "Elimina l’identità; le vecchie revisioni conservano il nome originale per la verifica",
+        "transfer_identity": "Trasferisci tutti i record elencati all’identità selezionata senza cambiare gli importi, elimina l’identità di origine e mantieni il suo nome originale nelle vecchie revisioni"
+      }
     }
   },
   "issues": {
@@ -362,24 +369,75 @@
   "options": {
     "step": {
       "init": {
-        "title": "Configurazione del registro contabile",
-        "description": "Valuta corrente: **{currency}**. Questo registro contabile non è stato utilizzato, quindi puoi modificarne la valuta. Le identità vengono conservate. Le modifiche alla valuta sono consentite solo prima del primo punto di ricarica e in assenza di dati contabili conservati. L’aggiunta di un punto blocca la valuta, anche prima che venga registrata una ricarica. I prezzi dinamici devono utilizzare questa valuta. Non viene effettuata alcuna conversione valutaria.",
-        "data": {
-          "currency": "Valuta"
+        "title": "Configurazione del registro",
+        "menu_options": {
+          "currency": "Impostazioni del registro",
+          "archive": "Gestisci dati archiviati"
         }
       },
       "locked": {
         "title": "Valuta del registro contabile bloccata",
-        "description": "Valuta corrente: **{currency}**. Esiste un punto di ricarica oppure sono conservati dati sui prezzi, sul contatore o sulle registrazioni. La valuta non può essere modificata, nemmeno dopo aver rimosso i punti di ricarica o prima della prima ricarica. Gli importi storici e la loro valuta originale vengono conservati; non vengono convertiti né ricalcolati. Configura i punti di ricarica e le identità tramite le rispettive voci di configurazione."
+        "description": "- Valuta attuale: **{currency}**.\n- Il primo punto o dati conservati di prezzi, contatori o record bloccano la valuta in modo permanente, anche prima della prima ricarica e dopo l’eliminazione di punti o archivi.\n- Gli importi storici mantengono la valuta originale, senza conversioni o ricalcoli. I prezzi dinamici devono usare questa valuta.\n- Configura punti e identità tramite le rispettive voci di configurazione."
+      },
+      "currency": {
+        "title": "Impostazioni del registro",
+        "description": "- Valuta attuale: **{currency}**.\n- Questo registro non è stato usato: puoi modificare la valuta. Le identità vengono conservate.\n- La modifica è possibile solo prima del primo punto e senza dati contabili conservati. Un punto blocca la valuta anche prima della prima ricarica; eliminare gli archivi non la sblocca.\n- I prezzi dinamici devono usare questa valuta; non viene effettuata alcuna conversione.",
+        "data": {
+          "currency": "Valuta"
+        }
+      },
+      "archive": {
+        "title": "Gestisci dati archiviati",
+        "menu_options": {
+          "archive_points": "Punti di ricarica archiviati",
+          "archive_identities": "Identità archiviate"
+        }
+      },
+      "archive_select": {
+        "title": "Seleziona oggetto archiviato",
+        "description": "Sono disponibili solo gli oggetti la cui voce di configurazione è stata eliminata. Disabilitare una voce non la archivia.",
+        "data": {
+          "object_id": "Oggetto archiviato"
+        }
+      },
+      "archive_empty": {
+        "title": "Nessun oggetto archiviato",
+        "description": "Non ci sono oggetti archiviati di questo tipo. Conferma per tornare al menu di configurazione."
+      },
+      "archive_target": {
+        "title": "Trasferisci record dell’identità",
+        "description": "Trasferisci tutti i {records} record attuali di **{name}**, inclusi quelli annullati, all’identità selezionata. Gli importi restano invariati. Le vecchie revisioni mantengono il nome dell’identità originale per la verifica.",
+        "data": {
+          "target_identity_id": "Identità destinataria"
+        }
+      },
+      "archive_confirm": {
+        "title": "Conferma operazione permanente",
+        "description": "- Oggetto: **{name}**\n- Operazione: {operation}\n- Record (inclusi annullati): {records}\n- Record annullati: {voided}\n- Revisioni: {revisions}\n- Intervallo temporale (UTC): {start} – {end}\n- Energia: {energy} kWh\n- Costo noto: {cost} {currency}\n- Identità destinataria: {target}\n\nQuesta operazione è permanente e non può essere annullata nell’interfaccia. La pulizia riguarda solo il registro Charge Tally; cronologia Recorder, statistiche native e backup di Home Assistant sono esclusi. Questa operazione non rimuove un blocco della valuta già esistente.",
+        "data": {
+          "confirm": "Comprendo le conseguenze e confermo l’eliminazione permanente"
+        }
+      },
+      "archive_done": {
+        "title": "Operazione archivio completata",
+        "description": "Operazione completata per **{name}**. Record eliminati: {deleted}. Record trasferiti: {transferred}."
       }
     },
     "error": {
       "invalid_currency": "Scegli un codice valuta valido di tre lettere.",
-      "save_failed": "Impossibile salvare la valuta. La valuta precedente è stata mantenuta. Riprova."
+      "save_failed": "Impossibile salvare la valuta. La valuta precedente è stata mantenuta. Riprova.",
+      "confirm_required": "Conferma prima di aver compreso le conseguenze.",
+      "archive_target": "Seleziona un’identità destinataria disponibile.",
+      "archive_failed": "Operazione archivio non riuscita. Aggiorna l’anteprima e riprova."
     },
     "abort": {
       "config_changed": "La valuta del registro contabile è cambiata mentre questo modulo era aperto. Riapri Configura.",
-      "runtime_unavailable": "Il registro contabile non è caricato oppure è in fase di arresto. Carica l’integrazione e riapri Configura. Per modificare la valuta, il registro contabile deve essere in esecuzione."
+      "runtime_unavailable": "Il registro non è caricato o si sta arrestando. Carica l’integrazione e riapri Configura.",
+      "archive_not_found": "L’oggetto archiviato non esiste più.",
+      "archive_configured": "Questo oggetto ha ancora una voce di configurazione. Eliminala prima; disabilitarla non basta.",
+      "archive_busy": "L’oggetto è in uso. Termina i record attivi o i candidati di rilevamento e riprova.",
+      "archive_stale": "I dati archiviati sono cambiati. Riapri l’anteprima prima di confermare.",
+      "archive_target": "L’identità destinataria non è più disponibile. Riapri l’anteprima."
     }
   }
 }

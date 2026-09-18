@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Registre Charge Tally",
-        "description": "Tous les points et enregistrements partagent cette devise. Avant le premier point, vous pouvez la modifier via Configurer sur la page de l’intégration, si aucune donnée comptable n’est conservée. Dès qu’un point, un historique de prix, des mesures ou des enregistrements existent, la devise est verrouillée, même après suppression du point. Les identités seules ne la verrouillent pas. Les prix dynamiques doivent utiliser la même devise ; aucune conversion automatique n’est effectuée. Pour restaurer un registre, sélectionnez d’abord sa devise d’origine.",
+        "description": "- Tous les points de charge et les enregistrements partagent la même devise.\n- Vous pouvez la modifier dans Configurer → Paramètres du registre uniquement avant le premier point de charge et sans données comptables conservées. Les identités seules ne la verrouillent pas.\n- Un point de charge ou des données de prix, de compteur ou d’enregistrement verrouillent définitivement la devise, même après suppression des archives.\n- Les prix dynamiques doivent utiliser la même devise ; les montants ne sont jamais convertis automatiquement.\n- Pour restaurer un registre conservé, choisissez d’abord sa devise d’origine.",
         "data": {
           "currency": "Devise"
         }
@@ -193,6 +193,13 @@
         "remove": "Supprimer la plage",
         "finish": "Terminer le planning"
       }
+    },
+    "archive_action": {
+      "options": {
+        "delete_point": "Supprimer définitivement le point de charge, ses enregistrements, révisions, mesures et historique des prix",
+        "delete_identity": "Supprimer l’identité ; les anciennes révisions gardent son nom d’origine pour l’audit",
+        "transfer_identity": "Transférer tous les enregistrements listés vers l’identité choisie sans modifier les montants, supprimer l’identité source et conserver son nom d’origine dans les anciennes révisions"
+      }
     }
   },
   "issues": {
@@ -363,23 +370,74 @@
     "step": {
       "init": {
         "title": "Configuration du registre",
-        "description": "Devise actuelle : **{currency}**. Ce registre est inutilisé ; vous pouvez changer sa devise. Les identités sont conservées. Le changement est possible uniquement avant le premier point et en l’absence de données comptables conservées. L’ajout d’un point verrouille la devise, même avant la première charge. Les prix dynamiques doivent utiliser cette devise. Aucune conversion de change n’est effectuée.",
-        "data": {
-          "currency": "Devise"
+        "menu_options": {
+          "currency": "Paramètres du registre",
+          "archive": "Gérer les données archivées"
         }
       },
       "locked": {
         "title": "Devise du registre verrouillée",
-        "description": "Devise actuelle : **{currency}**. Un point ou des données de prix, de mesure ou d’enregistrement existent. La devise ne peut pas être modifiée, même après suppression des points ou avant la première charge. Les montants historiques et leur devise sont conservés, sans conversion ni recalcul. Configurez les points et les identités dans leurs entrées respectives."
+        "description": "- Devise actuelle : **{currency}**.\n- Le premier point de charge ou des données de prix, de compteur ou d’enregistrement verrouillent définitivement la devise, même avant la première charge et après suppression des points ou des archives.\n- Les montants historiques gardent leur devise, sans conversion ni recalcul. Les prix dynamiques doivent utiliser cette devise.\n- Configurez les points de charge et les identités dans leurs propres entrées."
+      },
+      "currency": {
+        "title": "Paramètres du registre",
+        "description": "- Devise actuelle : **{currency}**.\n- Ce registre est inutilisé : sa devise peut être modifiée. Les identités sont conservées.\n- La modification exige l’absence de premier point de charge et de données comptables conservées. Un point verrouille la devise avant même la première charge ; supprimer les archives ne la déverrouille pas.\n- Les prix dynamiques doivent utiliser cette devise ; aucune conversion n’est effectuée.",
+        "data": {
+          "currency": "Devise"
+        }
+      },
+      "archive": {
+        "title": "Gérer les données archivées",
+        "menu_options": {
+          "archive_points": "Points de charge archivés",
+          "archive_identities": "Identités archivées"
+        }
+      },
+      "archive_select": {
+        "title": "Choisir un objet archivé",
+        "description": "Seuls les objets dont l’entrée de configuration a été supprimée sont disponibles. Désactiver une entrée ne l’archive pas.",
+        "data": {
+          "object_id": "Objet archivé"
+        }
+      },
+      "archive_empty": {
+        "title": "Aucun objet archivé",
+        "description": "Aucun objet archivé de ce type. Validez pour revenir au menu de configuration."
+      },
+      "archive_target": {
+        "title": "Transférer les enregistrements",
+        "description": "Transférer les {records} enregistrements actuels de **{name}**, y compris ceux annulés, vers l’identité choisie. Les montants restent inchangés. Les anciennes révisions conservent le nom d’identité d’origine pour l’audit.",
+        "data": {
+          "target_identity_id": "Identité destinataire"
+        }
+      },
+      "archive_confirm": {
+        "title": "Confirmer l’opération définitive",
+        "description": "- Objet : **{name}**\n- Opération : {operation}\n- Enregistrements (annulés inclus) : {records}\n- Enregistrements annulés : {voided}\n- Révisions : {revisions}\n- Période (UTC) : {start} – {end}\n- Énergie : {energy} kWh\n- Coût connu : {cost} {currency}\n- Identité destinataire : {target}\n\nCette opération est définitive et irréversible dans l’interface. Le nettoyage concerne uniquement le registre Charge Tally ; l’historique Recorder, les statistiques natives et les sauvegardes Home Assistant sont exclus. Cette opération ne supprime pas un verrouillage existant de la devise.",
+        "data": {
+          "confirm": "Je comprends les conséquences et confirme la suppression définitive"
+        }
+      },
+      "archive_done": {
+        "title": "Opération d’archivage terminée",
+        "description": "Opération terminée pour **{name}**. Enregistrements supprimés : {deleted}. Enregistrements transférés : {transferred}."
       }
     },
     "error": {
       "invalid_currency": "Choisissez un code de devise valide à trois lettres.",
-      "save_failed": "Impossible d’enregistrer la devise. La devise précédente est conservée. Réessayez."
+      "save_failed": "Impossible d’enregistrer la devise. La devise précédente est conservée. Réessayez.",
+      "confirm_required": "Confirmez d’abord que vous comprenez les conséquences.",
+      "archive_target": "Choisissez une identité destinataire disponible.",
+      "archive_failed": "L’opération a échoué. Actualisez l’aperçu et réessayez."
     },
     "abort": {
       "config_changed": "La devise a changé pendant que ce formulaire était ouvert. Rouvrez Configurer.",
-      "runtime_unavailable": "Le registre n’est pas chargé ou est en cours d’arrêt. Chargez l’intégration, puis rouvrez Configurer."
+      "runtime_unavailable": "Le registre n’est pas chargé ou est en cours d’arrêt. Chargez l’intégration et rouvrez Configurer.",
+      "archive_not_found": "L’objet archivé n’existe plus.",
+      "archive_configured": "Cet objet possède encore une entrée de configuration. Supprimez-la d’abord ; la désactiver ne suffit pas.",
+      "archive_busy": "L’objet est utilisé. Terminez les enregistrements actifs ou les détections en attente, puis réessayez.",
+      "archive_stale": "Les données archivées ont changé. Rouvrez l’aperçu avant de confirmer.",
+      "archive_target": "L’identité destinataire n’est plus disponible. Rouvrez l’aperçu."
     }
   }
 }

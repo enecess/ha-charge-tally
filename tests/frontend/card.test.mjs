@@ -154,12 +154,23 @@ globalThis.document={createElement:tag=>{const node=new TestNode();node.tagName=
 globalThis.window={customCards:[]};
 globalThis.customElements={get:()=>undefined,define:()=>{}};
 const {ChargeTallyCard}=await import('../../custom_components/charge_tally/www/charge-tally-card.js');
-const {RecordDialog}=await import('../../custom_components/charge_tally/www/card-dialog.js?v=0.1.2-2');
-const {ChargeTallyEditor}=await import('../../custom_components/charge_tally/www/card-editor.js?v=0.1.2-2');
+const {RecordDialog}=await import('../../custom_components/charge_tally/www/card-dialog.js?v=0.1.2-3');
+const {ChargeTallyEditor}=await import('../../custom_components/charge_tally/www/card-editor.js?v=0.1.2-3');
 const state=await import('../../custom_components/charge_tally/www/card-state.js');
-const {summaryView,segmentTable}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.2-2');
+const {summaryView,segmentTable}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.2-3');
 
 const visibleText=node=>[node.textContent||'',...(node.children||[]).map(visibleText)].join(' ');
+test('revision history keeps a deleted identity name without restoring its selector entry',()=>{
+  const record={id:'r',point_id:'p',identity_id:'unassigned',start:'2026-01-01T00:00:00Z',end:'2026-01-01T01:00:00Z',timezone:'UTC',status:'ended',source:'manual',revision:2,energy_kwh:'10',known_cost:'12.34',cost_complete:true,quality:[]};
+  const historical={...record,revision:1,identity_id:'deleted-id',identity_name:'Old car'};
+  const dialog=new RecordDialog(new TestNode(),{mode:'details',language:'en',currency:'CNY',
+    detail:{record,segments:[],revisions:[{record:historical}]},
+    identities:[{id:'unassigned',name:'Unassigned'}],pointName:()=> 'Garage',identityName:id=>id==='unassigned'?'Unassigned':id});
+  assert.match(visibleText(dialog.node),/Old car/);
+  assert.doesNotMatch(visibleText(dialog.node),/deleted-id/);
+  assert.deepEqual(dialog.identityOptions().map(i=>i.id),['unassigned']);
+  dialog.close();
+});
 test('card and editor retranslate existing views when HA language changes',()=>{
   const card=new ChargeTallyCard();
   const editor=new ChargeTallyEditor();

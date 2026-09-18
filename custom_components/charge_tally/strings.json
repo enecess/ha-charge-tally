@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Charge Tally ledger",
-        "description": "All charging points and records share this currency. Before adding the first charging point, you can change it using Configure on the integration page, provided the ledger has no retained accounting data. Once a point, price history, meter data or record exists, the currency is locked, even if the point is later removed. Identities alone do not lock it. Dynamic prices must use the same currency; amounts are never converted automatically. When restoring a retained ledger, select its original currency first.",
+        "description": "- All charging points and records share one currency.\n- Change it in Configure → Ledger settings only before the first charging point and while no accounting data is retained. Identities alone do not lock it.\n- Adding a point or retaining price, meter or record data locks the currency permanently, even after archive cleanup.\n- Dynamic prices must use the same currency; amounts are never converted automatically.\n- When restoring a retained ledger, select its original currency first.",
         "data": {
           "currency": "Currency"
         }
@@ -193,6 +193,13 @@
         "remove": "Remove period",
         "finish": "Finish schedule"
       }
+    },
+    "archive_action": {
+      "options": {
+        "delete_point": "Permanently delete the charging point, its records, revisions, samples and price history",
+        "delete_identity": "Delete the identity; old revisions keep its original name for audit",
+        "transfer_identity": "Transfer all listed records to the selected identity without changing amounts, delete the source identity and preserve its original name in old revisions"
+      }
     }
   },
   "issues": {
@@ -363,23 +370,74 @@
     "step": {
       "init": {
         "title": "Ledger configuration",
-        "description": "Current currency: **{currency}**. This ledger is unused, so you can change its currency. Identities are preserved. Currency changes are allowed only before the first charging point and while no accounting data is retained. Adding a point locks the currency, even before a charge is recorded. Dynamic prices must match this currency. No exchange-rate conversion is performed.",
-        "data": {
-          "currency": "Currency"
+        "menu_options": {
+          "currency": "Ledger settings",
+          "archive": "Manage archived data"
         }
       },
       "locked": {
         "title": "Ledger currency locked",
-        "description": "Current currency: **{currency}**. A charging point or retained price, meter or record data exists. The currency cannot be changed, even after removing charging points or before the first charge. Historical amounts and their original currency are preserved; they are not converted or recalculated. Configure charging points and identities using their own configuration entries."
+        "description": "- Current currency: **{currency}**.\n- The first charging point or retained price, meter or record data permanently locks the currency, even before the first charge and after removing points or archives.\n- Historical amounts keep their original currency and are not converted or recalculated. Dynamic prices must use this currency.\n- Configure charging points and identities through their own entries."
+      },
+      "currency": {
+        "title": "Ledger settings",
+        "description": "- Current currency: **{currency}**.\n- This unused ledger allows currency changes; identities are preserved.\n- Changes are allowed only before the first charging point and with no retained accounting data. Adding a point locks it even before the first charge; archive cleanup does not unlock it.\n- Dynamic prices must match; no currency conversion is performed.",
+        "data": {
+          "currency": "Currency"
+        }
+      },
+      "archive": {
+        "title": "Manage archived data",
+        "menu_options": {
+          "archive_points": "Archived charging points",
+          "archive_identities": "Archived identities"
+        }
+      },
+      "archive_select": {
+        "title": "Select archived item",
+        "description": "Only items whose configuration entry has been deleted are available. Disabling an entry does not archive it.",
+        "data": {
+          "object_id": "Archived item"
+        }
+      },
+      "archive_empty": {
+        "title": "No archived items",
+        "description": "There are no archived items of this type. Submit to return to the configuration menu."
+      },
+      "archive_target": {
+        "title": "Transfer identity records",
+        "description": "Transfer all {records} current records belonging to **{name}**, including voided records, to the selected identity. Amounts remain unchanged. Old revisions retain the original identity name for audit.",
+        "data": {
+          "target_identity_id": "Receiving identity"
+        }
+      },
+      "archive_confirm": {
+        "title": "Confirm permanent operation",
+        "description": "- Item: **{name}**\n- Operation: {operation}\n- Records (including voided): {records}\n- Voided records: {voided}\n- Revisions: {revisions}\n- Time range (UTC): {start} – {end}\n- Energy: {energy} kWh\n- Known cost: {cost} {currency}\n- Receiving identity: {target}\n\nThis operation is permanent and cannot be undone in the interface. Cleanup affects only the Charge Tally ledger; Home Assistant recorder history, native statistics and backups are excluded. This operation does not remove an existing currency lock.",
+        "data": {
+          "confirm": "I understand the impact and confirm permanent deletion"
+        }
+      },
+      "archive_done": {
+        "title": "Archive operation complete",
+        "description": "Completed for **{name}**. Records deleted: {deleted}. Records transferred: {transferred}."
       }
     },
     "error": {
       "invalid_currency": "Choose a valid three-letter currency code.",
-      "save_failed": "Could not save the currency. The previous currency has been retained. Try again."
+      "save_failed": "Could not save the currency. The previous currency has been retained. Try again.",
+      "confirm_required": "Confirm that you understand the impact before continuing.",
+      "archive_target": "Select an available receiving identity.",
+      "archive_failed": "The archive operation failed. Refresh the preview and try again."
     },
     "abort": {
       "config_changed": "The ledger currency changed while this form was open. Open Configure again.",
-      "runtime_unavailable": "The ledger is not loaded or is stopping. Load the integration and open Configure again. Currency changes require a running ledger."
+      "runtime_unavailable": "The ledger is not loaded or is stopping. Load the integration and open Configure again.",
+      "archive_not_found": "The archived item no longer exists.",
+      "archive_configured": "This item still has a configuration entry. Delete that entry first; disabling it is not enough.",
+      "archive_busy": "The item is in use. End active records or detection candidates and try again.",
+      "archive_stale": "The archive data changed. Reopen the preview before confirming.",
+      "archive_target": "The receiving identity is no longer available. Reopen the preview."
     }
   }
 }

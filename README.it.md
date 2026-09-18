@@ -62,7 +62,7 @@ Per aggiungere un altro punto di ricarica o un'identità, apri **Charge Tally** 
 
 Modifica la dashboard, seleziona **Aggiungi scheda** e cerca **Charge Tally**. L'editor consente di scegliere i punti di ricarica, le identità e le informazioni da visualizzare. La scheda segue la lingua e il tema di Home Assistant.
 
-La scheda è normalmente disponibile in automatico. Se manca, aggiorna prima il browser. Se gestisci manualmente le risorse della dashboard, aggiungi `/charge_tally/charge-tally-card.js?v=0.1.2-2` come **Modulo JavaScript**, quindi aggiorna di nuovo.
+La scheda è normalmente disponibile in automatico. Se manca, aggiorna prima il browser. Se gestisci manualmente le risorse della dashboard, aggiungi `/charge_tally/charge-tally-card.js?v=0.1.2-3` come **Modulo JavaScript**, quindi aggiorna di nuovo.
 
 ## Usa le identità e le registrazioni di ricarica
 
@@ -93,6 +93,14 @@ Usa **Annulla registrazione** per escludere una registrazione errata dai totali.
 - **Ricarica in corso:** i valori possono cambiare quando arrivano nuove letture o viene confermato l'orario di fine definitivo.
 - **Costo in sospeso:** mancano alcuni prezzi. L'importo noto visualizzato rappresenta solo una parte del costo, non l'importo finale.
 - **I totali dei contatori e delle registrazioni possono differire:** i contatori includono l'energia utilizzata al di fuori delle registrazioni di ricarica, ad esempio il consumo in standby. I totali delle identità includono solo le registrazioni a esse assegnate. Correggere una registrazione aggiorna le statistiche delle registrazioni, non lo storico del contatore.
+
+## Gestisci dati archiviati
+
+Apri **Charge Tally → Configura → Gestisci dati archiviati**. Sono elencati solo punti e identità le cui voci di configurazione sono state eliminate; disabilitarle non basta. Controlla il numero di record e revisioni, l’intervallo UTC, l’energia e il costo noto, quindi conferma esplicitamente l’eliminazione permanente.
+
+Eliminare un punto rimuove i suoi record del registro, revisioni, campioni e cronologia prezzi. Prima di eliminare un’identità con record, trasferisci tutti i suoi record attuali, inclusi quelli annullati, a un’identità destinataria. Gli importi restano invariati e le vecchie revisioni mantengono il nome dell’identità originale per la verifica.
+
+Queste operazioni non sono annullabili nell’interfaccia e riguardano solo il registro Charge Tally, non la cronologia nativa, le statistiche o i backup di Home Assistant. La pulizia degli archivi non sblocca mai la valuta di un registro già usato. Per ripristinarlo, scegli prima la valuta originale.
 
 ## Domande frequenti
 
