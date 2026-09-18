@@ -23,7 +23,10 @@ async def async_setup_entry(hass, entry):
 
 
 async def _async_update(hass, entry):
-    await entry.runtime_data.async_refresh_config()
+    if entry.runtime_data.configured_currency != entry.data["currency"]:
+        await hass.config_entries.async_reload(entry.entry_id)
+    else:
+        await entry.runtime_data.async_refresh_config()
 
 
 async def async_unload_entry(hass, entry):

@@ -63,6 +63,23 @@ class Ledger:
                 raise ValueError('currency_unbound')
             self._put('checkpoints', '_currency', currency)
 
+    def currency_change_allowed(self):
+        """Keep archived and pending accounting evidence in its original currency."""
+        return not any(self._db.execute(f'SELECT 1 FROM {table} LIMIT 1').fetchone()
+                       for table in ('points', 'records', 'price_versions', 'observations',
+                                     'segments', 'revisions', 'previews', 'requests'))
+
+    def change_currency(self, currency, expected_currency):
+        """Rebind an unused ledger, checking its state in the same transaction."""
+        with self.transaction():
+            if self.currency != expected_currency:
+                raise ValueError('config_changed')
+            if not self.currency_change_allowed():
+                raise ValueError('currency_locked')
+            if not isinstance(currency, str) or len(currency) != 3 or not currency.isascii() or not currency.isalpha() or currency != currency.upper():
+                raise ValueError('invalid_currency')
+            self._put('checkpoints', '_currency', currency)
+
     @contextmanager
     def transaction(self):
         nested = self._db.in_transaction

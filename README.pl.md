@@ -38,7 +38,7 @@ Aby zainstalować ręcznie, skopiuj folder `custom_components/charge_tally` z re
 
 ## Konfiguracja pierwszego punktu ładowania
 
-1. **Wybierz walutę.** Obowiązuje ona we wszystkich punktach ładowania i nie można jej później zmienić dla tych samych zapisanych wpisów.
+1. **Wybierz walutę.** Obowiązuje ona we wszystkich punktach ładowania. Przed dodaniem pierwszego punktu można ją zmienić przez **Konfiguruj** na stronie integracji, jeśli rejestr nie zawiera zachowanych danych rozliczeniowych. Dodanie punktu blokuje walutę nawet przed pierwszym ładowaniem lub po usunięciu punktu. Same tożsamości jej nie blokują. Historyczne kwoty nie są automatycznie przeliczane.
 2. **Nazwij punkt ładowania**, wybierz rodzaj posiadanych czujników, a następnie wskaż te czujniki.
 3. Jeśli masz czujnik mocy, zdecyduj, czy włączyć **automatyczne wykrywanie ładowania**. Ustaw progi mocy oraz czas, przez jaki muszą być spełnione, aby ładowanie się rozpoczęło lub zakończyło. Próg zakończenia musi być niższy od progu rozpoczęcia.
 4. **Wybierz cenę energii** zgodnie z poniższą tabelą.

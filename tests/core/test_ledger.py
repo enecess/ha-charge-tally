@@ -1,6 +1,7 @@
 """Real SQLite persistence and transaction tests."""
 import tempfile
 import unittest
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -8,6 +9,25 @@ from custom_components.charge_tally.ledger import Ledger
 
 
 class LedgerTests(unittest.TestCase):
+    def test_currency_change_only_before_accounting_use(self):
+        with tempfile.TemporaryDirectory() as directory, closing(Ledger(str(Path(directory) / 'ledger.db'))) as ledger:
+            ledger.bind_currency('CNY')
+            ledger.put_identity({'id': 'car', 'name': 'Car'})
+            self.assertTrue(ledger.currency_change_allowed())
+            ledger.change_currency('USD', 'CNY')
+            self.assertEqual(ledger.currency, 'USD')
+            self.assertEqual(ledger.get_identity('car')['name'], 'Car')
+            with self.assertRaisesRegex(ValueError, 'config_changed'):
+                ledger.change_currency('EUR', 'CNY')
+            with self.assertRaisesRegex(ValueError, 'invalid_currency'):
+                ledger.change_currency('bad unit', 'USD')
+            ledger.put_point({'id': 'old', 'name': 'Old', 'active': False})
+            self.assertFalse(ledger.currency_change_allowed())
+            with self.assertRaisesRegex(ValueError, 'currency_locked'):
+                ledger.change_currency('EUR', 'USD')
+            self.assertEqual(ledger.currency, 'USD')
+            ledger.close()
+
     def test_roundtrip_rollback_and_backup(self):
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / 'ledger.db')

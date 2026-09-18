@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Registre Charge Tally",
-        "description": "Confirmez la devise du registre. Elle ne pourra plus être modifiée après la configuration.",
+        "description": "Tous les points et enregistrements partagent cette devise. Avant le premier point, vous pouvez la modifier via Configurer sur la page de l’intégration, si aucune donnée comptable n’est conservée. Dès qu’un point, un historique de prix, des mesures ou des enregistrements existent, la devise est verrouillée, même après suppression du point. Les identités seules ne la verrouillent pas. Les prix dynamiques doivent utiliser la même devise ; aucune conversion automatique n’est effectuée. Pour restaurer un registre, sélectionnez d’abord sa devise d’origine.",
         "data": {
           "currency": "Devise"
         }
@@ -135,7 +135,7 @@
         "reconfigure_successful": "Configuration mise à jour.",
         "point_busy": "Terminez l’enregistrement en cours ou la détection en attente de confirmation avant de modifier les paramètres de mesure ou de détection.",
         "runtime_unavailable": "Le registre doit être chargé pour modifier les paramètres de mesure ou de détection en toute sécurité.",
-        "config_changed": "Ce point a été modifié par une autre action. Rouvrez la configuration."
+        "config_changed": "La configuration du point ou du registre a changé. Rouvrez la configuration."
       }
     },
     "identity": {
@@ -357,6 +357,29 @@
       "detection": {
         "name": "{name} Détection de la recharge"
       }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configuration du registre",
+        "description": "Devise actuelle : **{currency}**. Ce registre est inutilisé ; vous pouvez changer sa devise. Les identités sont conservées. Le changement est possible uniquement avant le premier point et en l’absence de données comptables conservées. L’ajout d’un point verrouille la devise, même avant la première charge. Les prix dynamiques doivent utiliser cette devise. Aucune conversion de change n’est effectuée.",
+        "data": {
+          "currency": "Devise"
+        }
+      },
+      "locked": {
+        "title": "Devise du registre verrouillée",
+        "description": "Devise actuelle : **{currency}**. Un point ou des données de prix, de mesure ou d’enregistrement existent. La devise ne peut pas être modifiée, même après suppression des points ou avant la première charge. Les montants historiques et leur devise sont conservés, sans conversion ni recalcul. Configurez les points et les identités dans leurs entrées respectives."
+      }
+    },
+    "error": {
+      "invalid_currency": "Choisissez un code de devise valide à trois lettres.",
+      "save_failed": "Impossible d’enregistrer la devise. La devise précédente est conservée. Réessayez."
+    },
+    "abort": {
+      "config_changed": "La devise a changé pendant que ce formulaire était ouvert. Rouvrez Configurer.",
+      "runtime_unavailable": "Le registre n’est pas chargé ou est en cours d’arrêt. Chargez l’intégration, puis rouvrez Configurer."
     }
   }
 }

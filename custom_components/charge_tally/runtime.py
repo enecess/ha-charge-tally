@@ -25,6 +25,7 @@ _LOGGER = logging.getLogger(__name__)
 class Runtime:
     def __init__(self, hass, entry):
         self.hass, self.entry = hass, entry
+        self.configured_currency = entry.data["currency"]
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="charge_tally_ledger")
         self._lock = asyncio.Lock()
         self._config_lock = asyncio.Lock()
@@ -298,6 +299,56 @@ class Runtime:
 
     async def async_config_guard(self, point_id, old_data, new_data):
         return await self._apply("guard", point_id)
+
+    def _check_currency_runtime(self):
+        if self._closing or self._closed or self._store is None:
+            raise ValueError("runtime_unavailable")
+
+    def _has_configured_points(self):
+        return any(sub.subentry_type == "point" for sub in self.entry.subentries.values())
+
+    async def async_currency_change_allowed(self):
+        self._check_currency_runtime()
+        if self._has_configured_points():
+            return False
+        allowed = await self._read(self._store.ledger.currency_change_allowed)
+        self._check_currency_runtime()
+        return allowed and not self._has_configured_points()
+
+    async def async_change_currency(self, currency, expected_currency):
+        """Serialize rebinding with accounting and reject concurrent point creation."""
+        async with self._config_lock:
+            await self._gate.wait()
+            async with self._lock:
+                self._check_currency_runtime()
+                if self.entry.data["currency"] != expected_currency:
+                    raise ValueError("config_changed")
+                if self._has_configured_points():
+                    raise ValueError("currency_locked")
+                if currency == expected_currency:
+                    return
+                change = self.hass.async_create_task(
+                    self._worker(self._store.change_currency, currency, expected_currency),
+                )
+                try:
+                    # A cancelled flow must still wait for the SQLite write before rollback.
+                    await asyncio.shield(change)
+                    self._check_currency_runtime()
+                    if self._has_configured_points():
+                        raise ValueError("currency_locked")
+                    if self.entry.data["currency"] != expected_currency:
+                        raise ValueError("config_changed")
+                    self.hass.config_entries.async_update_entry(
+                        self.entry, data={**self.entry.data, "currency": currency},
+                    )
+                except BaseException:
+                    try:
+                        await change
+                    except Exception:
+                        pass
+                    else:
+                        await self._worker(self._store.change_currency, expected_currency, currency)
+                    raise
 
     async def async_snapshot(self, point_ids=None):
         result = deepcopy(self.snapshot) if point_ids is None else await self._read(self._store.snapshot, point_ids)

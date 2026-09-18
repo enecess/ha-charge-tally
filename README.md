@@ -40,7 +40,7 @@ For a manual installation, copy the repository's `custom_components/charge_tally
 
 If the charging-point form does not open automatically after choosing the currency, open Charge Tally under **Settings → Devices & services** and choose **Add charging point**.
 
-1. **Choose your currency.** It applies to all charging points and cannot be changed later for the same saved records.
+1. **Choose your currency.** It applies to all charging points. You can change it using **Configure** on the integration page before adding the first charging point, provided the ledger has no retained accounting data. Adding a point locks the currency, even before the first charge or after the point is removed. Identities alone do not lock it. Historical amounts are never automatically converted or recalculated.
 2. **Name the charging point**, choose which sensors you have, and select them.
 3. If you have a power sensor, choose whether to enable **automatic charging detection**. Set the power levels and how long they must last before charging starts or ends. The end level must be lower than the start level.
 4. **Choose your electricity price** using the table below.

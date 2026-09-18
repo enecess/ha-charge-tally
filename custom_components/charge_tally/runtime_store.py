@@ -55,6 +55,11 @@ class RuntimeStore:
                 elif data["state"] == "pending_end":
                     data.update(state="charging", candidate=None)
 
+    def change_currency(self, currency, expected_currency):
+        """Update the cached currency only after the ledger accepts the change."""
+        self.ledger.change_currency(currency, expected_currency)
+        self.currency = currency
+
     def apply(self, method, *args):
         previous = deepcopy(self.states)
         points = deepcopy(self.points)

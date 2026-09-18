@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Rejestr Charge Tally",
-        "description": "Potwierdź walutę rejestru. Po konfiguracji nie będzie można jej zmienić.",
+        "description": "Wszystkie punkty i wpisy używają tej waluty. Przed dodaniem pierwszego punktu można ją zmienić przez Konfiguruj na stronie integracji, jeśli rejestr nie zawiera zachowanych danych rozliczeniowych. Punkt, historia cen, pomiary lub wpisy blokują walutę, również po usunięciu punktu. Same tożsamości jej nie blokują. Ceny dynamiczne muszą używać tej samej waluty; kwoty nie są automatycznie przeliczane. Przy przywracaniu rejestru najpierw wybierz jego pierwotną walutę.",
         "data": {
           "currency": "Waluta"
         }
@@ -135,7 +135,7 @@
         "reconfigure_successful": "Konfiguracja została zaktualizowana.",
         "point_busy": "Zakończ bieżący wpis lub wykrywanie oczekujące na potwierdzenie przed zmianą ustawień pomiaru lub wykrywania.",
         "runtime_unavailable": "Rejestr musi być załadowany, aby bezpiecznie zmienić ustawienia pomiaru lub wykrywania.",
-        "config_changed": "Ten punkt został zmieniony przez inne działanie. Otwórz konfigurację ponownie."
+        "config_changed": "Konfiguracja punktu lub rejestru uległa zmianie. Otwórz ponownie konfigurację."
       }
     },
     "identity": {
@@ -357,6 +357,29 @@
       "detection": {
         "name": "{name} Wykrywanie ładowania"
       }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Konfiguracja rejestru",
+        "description": "Obecna waluta: **{currency}**. Rejestr nie był używany, więc można zmienić walutę. Tożsamości zostaną zachowane. Zmiana jest możliwa tylko przed dodaniem pierwszego punktu i bez zachowanych danych rozliczeniowych. Dodanie punktu blokuje walutę nawet przed pierwszym ładowaniem. Ceny dynamiczne muszą używać tej waluty. Nie następuje przeliczenie kursowe.",
+        "data": {
+          "currency": "Waluta"
+        }
+      },
+      "locked": {
+        "title": "Waluta rejestru zablokowana",
+        "description": "Obecna waluta: **{currency}**. Istnieje punkt lub zachowane dane cen, pomiarów lub wpisów. Waluty nie można zmienić nawet po usunięciu punktów lub przed pierwszym ładowaniem. Historyczne kwoty i ich waluta pozostają bez zmian, bez przeliczania. Punkty i tożsamości można skonfigurować w ich własnych wpisach."
+      }
+    },
+    "error": {
+      "invalid_currency": "Wybierz prawidłowy trzyliterowy kod waluty.",
+      "save_failed": "Nie udało się zapisać waluty. Poprzednia waluta została zachowana. Spróbuj ponownie."
+    },
+    "abort": {
+      "config_changed": "Waluta zmieniła się, gdy formularz był otwarty. Otwórz ponownie Konfiguruj.",
+      "runtime_unavailable": "Rejestr nie jest załadowany lub jest zatrzymywany. Załaduj integrację i ponownie otwórz Konfiguruj."
     }
   }
 }

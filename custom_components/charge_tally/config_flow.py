@@ -1,11 +1,12 @@
 """Native Home Assistant configuration for the ledger and its subentries."""
 from copy import deepcopy
 import re
+import sqlite3
 
 import voluptuous as vol
 
 from homeassistant import config_entries
-from homeassistant.config_entries import ConfigFlow, ConfigSubentryFlow
+from homeassistant.config_entries import ConfigFlow, ConfigSubentryFlow, OptionsFlow
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers import config_validation as cv, selector
@@ -44,6 +45,11 @@ def _entity(device_class=None):
 class ChargeTallyConfigFlow(ConfigFlow, domain=DOMAIN):
     """One currency and one persistent ledger per Home Assistant instance."""
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        return LedgerOptionsFlow()
 
     @classmethod
     @callback
@@ -84,6 +90,50 @@ class ChargeTallyConfigFlow(ConfigFlow, domain=DOMAIN):
         return result
 
 
+class LedgerOptionsFlow(OptionsFlow):
+    """Expose ledger settings without relabeling historical amounts."""
+
+    def __init__(self):
+        self._original_currency = None
+
+    async def async_step_init(self, user_input=None):
+        entry = self.config_entry
+        runtime = getattr(entry, "runtime_data", None)
+        if runtime is None:
+            return self.async_abort(reason="runtime_unavailable")
+        errors = {}
+        try:
+            if not await runtime.async_currency_change_allowed():
+                return await self.async_step_locked()
+            if self._original_currency is None:
+                self._original_currency = entry.data["currency"]
+            if user_input is not None:
+                try:
+                    currency = cv.currency(user_input["currency"].strip().upper())
+                except (vol.Invalid, KeyError, AttributeError):
+                    errors["base"] = "invalid_currency"
+                else:
+                    await runtime.async_change_currency(currency, self._original_currency)
+                    return self.async_create_entry(title="", data=dict(entry.options))
+        except ValueError as err:
+            if str(err) == "currency_locked":
+                return await self.async_step_locked()
+            if str(err) in ("config_changed", "runtime_unavailable"):
+                return self.async_abort(reason=str(err))
+            raise
+        except (OSError, sqlite3.Error):
+            errors["base"] = "save_failed"
+        return self.async_show_form(step_id="init", data_schema=vol.Schema({
+            vol.Required("currency", default=entry.data["currency"]): selector.TextSelector(),
+        }), description_placeholders={"currency": entry.data["currency"]}, errors=errors)
+
+    async def async_step_locked(self, user_input=None):
+        if user_input is not None:
+            return self.async_create_entry(title="", data=dict(self.config_entry.options))
+        return self.async_show_form(step_id="locked", data_schema=vol.Schema({}),
+                                    description_placeholders={"currency": self.config_entry.data["currency"]})
+
+
 class IdentitySubentryFlow(ConfigSubentryFlow):
     """Maintain shared identities; HA subentry IDs remain stable on rename."""
     async def async_step_reconfigure(self, user_input=None):
@@ -120,6 +170,7 @@ class PointSubentryFlow(ConfigSubentryFlow):
     def __init__(self):
         self._data = {}
         self._original = None
+        self._currency = None
         self._rows = []
         self._row_index = None
 
@@ -130,6 +181,8 @@ class PointSubentryFlow(ConfigSubentryFlow):
         return await self.async_step_user(user_input)
 
     async def async_step_user(self, user_input=None):
+        if self._currency is None:
+            self._currency = self.hass.config_entries.async_get_known_entry(self.handler[0]).data["currency"]
         errors = {}
         if user_input is not None:
             try:
@@ -335,6 +388,8 @@ class PointSubentryFlow(ConfigSubentryFlow):
         errors = {}
         if user_input is not None:
             entry = self.hass.config_entries.async_get_known_entry(self.handler[0])
+            if entry.data["currency"] != self._currency:
+                return self.async_abort(reason="config_changed")
             editing = self._get_reconfigure_subentry() if self.source == "reconfigure" else None
             existing = [dict(sub.data) for sub in entry.subentries.values() if sub.subentry_type == "point" and sub != editing]
             try:

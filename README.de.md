@@ -38,7 +38,7 @@ Für eine manuelle Installation kopierst du den Ordner `custom_components/charge
 
 ## Den ersten Ladepunkt einrichten
 
-1. **Wähle deine Währung.** Sie gilt für alle Ladepunkte und lässt sich für dieselben gespeicherten Einträge später nicht ändern.
+1. **Wähle deine Währung.** Sie gilt für alle Ladepunkte. Vor dem ersten Ladepunkt kannst du sie über **Konfigurieren** auf der Integrationsseite ändern, sofern keine Abrechnungsdaten gespeichert sind. Ein Ladepunkt sperrt die Währung, auch vor dem ersten Ladevorgang oder nach dem Entfernen des Punkts. Identitäten allein sperren sie nicht. Historische Beträge werden nicht automatisch umgerechnet oder neu berechnet.
 2. **Gib dem Ladepunkt einen Namen**, wähle die Art deiner Sensoren und anschließend die Sensoren selbst.
 3. Mit einem Leistungssensor kannst du die **automatische Ladeerkennung** aktivieren. Lege fest, welche Leistung wie lange anliegen muss, bevor ein Ladevorgang beginnt oder endet. Die Endschwelle muss unter der Startschwelle liegen.
 4. **Lege deinen Strompreis fest**, wie in der folgenden Tabelle beschrieben.

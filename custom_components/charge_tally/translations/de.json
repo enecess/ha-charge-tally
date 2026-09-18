@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Charge Tally-Abrechnungsbuch",
-        "description": "Bestätigen Sie die Währung des Abrechnungsbuchs. Sie kann nach der Einrichtung nicht geändert werden.",
+        "description": "Alle Ladepunkte und Einträge verwenden diese Währung. Vor dem ersten Ladepunkt können Sie sie über Konfigurieren auf der Integrationsseite ändern, sofern keine Abrechnungsdaten gespeichert sind. Sobald ein Ladepunkt, Preisverlauf, Messdaten oder Einträge existieren, ist die Währung gesperrt, auch nach dem Entfernen des Ladepunkts. Identitäten allein sperren sie nicht. Dynamische Preise müssen dieselbe Währung verwenden; Beträge werden nicht automatisch umgerechnet. Wählen Sie beim Wiederherstellen zunächst die ursprüngliche Währung.",
         "data": {
           "currency": "Währung"
         }
@@ -135,7 +135,7 @@
         "reconfigure_successful": "Konfiguration aktualisiert.",
         "point_busy": "Beenden Sie den aktuellen Eintrag oder den noch unbestätigten erkannten Ladevorgang, bevor Sie die Mess- oder Erkennungseinstellungen ändern.",
         "runtime_unavailable": "Das Abrechnungsbuch muss geladen sein, um die Mess- oder Erkennungseinstellungen sicher zu ändern.",
-        "config_changed": "Dieser Ladepunkt wurde durch eine andere Aktion geändert. Öffnen Sie die Konfiguration erneut."
+        "config_changed": "Die Konfiguration des Ladepunkts oder Abrechnungsbuchs wurde geändert. Öffnen Sie die Konfiguration erneut."
       }
     },
     "identity": {
@@ -357,6 +357,29 @@
       "detection": {
         "name": "{name} Ladeerkennung"
       }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Abrechnungsbuch konfigurieren",
+        "description": "Aktuelle Währung: **{currency}**. Das Abrechnungsbuch ist unbenutzt; Sie können die Währung ändern. Identitäten bleiben erhalten. Änderungen sind nur vor dem ersten Ladepunkt und ohne gespeicherte Abrechnungsdaten möglich. Ein Ladepunkt sperrt die Währung bereits vor dem ersten Ladevorgang. Dynamische Preise müssen dieselbe Währung verwenden. Es erfolgt keine Währungsumrechnung.",
+        "data": {
+          "currency": "Währung"
+        }
+      },
+      "locked": {
+        "title": "Währung gesperrt",
+        "description": "Aktuelle Währung: **{currency}**. Ein Ladepunkt oder gespeicherte Preis-, Mess- oder Eintragsdaten existieren. Die Währung kann auch nach dem Entfernen der Ladepunkte oder vor dem ersten Ladevorgang nicht geändert werden. Historische Beträge und ihre Währung bleiben erhalten und werden nicht umgerechnet oder neu berechnet. Ladepunkte und Identitäten werden über ihre eigenen Einträge konfiguriert."
+      }
+    },
+    "error": {
+      "invalid_currency": "Wählen Sie einen gültigen Währungscode aus drei Buchstaben.",
+      "save_failed": "Die Währung konnte nicht gespeichert werden. Die bisherige Währung bleibt erhalten. Versuchen Sie es erneut."
+    },
+    "abort": {
+      "config_changed": "Die Währung wurde geändert, während dieses Formular geöffnet war. Öffnen Sie Konfigurieren erneut.",
+      "runtime_unavailable": "Das Abrechnungsbuch ist nicht geladen oder wird beendet. Laden Sie die Integration und öffnen Sie Konfigurieren erneut."
     }
   }
 }

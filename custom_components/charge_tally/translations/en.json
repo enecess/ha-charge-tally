@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Charge Tally ledger",
-        "description": "Confirm the ledger currency. It cannot be changed after setup.",
+        "description": "All charging points and records share this currency. Before adding the first charging point, you can change it using Configure on the integration page, provided the ledger has no retained accounting data. Once a point, price history, meter data or record exists, the currency is locked, even if the point is later removed. Identities alone do not lock it. Dynamic prices must use the same currency; amounts are never converted automatically. When restoring a retained ledger, select its original currency first.",
         "data": {
           "currency": "Currency"
         }
@@ -135,7 +135,7 @@
         "reconfigure_successful": "Configuration updated.",
         "point_busy": "End the current record or detection candidate before changing measurement or detection settings.",
         "runtime_unavailable": "The ledger must be loaded to safely change measurement or detection settings.",
-        "config_changed": "This point was changed by another action. Reopen configuration."
+        "config_changed": "The charging point or ledger configuration has changed. Reopen the configuration."
       }
     },
     "identity": {
@@ -357,6 +357,29 @@
       "detection": {
         "name": "{name} Detection"
       }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ledger configuration",
+        "description": "Current currency: **{currency}**. This ledger is unused, so you can change its currency. Identities are preserved. Currency changes are allowed only before the first charging point and while no accounting data is retained. Adding a point locks the currency, even before a charge is recorded. Dynamic prices must match this currency. No exchange-rate conversion is performed.",
+        "data": {
+          "currency": "Currency"
+        }
+      },
+      "locked": {
+        "title": "Ledger currency locked",
+        "description": "Current currency: **{currency}**. A charging point or retained price, meter or record data exists. The currency cannot be changed, even after removing charging points or before the first charge. Historical amounts and their original currency are preserved; they are not converted or recalculated. Configure charging points and identities using their own configuration entries."
+      }
+    },
+    "error": {
+      "invalid_currency": "Choose a valid three-letter currency code.",
+      "save_failed": "Could not save the currency. The previous currency has been retained. Try again."
+    },
+    "abort": {
+      "config_changed": "The ledger currency changed while this form was open. Open Configure again.",
+      "runtime_unavailable": "The ledger is not loaded or is stopping. Load the integration and open Configure again. Currency changes require a running ledger."
     }
   }
 }

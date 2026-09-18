@@ -38,7 +38,7 @@ Pour une installation manuelle, copiez le dossier `custom_components/charge_tall
 
 ## Configurer votre premier point de charge
 
-1. **Choisissez votre devise.** Elle s’applique à tous les points de charge et ne peut plus être modifiée pour les mêmes enregistrements sauvegardés.
+1. **Choisissez votre devise.** Elle s’applique à tous les points de charge. Avant le premier point, vous pouvez la modifier via **Configurer** sur la page de l’intégration, si aucune donnée comptable n’est conservée. L’ajout d’un point verrouille la devise, même avant la première charge ou après suppression du point. Les identités seules ne la verrouillent pas. Les montants historiques ne sont jamais automatiquement convertis ni recalculés.
 2. **Nommez le point de charge**, choisissez le type de capteurs dont vous disposez, puis sélectionnez-les.
 3. Si vous avez un capteur de puissance, choisissez d’activer ou non la **détection automatique de recharge**. Réglez les seuils de puissance et leur durée avant le début ou la fin d’une recharge. Le seuil de fin doit être inférieur au seuil de début.
 4. **Choisissez votre tarif d’électricité** à l’aide du tableau ci-dessous.
