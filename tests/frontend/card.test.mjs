@@ -240,6 +240,31 @@ test('long server decimals are formatted for display without changing payloads',
   assert.equal(tr('reset','zh-Hans'),'电表重置');
 });
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
+test('snapshot refresh keeps visible statistics and history until their replacements arrive',async()=>{
+  const pending=[];
+  const card=new ChargeTallyCard();card.config={show_chart:false};
+  card._hass={connection:{connected:true},callWS:request=>new Promise(resolve=>pending.push({request,resolve}))};
+  const snapshot={points:[{id:'p',name:'Garage',status:'idle',available:true,power_w:'0',current_price:'.5',quality:[]}],archived_points:[],identities:[],timezone:'UTC',currency:'CNY'};
+  const summary={energy_kwh:'12',known_cost:'6',cost_complete:true};
+  const record={id:'r',point_id:'p',identity_id:'i',start:'2026-09-19T00:00:00Z',timezone:'UTC',status:'ended',energy_kwh:'10',known_cost:'5',cost_complete:true,quality:[]};
+  const page={records:[record],total:1,limit:25};
+  card.onSnapshot(snapshot);
+  pending[0].resolve(summary);pending[1].resolve(page);await tick();
+  card.onSnapshot({...snapshot,generation:2});
+  assert.match(visibleText(card.body),/12 kWh/);
+  assert.match(visibleText(card.body),/10 kWh/);
+  assert.equal(card.body.querySelectorAll('li').length,1);
+  pending[2].resolve({...summary,energy_kwh:'13'});await tick();
+  assert.match(visibleText(card.body),/13 kWh/);
+  assert.equal(card.body.querySelectorAll('li').length,1);
+  pending[3].resolve({...page,records:[{...record,energy_kwh:'11'}]});await tick();
+  assert.match(visibleText(card.body),/11 kWh/);
+  card.onSnapshot({...snapshot,generation:3});
+  card.onSnapshot(null);
+  pending[4].resolve(summary);pending[5].resolve(page);await tick();
+  assert.equal(card.summary,null);assert.equal(card.page,null);
+  assert.equal(card.body.querySelectorAll('li').length,0);
+});
 function controller(callWS){
   const card=new ChargeTallyCard();card.render=()=>{};card.refresh=()=>{};
   card.snapshot={points:[],archived_points:[],identities:[],timezone:'Asia/Shanghai',currency:'CNY'};

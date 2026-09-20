@@ -33,8 +33,9 @@ export class ChargeTallyCard extends HTMLElement {
   disconnectedCallback(){this.dialogEpoch++;this.subscription.disconnect();this.latest.invalidate();this.actions.invalidate();this.dialog?.close();}
   t(key){return tr(key,this.language||'en');}
   onSnapshot(snapshot){
-    this.snapshot=snapshot;this.error=null;this.latest.invalidate();this.summary=null;this.page=null;
-    if(!snapshot){this.dialogEpoch++;this.actions.invalidate();this.busy=false;this.notice=null;this.dialog?.close();}
+    this.snapshot=snapshot;this.error=null;this.latest.invalidate();
+    // Keep loaded content during background refresh so the page does not collapse.
+    if(!snapshot){this.summary=null;this.page=null;this.dialogEpoch++;this.actions.invalidate();this.busy=false;this.notice=null;this.dialog?.close();}
     this.render();if(snapshot)this.refresh();
   }
   call(request){if(!this.snapshot||this._hass.connection.connected===false)throw Object.assign(new Error('unavailable'),{code:'unavailable'});return this._hass.callWS(request);}
