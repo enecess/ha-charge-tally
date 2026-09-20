@@ -52,6 +52,12 @@ Dynamische Preise benötigen einen Sensor in der Buchwährung. Für historische 
 
 Installiere bei Bedarf zuerst HACS nach der [offiziellen Anleitung](https://hacs.dev/docs/use/download/download/).
 
+**Mit einem Klick zu HACS hinzufügen:**
+
+[![Charge Tally in HACS öffnen](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=enecess&repository=ha-charge-tally&category=integration)
+
+Klicke auf die Schaltfläche, gib deine Home-Assistant-Adresse ein oder bestätige sie und füge Charge Tally in HACS hinzu oder öffne es. Fahre unten mit Schritt 3 fort, um die Integration herunterzuladen, HA neu zu starten und die Integration hinzuzufügen. Für das manuelle Hinzufügen des Repositorys beginne mit Schritt 1.
+
 1. Öffne **HACS**, dann im Menü oben rechts **Benutzerdefinierte Repositories**.
 2. Füge `https://github.com/enecess/ha-charge-tally` als **Integration** hinzu.
 3. Suche **Charge Tally**, öffne es und lade die gewünschte Version herunter.

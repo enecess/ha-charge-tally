@@ -52,6 +52,12 @@ Pour un prix dynamique, préparez un capteur de prix utilisant la devise du regi
 
 Si HACS n’est pas installé, suivez d’abord les [instructions officielles d’installation de HACS](https://hacs.dev/docs/use/download/download/).
 
+**Ajouter à HACS en un clic :**
+
+[![Ouvrir Charge Tally dans HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=enecess&repository=ha-charge-tally&category=integration)
+
+Cliquez sur le bouton, saisissez ou confirmez l’adresse de votre Home Assistant, puis ajoutez ou ouvrez Charge Tally dans HACS. Reprenez à l’étape 3 ci-dessous pour télécharger, redémarrer et ajouter l’intégration, ou commencez à l’étape 1 pour ajouter le dépôt manuellement.
+
 1. Ouvrez **HACS**, puis le menu en haut à droite et **Dépôts personnalisés**.
 2. Ajoutez `https://github.com/enecess/ha-charge-tally` en choisissant le type **Intégration**.
 3. Recherchez **Charge Tally**, ouvrez sa page et téléchargez la version souhaitée.

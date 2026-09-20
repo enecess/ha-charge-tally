@@ -52,6 +52,12 @@ For dynamic pricing, prepare a sensor using the ledger currency. To add records 
 
 If necessary, follow the [official HACS installation instructions](https://hacs.dev/docs/use/download/download/) first.
 
+**One-click add to HACS:**
+
+[![Open Charge Tally in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=enecess&repository=ha-charge-tally&category=integration)
+
+Click the button, enter or confirm your Home Assistant address, then add or open Charge Tally in HACS. Continue from step 3 below to download, restart and add the integration, or start at step 1 to add the repository manually.
+
 1. Open **HACS**, then its top-right menu and **Custom repositories**.
 2. Add `https://github.com/enecess/ha-charge-tally` with type **Integration**.
 3. Search for **Charge Tally**, open it and download the desired version.

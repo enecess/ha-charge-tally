@@ -52,6 +52,12 @@
 
 尚未安装 HACS 时，先按照 [HACS 官方安装说明](https://hacs.dev/docs/use/download/download/)完成安装和配置。
 
+**一键添加到 HACS：**
+
+[![在 HACS 中打开 Charge Tally](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=enecess&repository=ha-charge-tally&category=integration)
+
+点击按钮，按提示填写或确认你的 Home Assistant 地址，在 HACS 中添加或打开 Charge Tally。完成后从下方第 3 步继续下载、重启和添加集成；也可以从第 1 步开始手动添加仓库。
+
 1. 打开 **HACS**，点击右上角菜单，进入 **自定义存储库**。
 2. 添加仓库 `https://github.com/enecess/ha-charge-tally`，类型选择 **集成**。
 3. 搜索并打开 **Charge Tally**，下载需要的版本。

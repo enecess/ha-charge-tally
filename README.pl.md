@@ -52,6 +52,12 @@ Dla cen dynamicznych przygotuj czujnik w walucie księgi. Przy odtwarzaniu histo
 
 Jeśli nie masz HACS, zainstaluj go zgodnie z [oficjalną instrukcją](https://hacs.dev/docs/use/download/download/).
 
+**Dodaj do HACS jednym kliknięciem:**
+
+[![Otwórz Charge Tally w HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=enecess&repository=ha-charge-tally&category=integration)
+
+Kliknij przycisk, wpisz lub potwierdź adres swojego Home Assistant, a następnie dodaj lub otwórz Charge Tally w HACS. Kontynuuj od kroku 3 poniżej, aby pobrać integrację, ponownie uruchomić HA i dodać integrację, albo zacznij od kroku 1, aby ręcznie dodać repozytorium.
+
 1. Otwórz **HACS**, następnie menu w prawym górnym rogu i **Niestandardowe repozytoria**.
 2. Dodaj `https://github.com/enecess/ha-charge-tally` jako **Integracja**.
 3. Wyszukaj **Charge Tally**, otwórz i pobierz wybraną wersję.
