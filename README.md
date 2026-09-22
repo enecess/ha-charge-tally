@@ -8,13 +8,25 @@ Track charging energy and cost by charging point and identity in Home Assistant,
 - Measure cumulative energy, calculate energy from power, or combine energy measurement with power-based detection.
 - Use static, dynamic or daily time-of-use prices, including zero and negative prices.
 - Detect charging automatically, or start and end records from the card or Home Assistant automations.
-- View live charging, statistics for today, this month, this year, all time or a custom range, and daily charts.
+- View live charging, statistics for today, this month, this year, all time or a custom range, and charts grouped by range.
 - Add history, edit ended records, change identities, void incorrect records, and inspect accounting segments and revision history.
 - Manage archived charging points and identities, and permanently clear unneeded ledger data.
 
 Use **Settings → Devices & services → Charge Tally** for configuration and the **Charge Tally** dashboard card for records. The card contains several sections on one page; details and editing open in dialogs.
 
 > Screenshot placeholder 01: The complete card, including charging points, record statistics and the record list.
+
+## Current card and accounting behavior
+
+Only charging controls are expanded when the page opens. Statistics and records start collapsed; live updates retain your open sections and controls, while reloading the page restores the defaults. Expand statistics to load its chart and expand records to load history.
+
+Charts group Today by hour, This month by day, This year by month, and Total by year. For a custom range, the difference between the local calendar dates determines grouping: up to 2 days uses hours, up to 90 days uses days, up to 730 days uses months, and longer ranges use years. Buckets follow the ledger timezone, including daylight-saving transitions. Energy and known-cost charts use the same range as the summary; unknown cost remains unknown.
+
+Billing segments in previews and record details merge adjacent intervals with the same billing basis, price and quality. They describe the bill, not individual meter reports. Original sampling details remain the basis of time-range statistics. Modification history saves snapshots when a record starts, ends or is explicitly changed (including reassignment or voiding); routine samples update the current record without adding a snapshot each time. Revision numbers can therefore have gaps.
+
+Removing a charging point configuration retains its unfinished records. To clear them, open the main integration's **Configure → Manage archived data → Archived charging points**, select the removed point, review the unfinished count and affected data, then explicitly confirm permanent deletion. Canceling confirmation preserves the records. Cleanup includes the point's records, revisions, samples and prices; it does not remove HA recorder data or backups.
+
+The current development ledger format has changed. Unsupported older formats are rejected without automatic migration or deletion. A disposable development test ledger may need to be recreated after backing it up; updating the integration does not perform this cleanup.
 
 ## Contents
 
@@ -201,7 +213,7 @@ If necessary, open **Resources** from the **Settings → Dashboards** menu. Enab
 
 | Field | Value |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-3` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-4` |
 | Resource type | **JavaScript module** |
 
 Update an existing entry for that path rather than duplicating it. If you manage resources in YAML, register this URL and module type there; do not install a second card copy. See the [Home Assistant dashboard documentation](https://www.home-assistant.io/dashboards/dashboards/).
@@ -234,9 +246,9 @@ Each current point shows its name, status, **Power**, **Current price** and **De
 
 In **Record statistics → Statistics period**, choose **Today / This month / This year / All time / Custom range**. For custom dates, enter **Start** and **End (exclusive)**, then **Apply range**. To view September 1 in full, choose September 1 as start and September 2 as end.
 
-The summary shows **Energy**, **Cost**, **Active / completed** and quality notices. **Refresh** fetches current results. Charts group values by date; **Chart metric** switches **Energy / Cost**. Expand **Details** below the chart for daily values.
+The summary shows **Energy**, **Cost**, **Active / completed** and quality notices. **Refresh** fetches current results. Charts group values by the selected range; **Chart metric** switches **Energy / Cost**. Expand **Details** below the chart for values by bucket.
 
-> Screenshot placeholder 10: Statistics, custom dates, Chart metric and expanded daily Details.
+> Screenshot placeholder 10: Statistics, custom dates, Chart metric and expanded grouped Details.
 
 ### Records · all dates
 

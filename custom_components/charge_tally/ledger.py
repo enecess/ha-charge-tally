@@ -7,6 +7,19 @@ from pathlib import Path
 
 from .config_validation import identity_name_key
 
+SCHEMA_VERSION = 2
+
+
+def _schema_version(db):
+    """Reject unsupported files before any application reads or writes."""
+    version = db.execute('PRAGMA user_version').fetchone()[0]
+    has_tables = db.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' LIMIT 1"
+    ).fetchone() is not None
+    if version != SCHEMA_VERSION and not (version == 0 and not has_tables):
+        raise ValueError('Unsupported ledger schema version')
+    return version
+
 
 def encode(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False)
@@ -17,6 +30,8 @@ def retained_currency(path):
     if not Path(path).exists():
         return None
     with closing(sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True)) as db:
+        if _schema_version(db) == 0:
+            return None
         row = db.execute("SELECT data FROM checkpoints WHERE id='_currency'").fetchone()
         if row:
             return json.loads(row[0])
@@ -29,10 +44,11 @@ class Ledger:
     def __init__(self, path: str):
         self._db = sqlite3.connect(path, isolation_level=None)
         self._db.execute('PRAGMA foreign_keys=ON')
-        version = self._db.execute('PRAGMA user_version').fetchone()[0]
-        if version not in (0, 1):
+        try:
+            _schema_version(self._db)
+        except Exception:
             self._db.close()
-            raise ValueError('Unsupported ledger schema version')
+            raise
         with self.transaction():
             for table in ('identities', 'points', 'observations', 'price_versions', 'requests', 'checkpoints', 'previews', 'observation_resolutions'):
                 self._db.execute(f'CREATE TABLE IF NOT EXISTS {table} (id TEXT PRIMARY KEY, data TEXT NOT NULL)')
@@ -42,16 +58,14 @@ class Ledger:
             self._db.execute('CREATE INDEX IF NOT EXISTS record_time ON records(point_id,start,end)')
             self._db.execute('CREATE TABLE IF NOT EXISTS segments (record_id TEXT NOT NULL REFERENCES records(id), position INTEGER NOT NULL, observation_id TEXT REFERENCES observations(id), data TEXT NOT NULL, PRIMARY KEY(record_id,position))')
             self._db.execute('CREATE TABLE IF NOT EXISTS revisions (record_id TEXT NOT NULL REFERENCES records(id), revision INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY(record_id,revision))')
-            self._db.execute('PRAGMA user_version=1')
-            # Old releases permanently locked even completely cleared ledgers.
-            self._db.execute("DELETE FROM checkpoints WHERE id='_used_currency'")
+            self._db.execute(f'PRAGMA user_version={SCHEMA_VERSION}')
 
     @property
     def currency(self):
         return self.get_checkpoint('_currency')
 
-    def bind_currency(self, currency, *, confirm_existing=False):
-        """Bind once; pre-release data requires an explicit, backed-up confirmation."""
+    def bind_currency(self, currency):
+        """Bind an empty ledger without relabeling existing accounting data."""
         if not isinstance(currency, str) or len(currency) != 3 or not currency.isascii() or not currency.isalpha() or currency != currency.upper():
             raise ValueError('invalid_currency')
         with self.transaction():
@@ -61,7 +75,7 @@ class Ledger:
                 return
             populated = any(self._db.execute(f'SELECT 1 FROM {table} LIMIT 1').fetchone()
                             for table in ('points', 'records', 'price_versions', 'observations'))
-            if populated and not confirm_existing:
+            if populated:
                 raise ValueError('currency_unbound')
             self._put('checkpoints', '_currency', currency)
 
@@ -184,7 +198,12 @@ class Ledger:
                 return False
             if not self.get_point(data['point_id']):
                 raise ValueError('Unknown point')
-            if any(p['start'] < data['end'] and p['end'] > data['start'] for p in self.list_intervals(data['point_id'])):
+            overlap = self._db.execute(
+                "SELECT EXISTS(SELECT 1 FROM observations WHERE json_extract(data,'$.point_id')=? "
+                "AND json_extract(data,'$.start')<? AND json_extract(data,'$.end')>? "
+                "AND id NOT IN (SELECT id FROM observation_resolutions))",
+                (data['point_id'], data['end'], data['start'])).fetchone()[0]
+            if overlap:
                 raise ValueError('Meter intervals must not overlap')
             self._put('observations', data['id'], data)
             self._bump()
@@ -225,7 +244,7 @@ class Ledger:
         rows = self._db.execute("SELECT id FROM records WHERE point_id=? AND status!='void' AND id!=? AND start<COALESCE(?, '9999-12-31T23:59:59+00:00') AND (end IS NULL OR end>?) ORDER BY start,id", (point_id, exclude_id, end, start))
         return [r[0] for r in rows]
 
-    def save_record(self, record: dict, segments: list[dict]):
+    def save_record(self, record: dict, segments: list[dict], *, audit: bool = True) -> None:
         with self.transaction():
             if record['status'] != 'void' and self.overlaps(record['point_id'], record['start'], record['end'], record['id']):
                 raise ValueError('Record interval overlaps an existing record')
@@ -233,8 +252,38 @@ class Ledger:
             self._db.execute('DELETE FROM segments WHERE record_id=?', (record['id'],))
             for index, segment in enumerate(segments):
                 self._db.execute('INSERT INTO segments VALUES (?,?,?,?)', (record['id'], index, segment.get('observation_id'), encode(segment)))
-            self._db.execute('INSERT INTO revisions VALUES (?,?,?)', (record['id'], record['revision'], encode({'record': record, 'segments': segments})))
+            if audit:
+                self.save_revision(record['id'])
             self._bump()
+
+    def append_record_segments(self, record: dict, segments: list[dict], expected_count: int) -> None:
+        """Append to the contiguous position sequence without copying old evidence."""
+        with self.transaction():
+            previous = self.get_record(record['id'])
+            if previous is None:
+                raise ValueError('Unknown record')
+            last = self._db.execute(
+                'SELECT position FROM segments WHERE record_id=? ORDER BY position DESC LIMIT 1',
+                (record['id'],)).fetchone()
+            if (last[0] + 1 if last else 0) != expected_count:
+                raise ValueError('Record segment count conflict')
+            if previous['revision'] + 1 != record['revision']:
+                raise ValueError('Record revision conflict')
+            for index, segment in enumerate(segments, expected_count):
+                self._db.execute('INSERT INTO segments VALUES (?,?,?,?)',
+                                 (record['id'], index, segment.get('observation_id'), encode(segment)))
+            self._db.execute('UPDATE records SET data=? WHERE id=?', (encode(record), record['id']))
+            self._bump()
+
+    def save_revision(self, record_id: str) -> None:
+        """Snapshot the current version within the caller's transaction."""
+        if not self._db.in_transaction:
+            raise ValueError('Saving a revision requires a transaction')
+        record = self.get_record(record_id)
+        if record is None:
+            raise ValueError('Unknown record')
+        self._db.execute('INSERT INTO revisions VALUES (?,?,?)',
+                         (record_id, record['revision'], encode({'record': record, 'segments': self.list_segments(record_id)})))
 
     def list_segments(self, record_id: str):
         return [json.loads(r[0]) for r in self._db.execute('SELECT data FROM segments WHERE record_id=? ORDER BY position', (record_id,))]

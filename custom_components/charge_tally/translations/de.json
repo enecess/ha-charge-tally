@@ -17,7 +17,7 @@
     "abort": {
       "single_instance_allowed": "Es wird nur ein Charge Tally-Abrechnungsbuch unterstützt.",
       "already_configured": "Charge Tally ist bereits eingerichtet.",
-      "currency_unbound": "Dieses Abrechnungsbuch aus einer Vorabversion ist keiner Währung zugeordnet. Sichern Sie es und bestätigen Sie vor der Wiederherstellung ausdrücklich seine ursprüngliche Währung."
+      "currency_unbound": "Das Abrechnungsbuch enthält Buchungsdaten ohne Währungszuordnung. Die Datenintegrität muss vor dem Öffnen wiederhergestellt werden."
     }
   },
   "config_subentries": {
@@ -196,9 +196,14 @@
     },
     "archive_action": {
       "options": {
-        "delete_point": "Ladepunkt, Einträge, Revisionen, Messwerte und Preisverlauf dauerhaft löschen",
+        "delete_point": "Alle Buchhaltungsdaten des Ladepunkts einschließlich nicht abgeschlossener Datensätze, Revisionen, Messwerte und Preisverlauf dauerhaft löschen",
         "delete_identity": "Identität löschen; alte Revisionen behalten ihren ursprünglichen Namen zur Prüfung",
         "transfer_identity": "Alle aufgeführten Einträge ohne Betragsänderung an die gewählte Identität übertragen, die Quellidentität löschen und ihren ursprünglichen Namen in alten Revisionen erhalten"
+      }
+    },
+    "archive_time": {
+      "options": {
+        "unfinished": "Nicht abgeschlossene Datensätze vorhanden"
       }
     }
   },
@@ -413,7 +418,7 @@
       },
       "archive_confirm": {
         "title": "Dauerhaften Vorgang bestätigen",
-        "description": "- Objekt: **{name}**\n- Vorgang: {operation}\n- Einträge (einschließlich stornierter): {records}\n- Stornierte Einträge: {voided}\n- Revisionen: {revisions}\n- Zeitraum (UTC): {start} – {end}\n- Energie: {energy} kWh\n- Bekannte Kosten: {cost} {currency}\n- Empfängeridentität: {target}\n\nDieser Vorgang ist dauerhaft und kann in der Oberfläche nicht rückgängig gemacht werden. Nur das Charge Tally-Buch wird bereinigt; Home Assistant Recorder-Verlauf, native Statistiken und Sicherungen bleiben unberührt. Die Währung kann erst wieder geändert werden, wenn keine Ladepunkte (auch keine archivierten) und keine Buchungsdaten mehr vorhanden sind.",
+        "description": "- Objekt: **{name}**\n- Vorgang: {operation}\n- Einträge (einschließlich stornierter): {records}\n- Nicht abgeschlossene Datensätze: {active}\n- Stornierte Einträge: {voided}\n- Revisionen: {revisions}\n- Zeitraum (UTC): {start} – {end}\n- Energie: {energy} kWh\n- Bekannte Kosten: {cost} {currency}\n- Empfängeridentität: {target}\n\nDieser Vorgang ist dauerhaft und kann in der Oberfläche nicht rückgängig gemacht werden. Nur das Charge Tally-Buch wird bereinigt; Home Assistant Recorder-Verlauf, native Statistiken und Sicherungen bleiben unberührt. Die Währung kann erst wieder geändert werden, wenn keine Ladepunkte (auch keine archivierten) und keine Buchungsdaten mehr vorhanden sind.",
         "data": {
           "confirm": "Ich verstehe die Auswirkungen und bestätige das dauerhafte Löschen"
         }

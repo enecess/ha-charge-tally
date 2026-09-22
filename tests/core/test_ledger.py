@@ -9,6 +9,43 @@ from custom_components.charge_tally.ledger import Ledger
 
 
 class LedgerTests(unittest.TestCase):
+    def test_observation_overlap_uses_indexed_exists_and_keeps_id_conflict(self):
+        from datetime import timedelta
+        from decimal import Decimal
+        from custom_components.charge_tally.accounting import Accounting
+
+        with closing(Ledger(':memory:')) as ledger:
+            ledger.put_point({'id': 'p', 'name': 'Point'})
+            app = Accounting(ledger)
+            start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+            app.add_interval('p', start, start + timedelta(seconds=5), Decimal('1'), [])
+            statements = []
+            ledger._db.set_trace_callback(statements.append)
+            app.add_interval('p', start + timedelta(seconds=5), start + timedelta(seconds=10), Decimal('1'), [])
+            ledger._db.set_trace_callback(None)
+            query = next(statement for statement in statements if 'SELECT EXISTS(SELECT 1 FROM observations' in statement)
+            plan = ledger._db.execute('EXPLAIN QUERY PLAN ' + query).fetchall()
+            self.assertTrue(any('observation_time' in row[-1] for row in plan))
+            self.assertFalse(any(statement.startswith('SELECT data FROM observations WHERE json_extract') for statement in statements))
+            with self.assertRaisesRegex(ValueError, 'immutable'):
+                app.add_interval('p', start, start + timedelta(seconds=5), Decimal('2'), [])
+            with self.assertRaisesRegex(ValueError, 'overlap'):
+                app.add_interval('p', start + timedelta(seconds=1), start + timedelta(seconds=3), Decimal('1'), [])
+
+    def test_explicit_snapshot_reads_current_sparse_version_atomically(self):
+        with closing(Ledger(':memory:')) as ledger:
+            ledger.put_identity({'id': 'i', 'name': 'Identity'})
+            ledger.put_point({'id': 'p', 'name': 'Point'})
+            record = dict(id='r', point_id='p', identity_id='i', start='2026-01-01T00:00:00+00:00',
+                          end=None, status='active', revision=1)
+            ledger.save_record(record, [])
+            ledger.save_record(dict(record, revision=4), [], audit=False)
+            with self.assertRaisesRegex(ValueError, 'transaction'):
+                ledger.save_revision('r')
+            with ledger.transaction():
+                ledger.save_revision('r')
+            self.assertEqual([r['record']['revision'] for r in ledger.list_revisions('r')], [1, 4])
+
     def test_currency_change_only_before_accounting_use(self):
         with tempfile.TemporaryDirectory() as directory, closing(Ledger(str(Path(directory) / 'ledger.db'))) as ledger:
             ledger.bind_currency('CNY')

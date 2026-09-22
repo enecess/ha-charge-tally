@@ -17,7 +17,7 @@
     "abort": {
       "single_instance_allowed": "Only one Charge Tally ledger is supported.",
       "already_configured": "Charge Tally is already configured.",
-      "currency_unbound": "This pre-release ledger has no currency binding. Back it up and explicitly confirm its original currency before restoring."
+      "currency_unbound": "The ledger contains accounting data without a currency binding. Its data integrity must be restored before it can be opened."
     }
   },
   "config_subentries": {
@@ -196,9 +196,14 @@
     },
     "archive_action": {
       "options": {
-        "delete_point": "Permanently delete the charging point, its records, revisions, samples and price history",
+        "delete_point": "Permanently delete all ledger data for the charging point, including unfinished records, revisions, samples and price history",
         "delete_identity": "Delete the identity; old revisions keep its original name for audit",
         "transfer_identity": "Transfer all listed records to the selected identity without changing amounts, delete the source identity and preserve its original name in old revisions"
+      }
+    },
+    "archive_time": {
+      "options": {
+        "unfinished": "Unfinished records exist"
       }
     }
   },
@@ -413,7 +418,7 @@
       },
       "archive_confirm": {
         "title": "Confirm permanent operation",
-        "description": "- Item: **{name}**\n- Operation: {operation}\n- Records (including voided): {records}\n- Voided records: {voided}\n- Revisions: {revisions}\n- Time range (UTC): {start} – {end}\n- Energy: {energy} kWh\n- Known cost: {cost} {currency}\n- Receiving identity: {target}\n\nThis operation is permanent and cannot be undone in the interface. Cleanup affects only the Charge Tally ledger; Home Assistant recorder history, native statistics and backups are excluded. Currency changes become available only when no charging points (including archived points) or accounting data remain.",
+        "description": "- Item: **{name}**\n- Operation: {operation}\n- Records (including voided): {records}\n- Unfinished records: {active}\n- Voided records: {voided}\n- Revisions: {revisions}\n- Time range (UTC): {start} – {end}\n- Energy: {energy} kWh\n- Known cost: {cost} {currency}\n- Receiving identity: {target}\n\nThis operation is permanent and cannot be undone in the interface. Cleanup affects only the Charge Tally ledger; Home Assistant recorder history, native statistics and backups are excluded. Currency changes become available only when no charging points (including archived points) or accounting data remain.",
         "data": {
           "confirm": "I understand the impact and confirm permanent deletion"
         }

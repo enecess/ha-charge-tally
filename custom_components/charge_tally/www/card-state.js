@@ -1,4 +1,4 @@
-import {tr,locale} from './card-i18n.js?v=0.1.2-3';
+import {tr,locale} from './card-i18n.js?v=0.1.2-4';
 const numberFormats=new Map();
 export function formatDecimal(value,language='en',digits=3,minimum=0){
   if(value==null)return '—';
@@ -64,12 +64,15 @@ export function validateForm(form,timezone,record) {
 }
 const filters = config => Object.fromEntries(['point_id','identity_id'].filter(key=>config[key]).map(key=>[key,config[key]]));
 export function queryRequest(config,range) {
+  const bucket = range.bucket_period ?? 'auto';
+  if (!['auto','hour','day','month','year'].includes(bucket)) throw new Error('Invalid bucket period');
+  const grouping = 'bucket_period' in range ? {bucket_period:bucket} : {};
   if ('calendar_period' in range) {
-    if (!['daily','monthly','yearly'].includes(range.calendar_period) || 'start' in range || 'end' in range) throw new Error('Invalid calendar period');
-    return {type:'charge_tally/query',...filters(config),calendar_period:range.calendar_period};
+    if (!['daily','monthly','yearly','total'].includes(range.calendar_period) || 'start' in range || 'end' in range) throw new Error('Invalid calendar period');
+    return {type:'charge_tally/query',...filters(config),...grouping,calendar_period:range.calendar_period};
   }
   if (!validateRange(range.start,range.end).valid) throw new Error('Invalid range');
-  return {type:'charge_tally/query',...filters(config),start:range.start,end:range.end};
+  return {type:'charge_tally/query',...filters(config),...grouping,start:range.start,end:range.end};
 }
 export function recordsRequest(config,offset=0,limit=25) {
   if (!Number.isInteger(offset) || offset<0 || !Number.isInteger(limit) || limit<1 || limit>100) throw new Error('Invalid page');

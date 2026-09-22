@@ -17,7 +17,7 @@
     "abort": {
       "single_instance_allowed": "只支持一个 Charge Tally 账本主条目。",
       "already_configured": "Charge Tally 已配置。",
-      "currency_unbound": "此预发布账本尚未绑定币种；请备份并确认原币种后再恢复。"
+      "currency_unbound": "账本已有记账数据，但缺少币种绑定。请先修复数据完整性后再打开。"
     }
   },
   "config_subentries": {
@@ -196,9 +196,14 @@
     },
     "archive_action": {
       "options": {
-        "delete_point": "永久删除充电点及其记录、修订、采样和电价历史",
+        "delete_point": "永久删除该充电点的全部账本数据，包括未结束记录、修订、采样和电价历史",
         "delete_identity": "删除身份；旧修订保留原身份名称供审计",
         "transfer_identity": "将所列全部记录转移至所选接收身份，金额不变；删除原身份，旧修订保留原身份名称"
+      }
+    },
+    "archive_time": {
+      "options": {
+        "unfinished": "存在未结束记录"
       }
     }
   },
@@ -413,7 +418,7 @@
       },
       "archive_confirm": {
         "title": "确认永久操作",
-        "description": "- 对象：**{name}**\n- 操作：{operation}\n- 记录数（含作废）：{records}\n- 作废记录数：{voided}\n- 修订数：{revisions}\n- 时间范围（UTC）：{start} – {end}\n- 电量：{energy} kWh\n- 已知费用：{cost} {currency}\n- 接收身份：{target}\n\n此操作为永久操作，无法在界面撤销。仅清理 Charge Tally 账本；Home Assistant recorder 历史、原生统计及备份不在清理范围。仅在无充电点（含归档点）且无保留记账数据时，才可再次修改币种。",
+        "description": "- 对象：**{name}**\n- 操作：{operation}\n- 记录数（含作废）：{records}\n- 其中未结束：{active}\n- 作废记录数：{voided}\n- 修订数：{revisions}\n- 时间范围（UTC）：{start} – {end}\n- 电量：{energy} kWh\n- 已知费用：{cost} {currency}\n- 接收身份：{target}\n\n此操作为永久操作，无法在界面撤销。仅清理 Charge Tally 账本；Home Assistant recorder 历史、原生统计及备份不在清理范围。仅在无充电点（含归档点）且无保留记账数据时，才可再次修改币种。",
         "data": {
           "confirm": "我已了解影响并确认永久删除"
         }

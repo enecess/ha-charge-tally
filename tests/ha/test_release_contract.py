@@ -53,3 +53,24 @@ async def test_native_record_and_identity_precision_is_display_only(hass, tmp_pa
     assert preview["record"]["energy_kwh"] == "1.123456789123456789"
     assert preview["record"]["known_cost"] == "0.123456789123456789"
     await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.parametrize("version", [0, 1, 99])
+async def test_unsupported_ledger_setup_preserves_existing_file(hass, tmp_path, version):
+    import sqlite3
+    from contextlib import closing
+
+    directory = tmp_path / "charge_tally"
+    directory.mkdir()
+    path = directory / "ledger.sqlite3"
+    with closing(sqlite3.connect(path)) as db, db:
+        db.execute(f"PRAGMA user_version={version}")
+        db.execute("CREATE TABLE development_data (value TEXT)")
+        db.execute("INSERT INTO development_data VALUES ('preserve me')")
+    before = path.read_bytes()
+    with pytest.raises(AssertionError):
+        await setup_runtime(hass, tmp_path)
+    assert path.read_bytes() == before
+    entry = hass.config_entries.async_entries("charge_tally")[0]
+    assert entry.runtime_data._closed is True
+    assert entry.entry_id not in hass.data.get("charge_tally", {})

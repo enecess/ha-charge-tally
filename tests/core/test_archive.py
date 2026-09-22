@@ -24,7 +24,7 @@ class ArchiveTests(unittest.TestCase):
         record = dict(id=id_, point_id=point, identity_id=identity, status=status,
                       start='2026-01-01T00:00:00+00:00', end='2026-01-01T01:00:00+00:00',
                       revision=1, energy_kwh='2.5', known_cost='1.25', cost_complete=True)
-        self.ledger.save_record(record, [dict(energy_kwh='2.5', cost='1.25')])
+        self.ledger.save_record(record, [dict(energy_kwh='2.5', cost='1.25', unit_price='0.5', cost_basis='tariff')])
         return record
 
     def preview(self, kind='point', id_='oldpoint', target=None):
@@ -39,9 +39,40 @@ class ArchiveTests(unittest.TestCase):
         for kind, id_ in [('point', 'live'), ('identity', 'disabled'), ('identity', 'unassigned')]:
             with self.assertRaisesRegex(ValueError, 'archive_configured'):
                 self.preview(kind, id_)
+
+    def test_active_identity_still_cannot_be_transferred(self):
         self.record(status='active')
         with self.assertRaisesRegex(ValueError, 'archive_busy'):
-            self.preview()
+            self.preview('identity', 'old', 'new')
+
+    def test_archived_point_with_active_record_can_be_confirmed_and_deleted(self):
+        record = self.record(status='active')
+        record.update(end=None, revision=2)
+        self.ledger.save_record(record, self.ledger.list_segments(record['id']))
+        preview = self.preview()
+        self.assertEqual(preview['active_count'], 1)
+        self.assertIsNone(preview['end'])
+        self.assertIsNone(preview['latest_ended_at'])
+        self.assertIsNotNone(self.ledger.get_record(record['id']))
+        self.delete(preview)
+        self.assertIsNone(self.ledger.get_point('oldpoint'))
+        self.assertIsNone(self.ledger.get_record(record['id']))
+
+    def test_mixed_records_do_not_hide_unfinished_time_range(self):
+        ended = self.record('ended')
+        active = dict(ended, id='active', status='active', start=ended['end'], end=None)
+        self.ledger.save_record(active, [])
+        preview = self.preview()
+        self.assertEqual(preview['active_count'], 1)
+        self.assertIsNone(preview['end'])
+        self.assertEqual(preview['latest_ended_at'], ended['end'])
+
+    def test_ended_records_keep_actual_time_range(self):
+        ended = self.record()
+        preview = self.preview()
+        self.assertEqual(preview['active_count'], 0)
+        self.assertEqual(preview['end'], ended['end'])
+        self.assertEqual(preview['latest_ended_at'], ended['end'])
 
     def test_point_cascade_and_currency_stays_locked(self):
         self.record()
@@ -50,7 +81,7 @@ class ArchiveTests(unittest.TestCase):
         self.ledger._put('observation_resolutions', 'obs', {'interval_ids': []})
         record = self.ledger.get_record('r')
         record['revision'] += 1
-        self.ledger.save_record(record, [dict(observation_id='obs', energy_kwh='2.5', cost='1.25')])
+        self.ledger.save_record(record, [dict(observation_id='obs', energy_kwh='2.5', cost='1.25', unit_price='0.5', cost_basis='tariff')])
         self.ledger._put('price_versions', 'price', dict(id='price', point_id='oldpoint'))
         self.ledger._put('checkpoints', '_price_gaps:oldpoint', [])
         self.ledger.put_checkpoint('runtime', {'oldpoint': {}, 'live': {}})
@@ -92,6 +123,18 @@ class ArchiveTests(unittest.TestCase):
             self.assertEqual((old['identity_id'], old['identity_name']), ('old', 'Old'))
         self.assertIsNone(self.ledger.get_identity('old'))
 
+    def test_identity_transfer_keeps_sparse_revision_numbers_and_old_name(self):
+        record = self.record()
+        record.update(revision=4, known_cost='3')
+        self.ledger.save_record(record, self.ledger.list_segments('r'), audit=False)
+        self.delete(self.preview('identity', 'old', 'new'))
+        revisions = self.ledger.list_revisions('r')
+        self.assertEqual([r['record']['revision'] for r in revisions], [1, 5])
+        self.assertEqual(revisions[0]['record']['identity_name'], 'Old')
+        self.assertEqual(revisions[0]['record']['known_cost'], '1.25')
+        self.assertEqual(revisions[1]['record']['identity_id'], 'new')
+        self.assertEqual(revisions[1]['record']['known_cost'], '3')
+
     def test_target_required_and_validated(self):
         self.record()
         with self.assertRaisesRegex(ValueError, 'archive_target'):
@@ -131,13 +174,12 @@ class ArchiveTests(unittest.TestCase):
         manager.delete('identity', 'empty', preview['fingerprint'], set(), set())
         self.assertTrue(other.currency_change_allowed())
 
-    def test_old_usage_marker_does_not_lock_empty_ledger_after_purge_and_reopen(self):
+    def test_empty_ledger_allows_currency_change_after_purge_and_reopen(self):
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / 'ledger.db')
             ledger = Ledger(path)
             ledger.bind_currency('CNY')
             ledger.put_point(dict(id='old', name='Old', active=False))
-            ledger._put('checkpoints', '_used_currency', True)
             ledger.close()
             ledger = Ledger(path)
             manager = ArchiveManager(ledger)
@@ -196,9 +238,9 @@ class ArchiveTests(unittest.TestCase):
         self.ledger._put('observations', 'liveobs', dict(id='liveobs', point_id='live'))
         record = self.record()
         record['revision'] = 2
-        self.ledger.save_record(record, [dict(observation_id='oldobs', energy_kwh='2.5', cost='1.25')])
+        self.ledger.save_record(record, [dict(observation_id='oldobs', energy_kwh='2.5', cost='1.25', unit_price='0.5', cost_basis='tariff')])
         record.update(point_id='live', revision=3)
-        segments = [dict(observation_id='liveobs', energy_kwh='2.5', cost='1.25')]
+        segments = [dict(observation_id='liveobs', energy_kwh='2.5', cost='1.25', unit_price='0.5', cost_basis='tariff')]
         self.ledger.save_record(record, segments)
         self.ledger.put_request('moved', {'result': record})
         summary = self.preview()

@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {chartGeometry,chartState} from '../../custom_components/charge_tally/www/card-chart.js';
+test('small positive energy uses available height',()=>{const g=chartGeometry([.012]);assert.equal(g.baseline,132);assert.ok(g.bars[0].height>=119);});
+test('negative cost extends below zero',()=>{const g=chartGeometry([-2,4]);assert.equal(g.baseline,92);assert.deepEqual(g.bars.map(b=>[b.y,b.height]),[[92,40],[12,80]]);});
+test('empty and all zero geometry has no bars',()=>{assert.deepEqual(chartGeometry([]).bars,[]);assert.deepEqual(chartGeometry([0,0]).bars,[]);});
+test('states distinguish absent, pending, unknown and zero data',()=>{const s={matched_count:1,has_energy_data:true,has_known_cost:true,buckets:[{energy_kwh:'0',known_cost:'0',has_energy_data:true,has_known_cost:true}]};assert.equal(chartState({...s,matched_count:0},'energy_kwh'),'no_records');assert.equal(chartState({...s,has_energy_data:false},'energy_kwh'),'awaiting_energy');assert.equal(chartState({...s,has_known_cost:false},'known_cost'),'unknown_cost');assert.equal(chartState(s,'energy_kwh'),'zero');assert.equal(chartState({...s,buckets:[{energy_kwh:'.012',has_energy_data:true}]},'energy_kwh'),'ready');});

@@ -13,6 +13,7 @@ from .core.units import energy_kwh, power_w, price_per_kwh
 from .config_validation import BUILTIN_IDENTITY_NAME, validate_identity_name
 from .ledger import Ledger
 from .queries import summarize
+from .record_views import detail_view, record_view
 
 
 class ScopedLedger:
@@ -454,11 +455,12 @@ class RuntimeStore:
             record = self.ledger.get_record(data["record_id"])
             if not record:
                 raise ValueError("Unknown record")
-            return {"record": record, "segments": self.ledger.list_segments(record["id"]), "revisions": self.ledger.list_revisions(record["id"])}
+            return detail_view(record, self.ledger.list_segments(record["id"]), self.ledger.list_revisions(record["id"]))
         if command == "summary":
             return summarize(self.ledger, instant(data["start"]) if data.get("start") else None,
                              instant(data["end"]) if data.get("end") else None,
-                             identity_id=data.get("identity_id"), point_id=data.get("point_id"), calendar=self.calendar_label(data))
+                             identity_id=data.get("identity_id"), point_id=data.get("point_id"), calendar=self.calendar_label(data),
+                         bucket_period=data.get("bucket_period", "auto"), timezone=self.timezone)
         raise ValueError("Unknown command")
 
     def snapshot(self, point_ids=None):
@@ -470,7 +472,7 @@ class RuntimeStore:
             state = self.states[point_id]
             active = self.active(point_id)
             points.append({"id": point_id, "name": point["name"], "selected_identity_id": state["selected_identity_id"],
-                "active_record": active, "normalized_energy_kwh": state["normalized_energy_kwh"],
+                "active_record": record_view(active) if active else None, "normalized_energy_kwh": state["normalized_energy_kwh"],
                 "power_w": state.get("power_w"), "current_price": state.get("current_price"),
                 "status": "charging" if active and active["source"] == "manual" else (state.get("detector") or {}).get("state", "charging" if active else "idle"),
                 "quality": state.get("quality", []), "available": state.get("available", False),
@@ -484,21 +486,24 @@ class RuntimeStore:
         archived = [{**point, "identity_entity_id": None} for point in self.ledger.list_points()
                     if not point.get("active", True) and (point_ids is None or point["id"] in point_ids)]
         return {"currency": self.currency, "timezone": self.timezone, "identities": identities, "points": points, "archived_points": archived,
-                "records": scoped.list_records(), "summary": summarize(scoped, None, None),
+                "records": [record_view(record) for record in scoped.list_records()], "summary": summarize(scoped, None, None),
                 "revision": self.ledger.data_version()}
 
     def calendar_label(self, data):
         if "calendar_period" not in data:
             return None
-        if "start" in data or "end" in data or data["calendar_period"] not in ("daily", "monthly", "yearly"):
+        if "start" in data or "end" in data or data["calendar_period"] not in ("daily", "monthly", "yearly", "total"):
             raise ValueError("Invalid calendar query")
+        if data["calendar_period"] == "total":
+            return None
         today = datetime.now(UTC).astimezone(ZoneInfo(self.timezone)).date().isoformat()
         return today[:{"daily": 10, "monthly": 7, "yearly": 4}[data["calendar_period"]]]
 
     def scoped_summary(self, point_ids, data):
         return summarize(ScopedLedger(self.ledger, point_ids), instant(data["start"]) if data.get("start") else None,
                          instant(data["end"]) if data.get("end") else None,
-                         identity_id=data.get("identity_id"), point_id=data.get("point_id"), calendar=self.calendar_label(data))
+                         identity_id=data.get("identity_id"), point_id=data.get("point_id"), calendar=self.calendar_label(data),
+                         bucket_period=data.get("bucket_period", "auto"), timezone=self.timezone)
 
     def query(self, command, data, point_ids):
         allowed = [p["id"] for p in self.ledger.list_points()] if point_ids is None else point_ids
@@ -508,7 +513,7 @@ class RuntimeStore:
             record = self.ledger.get_record(data["record_id"])
             if not record or record["point_id"] not in allowed:
                 raise ValueError("Unknown authorized record")
-            return {"record": record, "segments": self.ledger.list_segments(record["id"]), "revisions": self.ledger.list_revisions(record["id"]),
+            return {**detail_view(record, self.ledger.list_segments(record["id"]), self.ledger.list_revisions(record["id"])),
                     "point": self.ledger.get_point(record["point_id"]), "identity": self.ledger.get_identity(record["identity_id"])}
         if command != "records":
             raise ValueError("Unknown query")
@@ -520,7 +525,7 @@ class RuntimeStore:
                    and (not data.get("start") or record["end"] is None or instant(record["end"]) > instant(data["start"]))
                    and (not data.get("end") or instant(record["start"]) < instant(data["end"]))]
         records.sort(key=lambda record: (record["start"], record["id"]), reverse=True)
-        return {"records": records[offset:offset + limit], "total": len(records), "offset": offset, "limit": limit}
+        return {"records": [record_view(record) for record in records[offset:offset + limit]], "total": len(records), "offset": offset, "limit": limit}
 
     def history_needed(self, point_id, start, end):
         cursor = start
@@ -531,26 +536,27 @@ class RuntimeStore:
         return cursor < end
 
     def import_history(self, point_id, intervals, historical_prices=None):
-        epoch = self.states[point_id].get("input_epoch")
-        valid = [i for i in intervals if not i.get("gap") and not i.get("quality") and (epoch is None or i["start"] >= epoch)]
-        existing = self.ledger.list_intervals(point_id)
-        for gap in [i for i in existing if i["gap"]]:
-            parts = [i for i in valid if i["start"] >= gap["start"] and i["end"] <= gap["end"]]
-            cursor = gap["start"]
-            for part in parts:
-                if part["start"] != cursor:
-                    break
-                cursor = part["end"]
-            if cursor == gap["end"] and sum((Decimal(i["energy_kwh"]) for i in parts), Decimal(0)) == Decimal(gap["energy_kwh"]):
-                replacements = [{**i, "prices": self.history_prices(point_id, instant(i["start"]), instant(i["end"]), historical_prices)} for i in parts]
-                self.accounting.replace_gap(point_id, instant(gap["start"]), instant(gap["end"]), replacements)
-        existing = self.ledger.list_intervals(point_id)
-        for interval in valid:
-            if any(old["start"] < interval["end"] and old["end"] > interval["start"] for old in existing):
-                continue
-            left, right = instant(interval["start"]), instant(interval["end"])
-            self.accounting.add_interval(point_id, left, right, Decimal(interval["energy_kwh"]), self.history_prices(point_id, left, right, historical_prices))
-            existing.append(interval)
+        with self.accounting.batch_refresh():
+            epoch = self.states[point_id].get("input_epoch")
+            valid = [i for i in intervals if not i.get("gap") and not i.get("quality") and (epoch is None or i["start"] >= epoch)]
+            existing = self.ledger.list_intervals(point_id)
+            for gap in [i for i in existing if i["gap"]]:
+                parts = [i for i in valid if i["start"] >= gap["start"] and i["end"] <= gap["end"]]
+                cursor = gap["start"]
+                for part in parts:
+                    if part["start"] != cursor:
+                        break
+                    cursor = part["end"]
+                if cursor == gap["end"] and sum((Decimal(i["energy_kwh"]) for i in parts), Decimal(0)) == Decimal(gap["energy_kwh"]):
+                    replacements = [{**i, "prices": self.history_prices(point_id, instant(i["start"]), instant(i["end"]), historical_prices)} for i in parts]
+                    self.accounting.replace_gap(point_id, instant(gap["start"]), instant(gap["end"]), replacements)
+            existing = self.ledger.list_intervals(point_id)
+            for interval in valid:
+                if any(old["start"] < interval["end"] and old["end"] > interval["start"] for old in existing):
+                    continue
+                left, right = instant(interval["start"]), instant(interval["end"])
+                self.accounting.add_interval(point_id, left, right, Decimal(interval["energy_kwh"]), self.history_prices(point_id, left, right, historical_prices))
+                existing.append(interval)
 
     def history_prices(self, point_id, start, end, historical_prices):
         own = dict(self.prices(point_id, start, end))

@@ -31,6 +31,7 @@ async def test_scope_precedes_summary_count_pagination_and_record_writes(hass, t
         {"type": "charge_tally/reassign", "record_id": foreign["id"], "identity_id": "car", "expected_revision": 1, "request_id": "bad"},
         {"type": "charge_tally/records", "record_id": foreign["id"]},
         {"type": "charge_tally/records", "record_id": own["id"]},
+        {"type": "charge_tally/preview", "record_id": foreign["id"], "expected_revision": 1, "note": "Forbidden"},
     ]
     results = []
     for index, message in enumerate(messages, 1):
@@ -45,6 +46,7 @@ async def test_scope_precedes_summary_count_pagination_and_record_writes(hass, t
     assert results[4]["error"]["code"] == "unauthorized"
     assert results[5]["result"]["record"]["id"] == own["id"]
     assert "segments" in results[5]["result"]
+    assert results[6]["error"]["code"] == "unauthorized"
     assert (await runtime.async_query("record", {"record_id": foreign["id"]}))["record"]["identity_id"] == "unassigned"
     other_user = await hass.auth.async_create_user("Other point user", group_ids=[])
     other_anchor = next(p["identity_entity_id"] for p in (await runtime.async_snapshot())["points"] if p["id"] == "other")
@@ -57,6 +59,48 @@ async def test_scope_precedes_summary_count_pagination_and_record_writes(hass, t
     assert other_records["records"][0]["id"] == foreign["id"]
     await other_client.send_json({"id": 2, "type": "charge_tally/void", "record_id": own["id"], "expected_revision": 1, "request_id": "foreign-void"})
     assert (await other_client.receive_json())["error"]["code"] == "unauthorized"
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_preview_displays_one_segment_but_commits_two_exact_intervals(hass, tmp_path, hass_ws_client, freezer):
+    from datetime import timedelta
+    from decimal import Decimal
+    from homeassistant.util import dt as dt_util
+
+    entry, runtime = await setup_runtime(hass, tmp_path, mode="energy")
+    start = dt_util.utcnow().replace(microsecond=0) + timedelta(seconds=1)
+    middle, end = start + timedelta(seconds=5), start + timedelta(seconds=10)
+    intervals = [{"start": left.isoformat(), "end": right.isoformat(), "energy_kwh": energy,
+                  "quality": [], "gap": False}
+                 for left, right, energy in ((start, middle, "0.001"), (middle, end, "0.003"))]
+    await runtime._apply("import_history", "point", intervals)
+    freezer.move_to(end + timedelta(seconds=1))
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "charge_tally/preview", "point_id": "point", "identity_id": "car",
+                           "start": start.isoformat(), "end": end.isoformat()})
+    response = await client.receive_json()
+    assert response["success"] is True
+    preview = response["result"]
+    assert len(preview["segments"]) == 1
+    assert Decimal(preview["segments"][0]["energy_kwh"]) == Decimal("0.004")
+    assert "_accounted_until" not in preview["record"]
+    assert "_segment_count" not in preview["record"]
+    stored = await runtime._read(runtime._store.ledger.get_preview, preview['token'])
+    assert stored['payload']['record']['_segment_count'] == 2
+    assert stored['payload']['record']['_accounted_until'] == end.isoformat()
+    await client.send_json({"id": 2, "type": "charge_tally/commit", "token": preview["token"], "request_id": "raw-parts"})
+    saved = await client.receive_json()
+    assert saved["success"] is True
+    assert '_accounted_until' not in saved['result']
+    assert '_segment_count' not in saved['result']
+    internal = await runtime._read(runtime._store.ledger.get_record, saved['result']['id'])
+    assert internal['_segment_count'] == 2
+    parts = await runtime._read(runtime._store.ledger.list_segments, saved["result"]["id"])
+    assert [Decimal(part["energy_kwh"]) for part in parts] == [Decimal("0.001"), Decimal("0.003")]
+    await client.send_json({"id": 3, "type": "charge_tally/query", "point_id": "point",
+                           "start": middle.isoformat(), "end": end.isoformat()})
+    result = (await client.receive_json())["result"]
+    assert Decimal(result["energy_kwh"]) == Decimal("0.003")
     await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -320,6 +364,10 @@ async def test_ws_rejects_malformed_input(hass, tmp_path, hass_ws_client, hass_r
 @pytest.mark.parametrize("payload", [
     {}, {"calendar_period": "weekly"}, {"calendar_period": "daily", "start": "2026-01-01T00:00:00Z", "end": "2026-01-02T00:00:00Z"},
     {"start": "2026-01-01T00:00:00Z"},
+    {"calendar_period": "total", "start": "2026-01-01T00:00:00Z", "end": "2026-01-02T00:00:00Z"},
+    {"calendar_period": "total", "bucket_period": "week"},
+    {"start": "2026-01-01T00:00:00Z", "end": "2026-01-01T00:00:00Z"},
+    {"start": "0001-01-01T00:00:00+14:00", "end": "0001-01-02T00:00:00Z"},
 ])
 async def test_calendar_query_strict_modes(hass, tmp_path, hass_ws_client, payload):
     entry, runtime = await setup_runtime(hass, tmp_path)
@@ -343,12 +391,32 @@ async def test_calendar_query_matches_identity_snapshot(hass, tmp_path, hass_ws_
     hass.config.time_zone = "UTC"
     await runtime.async_refresh_config()
     client = await hass_ws_client(hass)
-    for index, period in enumerate(("daily", "monthly", "yearly"), 1):
+    for index, period in enumerate(("daily", "monthly", "yearly", "total"), 1):
         await client.send_json({"id": index, "type": "charge_tally/query", "calendar_period": period, "identity_id": "car"})
         result = (await client.receive_json())["result"]
         snapshot = await runtime.async_snapshot()
         assert result == next(i for i in snapshot["identities"] if i["id"] == "car")["summaries"][period]
         assert result["energy_kwh"] == "10"
-    await client.send_json({"id": 4, "type": "charge_tally/query", "start": "2026-01-01T00:00:00Z", "end": "2026-01-02T00:00:00Z"})
+    await client.send_json({"id": 5, "type": "charge_tally/query", "start": "2026-01-01T00:00:00Z", "end": "2026-01-02T00:00:00Z"})
     assert (await client.receive_json())["result"]["energy_kwh"] == "0"
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_total_query_scopes_bucket_data_and_counts(hass, tmp_path, hass_ws_client, hass_read_only_access_token, hass_read_only_user):
+    entry, runtime = await setup_runtime(hass, tmp_path)
+    await second_point(hass, entry, runtime)
+    for point, energy in (("point", "1"), ("other", "9")):
+        preview = await runtime.async_command("preview", {"point_id": point, "identity_id": "car", "start": "2026-01-01T00:00:00Z", "end": "2026-01-01T01:00:00Z", "energy_kwh": energy, "cost": "0"})
+        await runtime.async_command("commit_preview", {"token": preview["token"], "request_id": point})
+    anchor = next(p["identity_entity_id"] for p in (await runtime.async_snapshot())["points"] if p["id"] == "point")
+    hass_read_only_user.permissions = PolicyPermissions({"entities": {"entity_ids": {anchor: True}}}, None)
+    client = await hass_ws_client(hass, access_token=hass_read_only_access_token)
+    await client.send_json({"id": 1, "type": "charge_tally/query", "calendar_period": "total", "bucket_period": "day"})
+    result = (await client.receive_json())["result"]
+    assert result["matched_count"] == result["completed_count"] == 1
+    assert result["energy_kwh"] == "1"
+    assert result["bucket_period"] == "day"
+    assert len(result["buckets"]) == 1
+    assert result["buckets"][0]["energy_kwh"] == "1"
+    assert result["buckets"][0]["has_known_cost"] is True
     await hass.config_entries.async_unload(entry.entry_id)

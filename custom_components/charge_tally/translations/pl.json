@@ -17,7 +17,7 @@
     "abort": {
       "single_instance_allowed": "Obsługiwany jest tylko jeden rejestr Charge Tally.",
       "already_configured": "Charge Tally jest już skonfigurowany.",
-      "currency_unbound": "Ten rejestr z wersji przedpremierowej nie ma przypisanej waluty. Utwórz jego kopię zapasową i wyraźnie potwierdź pierwotną walutę przed przywróceniem."
+      "currency_unbound": "Rejestr zawiera dane księgowe bez przypisanej waluty. Przed jego otwarciem należy przywrócić integralność danych."
     }
   },
   "config_subentries": {
@@ -196,9 +196,14 @@
     },
     "archive_action": {
       "options": {
-        "delete_point": "Trwale usuń punkt, jego wpisy, rewizje, próbki i historię cen",
+        "delete_point": "Trwale usuń wszystkie dane księgowe punktu ładowania, w tym niezakończone rekordy, rewizje, próbki i historię cen",
         "delete_identity": "Usuń tożsamość; stare rewizje zachowają jej pierwotną nazwę do audytu",
         "transfer_identity": "Przenieś wszystkie wymienione wpisy do wybranej tożsamości bez zmiany kwot, usuń tożsamość źródłową i zachowaj jej pierwotną nazwę w starych rewizjach"
+      }
+    },
+    "archive_time": {
+      "options": {
+        "unfinished": "Istnieją niezakończone rekordy"
       }
     }
   },
@@ -413,7 +418,7 @@
       },
       "archive_confirm": {
         "title": "Potwierdź trwałą operację",
-        "description": "- Obiekt: **{name}**\n- Operacja: {operation}\n- Wpisy (w tym unieważnione): {records}\n- Unieważnione wpisy: {voided}\n- Rewizje: {revisions}\n- Zakres czasu (UTC): {start} – {end}\n- Energia: {energy} kWh\n- Znany koszt: {cost} {currency}\n- Tożsamość docelowa: {target}\n\nOperacja jest trwała i nie można jej cofnąć w interfejsie. Czyszczenie dotyczy tylko księgi Charge Tally; historia Recorder, natywne statystyki i kopie zapasowe Home Assistant są wyłączone. Walutę można zmienić tylko wtedy, gdy nie ma punktów ładowania (także zarchiwizowanych) ani zachowanych danych księgowych.",
+        "description": "- Obiekt: **{name}**\n- Operacja: {operation}\n- Wpisy (w tym unieważnione): {records}\n- Niezakończone rekordy: {active}\n- Unieważnione wpisy: {voided}\n- Rewizje: {revisions}\n- Zakres czasu (UTC): {start} – {end}\n- Energia: {energy} kWh\n- Znany koszt: {cost} {currency}\n- Tożsamość docelowa: {target}\n\nOperacja jest trwała i nie można jej cofnąć w interfejsie. Czyszczenie dotyczy tylko księgi Charge Tally; historia Recorder, natywne statystyki i kopie zapasowe Home Assistant są wyłączone. Walutę można zmienić tylko wtedy, gdy nie ma punktów ładowania (także zarchiwizowanych) ani zachowanych danych księgowych.",
         "data": {
           "confirm": "Rozumiem skutki i potwierdzam trwałe usunięcie"
         }

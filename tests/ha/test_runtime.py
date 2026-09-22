@@ -1,4 +1,5 @@
 """Runtime tests exercise actual HA setup, events and SQLite persistence."""
+import asyncio
 from datetime import timedelta
 from decimal import Decimal
 
@@ -35,6 +36,79 @@ async def tick(hass, freezer, seconds):
     freezer.move_to(dt_util.utcnow() + timedelta(seconds=seconds))
     async_fire_time_changed_exact(hass, dt_util.utcnow())
     await hass.async_block_till_done()
+
+
+@pytest.mark.parametrize("backup_pending", [False, True])
+@pytest.mark.parametrize("queued_refresh", [False, True])
+async def test_close_waits_for_direct_config_refresh(hass, tmp_path, monkeypatch, backup_pending, queued_refresh):
+    entry, runtime = await setup_runtime(hass, tmp_path, mode="energy")
+    helper_entered = asyncio.Event()
+    release_helper = asyncio.Event()
+    gate_waiting = asyncio.Event()
+    close_started = asyncio.Event()
+    release_queued = asyncio.Event()
+    queued_waiting = asyncio.Event()
+    ensure = runtime._helpers.async_ensure
+    gate_wait = runtime._gate.wait
+    gate_set = runtime._gate.set
+
+    async def paused_ensure(*args, **kwargs):
+        helper_entered.set()
+        await release_helper.wait()
+        return await ensure(*args, **kwargs)
+
+    async def observed_gate_wait():
+        if not runtime._gate.is_set():
+            gate_waiting.set()
+        await gate_wait()
+
+    def observed_gate_set():
+        gate_set()
+        if runtime._closing:
+            close_started.set()
+
+    async def paused_queued_refresh():
+        await release_queued.wait()
+        queued_waiting.set()
+        await runtime.async_refresh_config()
+
+    monkeypatch.setattr(runtime._helpers, "async_ensure", paused_ensure)
+    monkeypatch.setattr(runtime._gate, "wait", observed_gate_wait)
+    monkeypatch.setattr(runtime._gate, "set", observed_gate_set)
+    if backup_pending:
+        await runtime.async_pre_backup()
+    refresh = asyncio.create_task(runtime.async_refresh_config())
+    closing = None
+    try:
+        await asyncio.wait_for((gate_waiting if backup_pending else helper_entered).wait(), 5)
+        assert runtime._config_lock.locked()
+        # A queued refresh must also drain without close holding the config lock.
+        if queued_refresh:
+            runtime._queue(paused_queued_refresh())
+        closing = asyncio.create_task(runtime.async_close())
+        await asyncio.wait_for(close_started.wait(), 5)
+        assert not runtime._closed
+        if queued_refresh:
+            release_queued.set()
+            await asyncio.wait_for(queued_waiting.wait(), 5)
+        if backup_pending:
+            await asyncio.wait_for(helper_entered.wait(), 5)
+        assert not runtime._closed
+        assert not closing.done()
+    finally:
+        release_queued.set()
+        release_helper.set()
+        gate_set()
+        tasks = [refresh] + ([closing] if closing is not None else [])
+        results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), 5)
+    assert results == [None, None]
+    assert runtime._closed
+    assert runtime._unsubs == []
+    revision = runtime.snapshot["revision"]
+    await asyncio.wait_for(runtime.async_refresh_config(), 5)
+    assert runtime.snapshot["revision"] == revision
+    assert runtime._unsubs == []
+    assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 async def test_runtime_normalizes_shared_interval_and_reloads_without_duplicate(hass, tmp_path, freezer):

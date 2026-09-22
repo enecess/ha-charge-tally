@@ -7,6 +7,7 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.util import dt as dt_util
 
 from test_currency_options import add_point, add_subentry, open_currency, setup_entry
+from test_runtime import POWER, setup_runtime, tick
 
 
 async def archive_flow(hass, entry, kind):
@@ -36,6 +37,56 @@ async def record(hass, entry, identity_id="unassigned"):
 async def archive(hass, entry, object_id):
     hass.config_entries.async_remove_subentry(entry, object_id)
     await hass.async_block_till_done()
+
+
+@pytest.mark.parametrize("source", ["automatic", "manual"])
+async def test_removed_active_point_confirm_cleans_ledger_and_runtime(hass, tmp_path, freezer, source):
+    entry, runtime = await setup_runtime(hass, tmp_path, mode="energy_power", detection={
+        "enabled": source == "automatic", "start_w": "100", "end_w": "50",
+        "start_seconds": 30, "end_seconds": 60,
+    })
+    if source == "automatic":
+        hass.states.async_set("sensor.power", "1000", POWER)
+        await hass.async_block_till_done()
+        assert (await runtime.async_snapshot())["points"][0]["status"] == "pending_start"
+        await tick(hass, freezer, 31)
+        saved = (await runtime.async_snapshot())["points"][0]["active_record"]
+    else:
+        saved = await runtime.async_command("start", {"point_id": "point", "request_id": "active"})
+    assert saved["source"] == source
+    assert saved["status"] == "active"
+    await archive(hass, entry, "point")
+    hass.states.async_set("sensor.power", "0", POWER)
+    await tick(hass, freezer, 61)
+    saved = await runtime._read(runtime._store.ledger.get_record, saved["id"])
+    assert saved["status"] == "active"
+    assert saved["end"] is None
+    result = await archive_flow(hass, entry, "point")
+    result = await choose(hass, result, {"object_id": "point"})
+    assert result["step_id"] == "archive_confirm"
+    details = result["description_placeholders"]
+    assert details["records"] == "1"
+    assert details["active"] == "1"
+    assert details["end"] == "Unfinished records exist"
+    assert "unfinished records" in details["operation"]
+    result = await choose(hass, result, {"confirm": False})
+    assert result["errors"] == {"base": "confirm_required"}
+    assert await runtime._read(runtime._store.ledger.get_record, saved["id"]) == saved
+    assert "point" in runtime._store.states
+    assert "point" in await runtime._read(runtime._store.ledger.get_checkpoint, "runtime")
+    result = await choose(hass, result, {"confirm": True})
+    assert result["step_id"] == "archive_done"
+    assert await runtime._read(runtime._store.ledger.get_point, "point") is None
+    assert await runtime._read(runtime._store.ledger.get_record, saved["id"]) is None
+    assert await runtime._read(runtime._store.ledger.list_segments, saved["id"]) == []
+    assert await runtime._read(runtime._store.ledger.list_revisions, saved["id"]) == []
+    assert "point" not in runtime._store.states
+    assert "point" not in await runtime._read(runtime._store.ledger.get_checkpoint, "runtime")
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.runtime_data.snapshot["archived_points"] == []
+    assert entry.runtime_data.snapshot["records"] == []
+    assert "point" not in entry.runtime_data._store.states
 
 
 async def test_archive_menu_excludes_current_points_disabled_identities_and_builtin(hass, tmp_path):

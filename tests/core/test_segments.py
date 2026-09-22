@@ -7,6 +7,14 @@ from custom_components.charge_tally.core.segments import split_interval
 
 
 class SegmentTests(unittest.TestCase):
+    def test_zero_energy_keeps_the_actual_price(self):
+        start = datetime.fromisoformat('2026-01-01T00:00:00+00:00')
+        parts = split_interval(start, start + timedelta(seconds=10), Decimal('0'),
+                               'UTC', [(start, Decimal('0.5'))])
+        self.assertEqual(parts[0]['unit_price'], '0.5')
+        self.assertEqual(parts[0]['cost_basis'], 'tariff')
+        self.assertEqual(Decimal(parts[0]['cost']), 0)
+
     def test_year_boundary(self):
         start = datetime.fromisoformat('2026-12-31T23:59:50+08:00')
         parts = split_interval(start, start + timedelta(seconds=30), Decimal('.060'), 'Asia/Shanghai', [(start, Decimal('1'))])
@@ -20,6 +28,8 @@ class SegmentTests(unittest.TestCase):
         self.assertEqual([None if p['cost'] is None else Decimal(p['cost']) for p in parts], [None, Decimal(0), Decimal('-.5'), None])
         self.assertTrue(all('price_unknown' in p['quality'] for p in [parts[0], parts[3]]))
         self.assertEqual(sum(Decimal(p['energy_kwh']) for p in parts), 1)
+        self.assertEqual([p['unit_price'] for p in parts], [None, '0', '-2', None])
+        self.assertTrue(all(p['cost_basis'] == 'tariff' for p in parts))
 
     def test_dst_actual_duration(self):
         tz = ZoneInfo('America/New_York')

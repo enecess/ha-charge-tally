@@ -166,18 +166,20 @@ async def test_real_target_disable_after_prepare_rolls_back(hass, tmp_path, monk
     assert await runtime._read(runtime._store.ledger.get_identity, old_id) is not None
 
 
-async def test_active_record_prevents_archive_deletion(hass, tmp_path):
+async def test_active_identity_still_prevents_archive_deletion(hass, tmp_path):
     entry = await setup_entry(hass, tmp_path)
+    await add_subentry(hass, entry, "identity", {"name": "Active car", "enabled": True})
     await add_point(hass, entry)
     runtime = entry.runtime_data
-    point_id = next(iter(entry.subentries))
+    identity_id, point_id = entry.subentries
+    await runtime.async_command("select_identity", {"point_id": point_id, "identity_id": identity_id})
     record = await runtime.async_command("start", {"point_id": point_id, "request_id": "active"})
-    hass.config_entries.async_remove_subentry(entry, point_id)
+    hass.config_entries.async_remove_subentry(entry, identity_id)
     await hass.async_block_till_done()
     with pytest.raises(ValueError, match="archive_busy"):
-        await runtime.async_archive_preview("point", point_id)
+        await runtime.async_archive_preview("identity", identity_id, "unassigned")
     with pytest.raises(ValueError, match="archive_busy"):
-        await runtime.async_archive_delete("point", point_id, "unused")
+        await runtime.async_archive_delete("identity", identity_id, "unused", "unassigned")
     assert (await runtime._read(runtime._store.ledger.get_record, record["id"]))["status"] == "active"
 
 

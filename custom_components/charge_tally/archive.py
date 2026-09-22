@@ -109,7 +109,8 @@ class ArchiveManager:
     def _snapshot(self, kind, object_id, configured_points, configured_identities, target_identity_id):
         item = self._object(kind, object_id, configured_points, configured_identities)
         records = self.ledger.list_records(include_void=True, **{kind + '_id': object_id})
-        if any(r['status'] == 'active' for r in records):
+        active_count = sum(r['status'] == 'active' for r in records)
+        if kind == 'identity' and active_count:
             raise ValueError('archive_busy')
         target = None
         if target_identity_id is not None:
@@ -124,10 +125,12 @@ class ArchiveManager:
             context.prec = 36
             energy = str(sum((Decimal(r.get('energy_kwh', '0')) for r in records), Decimal(0)))
             cost = str(sum((Decimal(r.get('known_cost', '0')) for r in records), Decimal(0)))
+        latest_ended_at = max((r['end'] for r in records if r['end']), default=None)
         summary = dict(kind=kind, id=object_id, name=item.get('name', object_id), record_count=len(records),
                        void_count=sum(r['status'] == 'void' for r in records), revision_count=len(related['revisions']),
                        start=min((r['start'] for r in records), default=None),
-                       end=max((r['end'] for r in records if r['end']), default=None),
+                       active_count=active_count, end=None if active_count else latest_ended_at,
+                       latest_ended_at=latest_ended_at,
                        energy_kwh=energy, known_cost=cost, cost_complete=all(r.get('cost_complete', False) for r in records),
                        currency=self.ledger.currency, fingerprint=fingerprint,
                        target_identity_id=target_identity_id, target_name=target.get('name', target_identity_id) if target else None)

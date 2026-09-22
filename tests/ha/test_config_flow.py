@@ -78,7 +78,8 @@ async def test_final_summary_uses_localized_mode_labels(hass, entry, language, e
     assert result["description_placeholders"]["summary"] == expected
 
 
-async def test_single_entry_currency_and_point_onboarding(hass):
+async def test_single_entry_currency_and_point_onboarding(hass, tmp_path):
+    hass.config.config_dir = str(tmp_path)
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "user"
@@ -317,7 +318,8 @@ async def test_reserved_identity_rejected_before_create_and_reconfigure(hass, en
     assert entry.subentries[old_id].data == {"name": "Car", "enabled": False}
 
 
-async def test_currency_flow_uses_retained_ledger_binding(hass):
+async def test_currency_flow_uses_retained_ledger_binding(hass, tmp_path):
+    hass.config.config_dir = str(tmp_path)
     from pathlib import Path
     from custom_components.charge_tally.runtime_store import RuntimeStore
     def create():

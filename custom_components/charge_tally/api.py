@@ -12,6 +12,9 @@ from homeassistant.exceptions import Unauthorized, ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
+from .core.billing import billing_segments
+from .record_views import record_view
+
 DOMAIN = "charge_tally"
 ID = vol.All(str, vol.Length(min=1, max=128))
 
@@ -49,7 +52,8 @@ SCHEMAS = {
     "snapshot": SCOPE,
     "subscribe": SCOPE,
     "query": {**FILTER, vol.Inclusive("start", "range"): date, vol.Inclusive("end", "range"): date,
-              vol.Optional("calendar_period"): vol.In(("daily", "monthly", "yearly"))},
+              vol.Optional("calendar_period"): vol.In(("daily", "monthly", "yearly", "total")),
+              vol.Optional("bucket_period", default="auto"): vol.In(("auto", "hour", "day", "month", "year"))},
     "records": {**FILTER, vol.Optional("record_id"): ID, vol.Optional("offset", default=0): vol.All(integer, vol.Range(min=0)),
                 vol.Optional("limit", default=50): vol.All(integer, vol.Range(min=1, max=100))},
     "preview": {**FILTER, vol.Optional("record_id"): ID, vol.Optional("expected_revision"): REV,
@@ -183,6 +187,8 @@ async def execute(hass, user, command, payload):
         await runtime.async_bind_preview(result["token"], principal, point_id, result["expected_revision"])
         authorize(runtime, user, point_id, POLICY_READ)
         authorize(runtime, user, point_id, POLICY_CONTROL)
+        result = {**result, "record": record_view(result["record"]),
+                  "segments": billing_segments(result["segments"])}
         result.pop("basis_version", None)
         result.pop("basis_fingerprint", None)
         result.pop("basis_dependencies", None)
@@ -253,7 +259,7 @@ def async_register(hass):
                 else:
                     result = await execute(hass, connection.user, command, {k: v for k, v in msg.items() if k not in ("id", "type")})
                     connection.send_result(msg["id"], result)
-            except ValueError as err:
+            except (ValueError, OverflowError) as err:
                 connection.send_error(msg["id"], error_code(err), "The request could not be applied")
         wrapped = websocket_api.websocket_command({vol.Required("type"): DOMAIN + "/" + command, **schema})(websocket_api.async_response(handler))
         websocket_api.async_register_command(hass, wrapped)

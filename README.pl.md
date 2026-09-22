@@ -8,13 +8,25 @@ Rejestruj energię i koszty ładowania w Home Assistant według punktu i tożsam
 - Energia skumulowana, energia obliczana z mocy albo pomiar energii z wykrywaniem na podstawie mocy.
 - Ceny stałe, dynamiczne i dzienne taryfy czasowe, również zerowe i ujemne.
 - Wykrywanie automatyczne lub rozpoczynanie i kończenie wpisów przez kartę i automatyzacje HA.
-- Bieżące ładowanie, statystyki dzienne, miesięczne, roczne, całkowite i wybranego zakresu oraz wykresy dzienne.
+- Bieżące ładowanie, statystyki dzienne, miesięczne, roczne, całkowite i wybranego zakresu oraz wykresy grupowane według zakresu.
 - Dodawanie historii, edycja zakończonych wpisów, zmiana tożsamości, unieważnianie błędów oraz przegląd segmentów i wersji.
 - Zarządzanie archiwalnymi punktami i tożsamościami oraz trwałe usuwanie zbędnych danych księgi.
 
 Konfiguracją zarządza się przez **Ustawienia → Urządzenia oraz usługi → Charge Tally**. Karta **Charge Tally** w pulpicie służy do przeglądania i obsługi wpisów. Zawiera kilka obszarów na jednej stronie; szczegóły i edycja otwierają się w oknach dialogowych.
 
 > Miejsce na zrzut ekranu 01: Cała karta z punktami, statystykami i listą wpisów.
+
+## Aktualne działanie karty i rozliczeń
+
+Po otwarciu strony rozwinięte jest tylko sterowanie ładowaniem. Statystyki i rekordy są zwinięte. Aktualizacje zachowują otwarte sekcje i stan kontrolek, a ponowne załadowanie strony przywraca ustawienia początkowe. Wykres i historia ładują się po rozwinięciu odpowiedniej sekcji.
+
+Wykresy grupują Dzisiaj według godzin, Ten miesiąc według dni, Ten rok według miesięcy, a Łącznie według lat. Dla własnego zakresu decyduje różnica lokalnych dat kalendarzowych: do 2 dni według godzin, do 90 dni według dni, do 730 dni według miesięcy, powyżej według lat. Obowiązuje strefa czasowa księgi i zmiany czasu. Wykresy i podsumowanie obejmują ten sam zakres; nieznany koszt pozostaje nieznany.
+
+Segmenty rozliczeń w podglądzie i szczegółach łączą sąsiednie przedziały o tej samej podstawie rozliczenia, cenie i jakości. Wyjaśniają rachunek, zamiast przedstawiać każdy odczyt. Statystyki zakresów nadal korzystają z pierwotnych przedziałów pomiarowych. Historia zmian zapisuje migawki przy rozpoczęciu, zakończeniu i jawnych zmianach, w tym zmianie tożsamości lub unieważnieniu. Bieżące próbki aktualizują rekord bez kolejnej migawki; numery rewizji mogą mieć luki.
+
+Usunięcie konfiguracji punktu zachowuje niezakończone rekordy. W **Konfiguruj → Zarządzaj danymi archiwalnymi → Zarchiwizowane punkty ładowania** wybierz usunięty punkt, sprawdź liczbę niezakończonych rekordów i zakres danych, a następnie jawnie potwierdź trwałe usunięcie. Anulowanie zachowuje dane. Czyszczenie obejmuje rekordy, rewizje, próbki i ceny punktu, ale nie dane HA Recorder ani kopie zapasowe.
+
+Bieżący format księgi deweloperskiej uległ zmianie. Nieobsługiwane starsze formaty są odrzucane bez automatycznej migracji ani usuwania. Jednorazową księgę testową może być konieczne utworzyć ponownie po wykonaniu kopii; aktualizacja integracji nie wykonuje tego czyszczenia.
 
 ## Nawigacja
 
@@ -201,7 +213,7 @@ Jeśli potrzebna jest rejestracja ręczna, w menu **Ustawienia → Pulpity** otw
 
 | Pole | Wartość |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-3` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-4` |
 | Typ zasobu | **Moduł JavaScript** |
 
 Istniejący zasób z tą samą ścieżką zaktualizuj, zamiast dodawać duplikat. Przy zarządzaniu zasobami w YAML wpisz tam tę samą ścieżkę i typ modułu. Nie instaluj drugiej kopii karty. Zobacz [dokumentację pulpitów HA](https://www.home-assistant.io/dashboards/dashboards/).
@@ -234,9 +246,9 @@ Każdy bieżący punkt pokazuje nazwę, stan, **Moc**, **Bieżąca cena** i **Wy
 
 W **Statystyki wpisów → Okres statystyk** wybierz **Dzisiaj / Ten miesiąc / Ten rok / Cały okres / Własny zakres**. Dla własnego zakresu podaj **Początek** i **Koniec (wyłącznie)**, następnie **Zastosuj zakres**. Cały 1 września oznacza początek 1 września, koniec 2 września.
 
-Podsumowanie pokazuje **Energia**, **Koszt**, **Aktywne / zakończone** i jakość. **Odśwież** pobiera nowe wyniki. **Miara na wykresie** przełącza **Energia** i **Koszt** na wykresie dziennym. **Szczegóły** pod wykresem rozwijają tabelę wartości dziennych.
+Podsumowanie pokazuje **Energia**, **Koszt**, **Aktywne / zakończone** i jakość. **Odśwież** pobiera nowe wyniki. **Miara na wykresie** przełącza **Energia** i **Koszt** na wykresie grupowanym według zakresu. **Szczegóły** pod wykresem rozwijają tabelę wartości przedziałów.
 
-> Miejsce na zrzut ekranu 10: Statystyki, zakres dat, miara wykresu i tabela dzienna.
+> Miejsce na zrzut ekranu 10: Statystyki, zakres dat, miara wykresu i tabela grupowana.
 
 ### Wpisy · wszystkie daty
 

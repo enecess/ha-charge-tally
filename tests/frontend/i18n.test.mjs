@@ -80,3 +80,12 @@ test('interpolated values remain literal text and unresolved placeholders stay v
   assert.equal(tr('error.configString','en',{field:'<img>$&{value}'}),'<img>$&{value} must be a string');
   assert.equal(tr('error.configString','en'),'{field} must be a string');
 });
+
+test('plain Chinese copy explains estimate causes without implementation terms',async()=>{
+  const {quality}=await import('../../custom_components/charge_tally/www/card-ui.js');
+  assert.equal(tr('scope','zh-Hans'),'这里只统计充电记录，电表总电量可能还包含待机等用电。');
+  assert.equal(quality(['estimated'],'zh-Hans'),'部分数据为估算值');
+  assert.equal(quality(['estimated'],'zh-Hans',{kind:'segment'}),'根据采样间隔估算');
+  assert.match(quality(['estimated','manual'],'zh-Hans',{kind:'segment'}),/按时间分配手动填写的总量/);
+  assert.match(quality(['estimated'],'zh-Hans',{kind:'segment',cost_basis:'manual'}),/按时间分配手动填写的总量/);
+});

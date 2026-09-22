@@ -8,13 +8,25 @@ Erfasse Ladeenergie und Kosten in Home Assistant nach Ladepunkt und Identität u
 - Kumulierte Energie, Energie aus Leistung oder Energiemessung mit Leistungserkennung.
 - Feste, dynamische und tägliche zeitabhängige Preise, einschließlich null und negativer Preise.
 - Automatische Erkennung oder Start und Ende über Karte und HA-Automationen.
-- Live-Werte, Tages-, Monats-, Jahres-, Gesamt- und Bereichsstatistik mit Tagesdiagrammen.
+- Live-Werte, Tages-, Monats-, Jahres-, Gesamt- und Bereichsstatistik mit nach Zeitraum gruppierten Diagrammen.
 - Historische Einträge ergänzen, beendete Einträge bearbeiten, Identitäten ändern, Fehler stornieren sowie Abrechnungsabschnitte und Revisionen prüfen.
 - Archivierte Punkte und Identitäten verwalten und Buchungsdaten dauerhaft entfernen.
 
 **Einstellungen → Geräte & Dienste → Charge Tally** verwaltet die Konfiguration. Die **Charge Tally**-Karte im Dashboard zeigt und bearbeitet Einträge. Sie enthält mehrere Bereiche; Details und Bearbeitung öffnen sich in Dialogen.
 
 > Screenshot-Platzhalter 01: Gesamte Karte mit Ladepunkten, Statistik und Einträgen.
+
+## Aktuelles Verhalten von Karte und Abrechnung
+
+Beim Öffnen sind nur die Ladesteuerungen aufgeklappt. Statistik und Datensätze bleiben zunächst eingeklappt. Live-Aktualisierungen erhalten geöffnete Bereiche und Bedienelemente; ein Neuladen setzt die Ansicht zurück. Diagramm und Verlauf werden beim Aufklappen des jeweiligen Bereichs geladen.
+
+Diagramme gruppieren Heute nach Stunden, Diesen Monat nach Tagen, Dieses Jahr nach Monaten und Gesamt nach Jahren. Bei einem eigenen Zeitraum zählt die Differenz der lokalen Kalendertage: bis 2 Tage stündlich, bis 90 Tage täglich, bis 730 Tage monatlich, darüber jährlich. Es gelten die Zeitzone des Kontobuchs und Sommerzeitwechsel. Diagramme und Summen verwenden denselben Zeitraum; unbekannte Kosten bleiben unbekannt.
+
+Abrechnungsabschnitte in Vorschau und Details fassen benachbarte Intervalle mit gleicher Abrechnungsgrundlage, gleichem Preis und gleicher Qualität zusammen. Sie erklären die Rechnung und sind keine einzelnen Messmeldungen. Zeitraumstatistiken verwenden weiterhin die ursprünglichen Messintervalle. Änderungsschnappschüsse entstehen beim Start, Ende und bei ausdrücklichen Änderungen, einschließlich Zuordnung und Stornierung. Laufende Messwerte aktualisieren den Datensatz ohne weiteren Schnappschuss; Revisionsnummern können Lücken haben.
+
+Nach Entfernen einer Ladepunktkonfiguration bleiben offene Datensätze erhalten. Unter **Konfigurieren → Archivierte Daten verwalten → Archivierte Ladepunkte** den entfernten Punkt wählen, Anzahl offener Datensätze und Umfang prüfen und die endgültige Löschung ausdrücklich bestätigen. Abbrechen erhält die Daten. Gelöscht werden zugehörige Datensätze, Revisionen, Messwerte und Preise, jedoch keine HA-Recorder-Daten oder Backups.
+
+Das aktuelle Entwicklungsformat des Kontobuchs hat sich geändert. Nicht unterstützte ältere Formate werden ohne automatische Migration oder Löschung abgelehnt. Ein entbehrliches Testkontobuch muss nach einer Sicherung eventuell neu erstellt werden; das Update führt diese Bereinigung nicht aus.
 
 ## Navigation
 
@@ -201,7 +213,7 @@ Falls nötig, öffne im Menü unter **Einstellungen → Dashboards** die **Resso
 
 | Feld | Inhalt |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-3` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-4` |
 | Ressourcentyp | **JavaScript-Modul** |
 
 Aktualisiere vorhandene Ressourcen mit demselben Pfad, statt sie doppelt anzulegen. Bei YAML-Ressourcenverwaltung trage dieselbe Adresse als Modul ein. Installiere keine zweite Karte. Siehe [HA-Dashboard-Dokumentation](https://www.home-assistant.io/dashboards/dashboards/).
@@ -234,9 +246,9 @@ Jeder aktuelle Punkt zeigt Name, Status, **Leistung**, **Aktueller Preis** und *
 
 Wähle unter **Eintragsstatistik → Statistikzeitraum** zwischen **Heute / Dieser Monat / Dieses Jahr / Gesamter Zeitraum / Benutzerdefinierter Zeitraum**. Für eigene Daten fülle **Beginn** und **Ende (ausschließlich)** aus und wähle **Zeitraum anwenden**. Für den ganzen 1. September gilt Beginn 1. September, Ende 2. September.
 
-Die Zusammenfassung zeigt **Energie**, **Kosten**, **Aktiv / abgeschlossen** und Qualität. **Aktualisieren** lädt neue Ergebnisse. **Diagrammkennzahl** wechselt zwischen **Energie** und **Kosten** im Tagesdiagramm. **Details** darunter öffnet die Tageswertetabelle.
+Die Zusammenfassung zeigt **Energie**, **Kosten**, **Aktiv / abgeschlossen** und Qualität. **Aktualisieren** lädt neue Ergebnisse. **Diagrammkennzahl** wechselt zwischen **Energie** und **Kosten** im nach Zeitraum gruppierten Diagramm. **Details** darunter öffnet die Tabelle mit Werten je Zeitabschnitt.
 
-> Screenshot-Platzhalter 10: Statistik, Datumsbereich, Diagrammkennzahl und aufgeklappte Tageswerte.
+> Screenshot-Platzhalter 10: Statistik, Datumsbereich, Diagrammkennzahl und aufgeklappte Werte je Zeitabschnitt.
 
 ### Einträge · alle Zeiträume
 

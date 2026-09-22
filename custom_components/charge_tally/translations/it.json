@@ -17,7 +17,7 @@
     "abort": {
       "single_instance_allowed": "È supportato un solo registro contabile Charge Tally.",
       "already_configured": "Charge Tally è già configurato.",
-      "currency_unbound": "Questo registro contabile di una versione preliminare non ha una valuta associata. Esegui un backup e conferma esplicitamente la sua valuta originale prima del ripristino."
+      "currency_unbound": "Il registro contiene dati contabili senza una valuta associata. È necessario ripristinare l’integrità dei dati prima di aprirlo."
     }
   },
   "config_subentries": {
@@ -196,9 +196,14 @@
     },
     "archive_action": {
       "options": {
-        "delete_point": "Elimina definitivamente punto, record, revisioni, campioni e cronologia prezzi",
+        "delete_point": "Elimina definitivamente tutti i dati contabili del punto di ricarica, incluse le registrazioni non terminate, le revisioni, i campioni e lo storico dei prezzi",
         "delete_identity": "Elimina l’identità; le vecchie revisioni conservano il nome originale per la verifica",
         "transfer_identity": "Trasferisci tutti i record elencati all’identità selezionata senza cambiare gli importi, elimina l’identità di origine e mantieni il suo nome originale nelle vecchie revisioni"
+      }
+    },
+    "archive_time": {
+      "options": {
+        "unfinished": "Sono presenti registrazioni non terminate"
       }
     }
   },
@@ -413,7 +418,7 @@
       },
       "archive_confirm": {
         "title": "Conferma operazione permanente",
-        "description": "- Oggetto: **{name}**\n- Operazione: {operation}\n- Record (inclusi annullati): {records}\n- Record annullati: {voided}\n- Revisioni: {revisions}\n- Intervallo temporale (UTC): {start} – {end}\n- Energia: {energy} kWh\n- Costo noto: {cost} {currency}\n- Identità destinataria: {target}\n\nQuesta operazione è permanente e non può essere annullata nell’interfaccia. La pulizia riguarda solo il registro Charge Tally; cronologia Recorder, statistiche native e backup di Home Assistant sono esclusi. La valuta può essere modificata solo quando non restano punti di ricarica (anche archiviati) né dati contabili.",
+        "description": "- Oggetto: **{name}**\n- Operazione: {operation}\n- Record (inclusi annullati): {records}\n- Registrazioni non terminate: {active}\n- Record annullati: {voided}\n- Revisioni: {revisions}\n- Intervallo temporale (UTC): {start} – {end}\n- Energia: {energy} kWh\n- Costo noto: {cost} {currency}\n- Identità destinataria: {target}\n\nQuesta operazione è permanente e non può essere annullata nell’interfaccia. La pulizia riguarda solo il registro Charge Tally; cronologia Recorder, statistiche native e backup di Home Assistant sono esclusi. La valuta può essere modificata solo quando non restano punti di ricarica (anche archiviati) né dati contabili.",
         "data": {
           "confirm": "Comprendo le conseguenze e confermo l’eliminazione permanente"
         }

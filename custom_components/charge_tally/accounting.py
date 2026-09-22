@@ -1,4 +1,5 @@
 """Record lifecycle and version-bound historical accounting previews."""
+from contextlib import contextmanager
 from datetime import datetime, timezone as dt_timezone
 from decimal import Decimal, localcontext
 from hashlib import sha256
@@ -15,7 +16,7 @@ def instant(value):
     return utc(datetime.fromisoformat(value) if isinstance(value, str) else value)
 
 
-def totals(record, segments, quality=()):
+def totals(record, segments, quality=(), *, append=False):
     marks = set(quality)
     for segment in segments:
         marks.update(segment['quality'])
@@ -26,8 +27,13 @@ def totals(record, segments, quality=()):
         marks.add('provisional')
     with localcontext() as ctx:
         ctx.prec = 36
-        record.update(energy_kwh=str(sum((Decimal(s['energy_kwh']) for s in segments), Decimal(0))),
-                      known_cost=str(sum((Decimal(s['cost']) for s in segments if s['cost'] is not None), Decimal(0))),
+        energy = Decimal(record['energy_kwh']) if append else Decimal(0)
+        cost = Decimal(record['known_cost']) if append else Decimal(0)
+        for segment in segments:
+            energy += Decimal(segment['energy_kwh'])
+            if segment['cost'] is not None:
+                cost += Decimal(segment['cost'])
+        record.update(energy_kwh=str(energy), known_cost=str(cost),
                       cost_complete=not bool(marks & {'missing_price', 'missing_energy', 'pending_settlement'}),
                       quality=sorted(marks))
     return record
@@ -38,6 +44,7 @@ class Accounting:
         self.ledger = ledger
         self.price_resolver = price_resolver or self._historical_prices
         self.price_basis = price_basis or self.price_resolver
+        self._refresh_pending = None
 
     def _references(self, point_id, identity_id, original=None):
         point, identity = self.ledger.get_point(point_id), self.ledger.get_identity(identity_id)
@@ -85,12 +92,9 @@ class Accounting:
             if observation.get('gap'):
                 quality.add('missing_energy')
                 continue
-            parts = split_interval(left, right, Decimal(observation['energy_kwh']), record['timezone'],
-                                   [(instant(at), None if price is None else Decimal(price)) for at, price in observation['prices']], boundaries)
+            parts = self._observation_parts(record, observation, boundaries)
             for part in parts:
                 if instant(part['start']) >= start and (end is None or instant(part['end']) <= end):
-                    part['observation_id'] = observation['id']
-                    part['quality'] = sorted(set(part['quality']) | set(observation['quality']) | ({'estimated'} if len(parts) > 1 else set()))
                     segments.append(part)
                     coverage.append({'start': part['start'], 'end': part['end']})
         coverage.sort(key=lambda s: s['start'])
@@ -122,7 +126,35 @@ class Accounting:
             record['quality_spans'].append(dict(start=left.isoformat(), end=right.isoformat(), quality=sorted(marks)))
         if record.get('manual_fee_override'):
             segments = self._manual_fee(record, segments)
+        record.update(_accounted_until=horizon.isoformat(), _segment_count=len(segments))
         return totals(record, segments, quality), segments, merged
+
+    def _observation_parts(self, record, observation, boundaries=()):
+        parts = split_interval(instant(observation['start']), instant(observation['end']),
+                               Decimal(observation['energy_kwh']), record['timezone'],
+                               [(instant(at), None if price is None else Decimal(price))
+                                for at, price in observation['prices']], boundaries)
+        for part in parts:
+            part['observation_id'] = observation['id']
+            part['quality'] = sorted(set(part['quality']) | set(observation['quality'])
+                                     | ({'estimated'} if len(parts) > 1 else set()))
+        return parts
+
+    def _append_observation(self, record: dict, observation: dict) -> bool:
+        if (record['status'] != 'active' or record.get('manual_override')
+                or record.get('manual_fee_override') or record.get('quality_spans')
+                or observation.get('gap') or record['point_id'] != observation['point_id']
+                or record.get('_accounted_until') != observation['start']
+                or instant(record['start']) > instant(observation['start'])
+                or instant(observation['end']) <= instant(observation['start'])):
+            return False
+        parts = self._observation_parts(record, observation)
+        updated = totals(dict(record), parts, record['quality'], append=True)
+        updated.update(_accounted_until=observation['end'],
+                       _segment_count=record['_segment_count'] + len(parts),
+                       revision=record['revision'] + 1)
+        self.ledger.append_record_segments(updated, parts, record['_segment_count'])
+        return True
 
     def _manual_fee(self, record, segments):
         start, end = instant(record['start']), instant(record['end'])
@@ -138,6 +170,7 @@ class Accounting:
             for index, part in enumerate(segments):
                 cumulative = None if cost is None else (cost if index == len(segments) - 1 else cost * elapsed(start, instant(part['end'])) / elapsed(start, end))
                 part['cost'] = None if cumulative is None else str(cumulative - allocated)
+                part.update(unit_price=None, cost_basis='unknown' if cost is None else 'manual')
                 marks = set(part['quality']) - {'price_unknown', 'missing_price'}
                 part['quality'] = sorted(marks | {'manual', 'estimated'} | ({'price_unknown'} if cost is None else set()))
                 if cumulative is not None:
@@ -210,20 +243,52 @@ class Accounting:
                     point_id=point_id, start=start.isoformat(), end=end.isoformat(), energy_kwh=str(energy),
                     prices=[[at.isoformat(), None if price is None else str(price)] for at, price in prices],
                     quality=sorted(set(quality)), gap=gap)
-    def _refresh(self, point_id, start, end):
+    @contextmanager
+    def batch_refresh(self):
+        """Rebuild each affected record once and roll back failed nested batches."""
+        parent = self._refresh_pending
+        self._refresh_pending = set() if parent is None else set(parent)
+        try:
+            with self.ledger.transaction():
+                yield
+                if parent is None:
+                    for record_id in sorted(self._refresh_pending):
+                        self._refresh_record(self.ledger.get_record(record_id))
+                else:
+                    parent.update(self._refresh_pending)
+        finally:
+            self._refresh_pending = parent
+
+    def _refresh_record(self, record):
+        if record is None or record['status'] == 'void' or record.get('manual_override'):
+            return
+        previous = dict(record)
+        old_segments = self.ledger.list_segments(record['id'])
+        record, segments, _ = self._build(record)
+        if record == previous and segments == old_segments:
+            return
+        record['revision'] += 1
+        self.ledger.save_record(record, segments, audit=False)
+        if record['status'] == 'ended':
+            self.ledger.save_revision(record['id'])
+
+    def _refresh(self, point_id, start, end, observation=None):
         for record in self.ledger.list_records(point_id=point_id):
             if record.get('manual_override') or record['start'] >= end or (record['end'] and record['end'] <= start):
                 continue
-            record['revision'] += 1
-            record, segments, _ = self._build(record)
-            self.ledger.save_record(record, segments)
+            if self._refresh_pending is not None:
+                self._refresh_pending.add(record['id'])
+            elif observation is not None and self._append_observation(record, observation):
+                continue
+            else:
+                self._refresh_record(record)
 
     def add_interval(self, point_id, start, end, energy: Decimal, prices, quality=()):
         data = self._interval_data(point_id, start, end, energy, prices, quality)
         with self.ledger.transaction():
             if not self.ledger.put_interval(data):
                 return
-            self._refresh(point_id, data['start'], data['end'])
+            self._refresh(point_id, data['start'], data['end'], data)
 
     def replace_gap(self, point_id, start, end, intervals: list[dict]):
         start, end = instant(start).isoformat(), instant(end).isoformat()
@@ -302,6 +367,7 @@ class Accounting:
                         for index, part in enumerate(segments):
                             cumulative = None if cost is None else (cost if index == len(segments) - 1 else cost * elapsed(start, instant(part['end'])) / elapsed(start, end))
                             part['cost'] = None if cumulative is None else str(cumulative - allocated)
+                            part.update(unit_price=None, cost_basis='unknown' if cost is None else 'manual')
                             part['quality'] = ['price_unknown'] if cost is None else []
                             if cumulative is not None:
                                 allocated = cumulative

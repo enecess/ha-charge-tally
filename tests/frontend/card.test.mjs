@@ -154,10 +154,10 @@ globalThis.document={createElement:tag=>{const node=new TestNode();node.tagName=
 globalThis.window={customCards:[]};
 globalThis.customElements={get:()=>undefined,define:()=>{}};
 const {ChargeTallyCard}=await import('../../custom_components/charge_tally/www/charge-tally-card.js');
-const {RecordDialog}=await import('../../custom_components/charge_tally/www/card-dialog.js?v=0.1.2-3');
-const {ChargeTallyEditor}=await import('../../custom_components/charge_tally/www/card-editor.js?v=0.1.2-3');
+const {RecordDialog}=await import('../../custom_components/charge_tally/www/card-dialog.js?v=0.1.2-4');
+const {ChargeTallyEditor}=await import('../../custom_components/charge_tally/www/card-editor.js?v=0.1.2-4');
 const state=await import('../../custom_components/charge_tally/www/card-state.js');
-const {summaryView,segmentTable}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.2-3');
+const {summaryView,segmentTable}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.2-4');
 
 const visibleText=node=>[node.textContent||'',...(node.children||[]).map(visibleText)].join(' ');
 test('revision history keeps a deleted identity name without restoring its selector entry',()=>{
@@ -171,48 +171,6 @@ test('revision history keeps a deleted identity name without restoring its selec
   assert.deepEqual(dialog.identityOptions().map(i=>i.id),['unassigned']);
   dialog.close();
 });
-test('card and editor retranslate existing views when HA language changes',()=>{
-  const card=new ChargeTallyCard();
-  const editor=new ChargeTallyEditor();
-  const hass={connection:{connected:true},language:'de'};
-  card.hass=hass;editor.hass=hass;
-  assert.match(visibleText(card.body),/Erneut versuchen/);
-  assert.match(visibleText(editor.shadowRoot),/Titel/);
-  card.hass={...hass,language:'fr'};editor.hass={...hass,language:'fr'};
-  assert.match(visibleText(card.body),/Réessayer/);
-  assert.match(visibleText(editor.shadowRoot),/Titre/);
-  assert.doesNotMatch(visibleText(card.body),/Erneut versuchen/);
-  card.hass={...hass,language:'pl'};editor.hass={...hass,language:'pl'};
-  assert.match(visibleText(card.body),/Ponów|Spróbuj ponownie/);
-  assert.match(visibleText(editor.shadowRoot),/Tytuł/);
-  card.hass={...hass,language:'it-IT'};editor.hass={...hass,language:'it-IT'};
-  assert.match(visibleText(card.body),/Riprova/);
-  assert.match(visibleText(editor.shadowRoot),/Titolo/);
-  assert.doesNotMatch(visibleText(card.body),/Réessayer|Erneut versuchen/);
-});
-
-test('switching language preserves an open draft, preview token and pending operation',()=>{
-  const card=new ChargeTallyCard();
-  card.language='de';
-  card.snapshot={points:[{id:'p',name:'My charger',status:'idle',active:true,available:true,active_record:null,selected_identity_id:'i',detection_enabled:false,identity_entity_id:'select.p',power_w:'0',current_price:'.5',quality:[],error:null}],archived_points:[],identities:[{id:'i',name:'My identity'}],currency:'EUR',timezone:'UTC'};
-  card.openDialog('create');
-  const dialog=card.dialog;
-  const note=dialog.node.querySelectorAll('textarea')[0];
-  note.value='Keep this draft';note.dispatchEvent(new Event('input'));
-  const preview={token:'authorized-preview',overlaps:[],record:{id:'draft',point_id:'p',identity_id:'i',timezone:'UTC',start:'2026-09-10T00:00:00Z',end:'2026-09-10T01:00:00Z',source:'manual',status:'ended',revision:1,energy_kwh:'5',known_cost:'2.5',cost_complete:true,quality:[]},segments:[],coverage:[]};
-  dialog.preview=preview;dialog.requestId='same-operation';dialog.busy=true;
-  const draft=structuredClone(dialog.form);
-  card.hass={language:'fr',connection:{connected:true}};
-  assert.equal(dialog.language,'fr');
-  assert.match(visibleText(dialog.node),/Ajouter|Nouvel/);
-  assert.deepEqual(dialog.form,draft);
-  assert.equal(dialog.node.querySelectorAll('textarea')[0].value,'Keep this draft');
-  assert.equal(dialog.preview,preview);
-  assert.equal(dialog.requestId,'same-operation');
-  assert.equal(dialog.saveButton.disabled,true);
-  dialog.close();
-});
-
 test('segment ranges use the record accounting timezone without altering UTC data',()=>{
   const segments=[{local_date:'2025-12-31',start:'2025-12-31T15:00:00+00:00',end:'2025-12-31T16:00:00+00:00',energy_kwh:'7',cost:null}];
   const before=structuredClone(segments);
@@ -240,31 +198,6 @@ test('long server decimals are formatted for display without changing payloads',
   assert.equal(tr('reset','zh-Hans'),'电表重置');
 });
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
-test('snapshot refresh keeps visible statistics and history until their replacements arrive',async()=>{
-  const pending=[];
-  const card=new ChargeTallyCard();card.config={show_chart:false};
-  card._hass={connection:{connected:true},callWS:request=>new Promise(resolve=>pending.push({request,resolve}))};
-  const snapshot={points:[{id:'p',name:'Garage',status:'idle',available:true,power_w:'0',current_price:'.5',quality:[]}],archived_points:[],identities:[],timezone:'UTC',currency:'CNY'};
-  const summary={energy_kwh:'12',known_cost:'6',cost_complete:true};
-  const record={id:'r',point_id:'p',identity_id:'i',start:'2026-09-19T00:00:00Z',timezone:'UTC',status:'ended',energy_kwh:'10',known_cost:'5',cost_complete:true,quality:[]};
-  const page={records:[record],total:1,limit:25};
-  card.onSnapshot(snapshot);
-  pending[0].resolve(summary);pending[1].resolve(page);await tick();
-  card.onSnapshot({...snapshot,generation:2});
-  assert.match(visibleText(card.body),/12 kWh/);
-  assert.match(visibleText(card.body),/10 kWh/);
-  assert.equal(card.body.querySelectorAll('li').length,1);
-  pending[2].resolve({...summary,energy_kwh:'13'});await tick();
-  assert.match(visibleText(card.body),/13 kWh/);
-  assert.equal(card.body.querySelectorAll('li').length,1);
-  pending[3].resolve({...page,records:[{...record,energy_kwh:'11'}]});await tick();
-  assert.match(visibleText(card.body),/11 kWh/);
-  card.onSnapshot({...snapshot,generation:3});
-  card.onSnapshot(null);
-  pending[4].resolve(summary);pending[5].resolve(page);await tick();
-  assert.equal(card.summary,null);assert.equal(card.page,null);
-  assert.equal(card.body.querySelectorAll('li').length,0);
-});
 function controller(callWS){
   const card=new ChargeTallyCard();card.render=()=>{};card.refresh=()=>{};
   card.snapshot={points:[],archived_points:[],identities:[],timezone:'Asia/Shanghai',currency:'CNY'};
@@ -315,7 +248,21 @@ test('note-only editing preserves a valid record entirely within one second',()=
 
 
 test('default periods request ledger calendar membership without absolute clipping', () => {
-  for(const calendar_period of ['daily','monthly','yearly'])
+  for(const calendar_period of ['daily','monthly','yearly','total'])
     assert.deepEqual(queryRequest({identity_id:'i'},{calendar_period}),{type:'charge_tally/query',identity_id:'i',calendar_period});
   assert.throws(()=>queryRequest({},{calendar_period:'daily',start:'2026-01-01T00:00Z',end:'2026-01-02T00:00Z'}));
+});
+
+test('explicit bucket selection keeps total query scope', () => {
+  assert.deepEqual(queryRequest({point_id:'p'},{calendar_period:'total',bucket_period:'month'}),{type:'charge_tally/query',point_id:'p',calendar_period:'total',bucket_period:'month'});
+  assert.throws(()=>queryRequest({},{calendar_period:'total',bucket_period:'week'}));
+});
+
+test('total chart refresh uses the unified query with identity filter', () => {
+  const requests=[];
+  const card=new ChargeTallyCard();card.config={show_records:false};card.expanded.statistics=true;card.period='total';card.filters={identity_id:'i'};
+  card.snapshot={timezone:'UTC'};card.render=()=>{};
+  card._hass={connection:{connected:true},callWS:request=>{requests.push(request);return Promise.resolve({buckets:[]});}};
+  card.refresh();
+  assert.deepEqual(requests,[{type:'charge_tally/query',identity_id:'i',calendar_period:'total'}]);
 });

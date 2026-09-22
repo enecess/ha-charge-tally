@@ -170,12 +170,15 @@ class LedgerOptionsFlow(OptionsFlow):
         translations = await async_get_translations(
             self.hass, self.context.get("language", self.hass.config.language), "selector", {DOMAIN},
         )
+        end = (translations[f"component.{DOMAIN}.selector.archive_time.options.unfinished"]
+               if preview["active_count"] else preview.get("end") or "—")
         return self.async_show_form(step_id="archive_confirm", data_schema=vol.Schema({
             vol.Required("confirm", default=False): selector.BooleanSelector(),
         }), description_placeholders={
             "name": preview["name"], "records": str(preview["record_count"]),
+            "active": str(preview["active_count"]),
             "voided": str(preview["void_count"]), "revisions": str(preview["revision_count"]),
-            "start": preview.get("start") or "—", "end": preview.get("end") or "—",
+            "start": preview.get("start") or "—", "end": end,
             "energy": str(preview["energy_kwh"]), "cost": str(preview["known_cost"]),
             "currency": preview["currency"], "target": preview.get("target_name") or "—",
             "operation": translations[f"component.{DOMAIN}.selector.archive_action.options.{action}"],

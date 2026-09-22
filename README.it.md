@@ -8,13 +8,25 @@ Registra energia e costi delle ricariche per punto e identità in Home Assistant
 - Misurazione da energia cumulativa, energia calcolata dalla potenza oppure energia misurata con rilevamento tramite potenza.
 - Prezzi fissi, dinamici o a fasce giornaliere, anche nulli o negativi.
 - Rilevamento automatico oppure avvio e fine dalla scheda o dalle automazioni di Home Assistant.
-- Stato in tempo reale, statistiche odierne, mensili, annuali, complessive o personalizzate e grafici giornalieri.
+- Stato in tempo reale, statistiche odierne, mensili, annuali, complessive o personalizzate e grafici raggruppati per intervallo.
 - Inserimento di registrazioni passate, modifica di quelle terminate, riassegnazione, annullamento, segmenti di contabilizzazione e revisioni.
 - Gestione dei punti e delle identità archiviati, con eliminazione permanente dei dati non più necessari.
 
 Usa **Impostazioni → Dispositivi e servizi → Charge Tally** per la configurazione e la scheda **Charge Tally** nella dashboard per le registrazioni. La scheda riunisce più sezioni in una pagina; dettagli e modifiche si aprono in finestre di dialogo.
 
 > Segnaposto immagine 01: Scheda completa con punti di ricarica, statistiche ed elenco delle registrazioni.
+
+## Comportamento attuale della scheda e della contabilità
+
+All’apertura sono espansi solo i controlli di ricarica. Statistiche e registrazioni sono inizialmente chiuse. Gli aggiornamenti conservano le sezioni aperte e lo stato dei controlli; ricaricare la pagina ripristina la vista iniziale. Grafico e cronologia vengono caricati aprendo la rispettiva sezione.
+
+I grafici raggruppano Oggi per ora, Questo mese per giorno, Quest’anno per mese e Totale per anno. Per un intervallo personalizzato conta la differenza tra le date del calendario locale: fino a 2 giorni per ora, fino a 90 giorni per giorno, fino a 730 giorni per mese e oltre per anno. Si applicano il fuso del registro e i cambi dell’ora legale. Grafici e riepilogo coprono lo stesso intervallo; un costo sconosciuto resta sconosciuto.
+
+I segmenti di fatturazione nelle anteprime e nei dettagli uniscono intervalli adiacenti con la stessa base di calcolo, tariffa e qualità. Descrivono la fattura, non ogni singola lettura. Le statistiche temporali continuano a usare gli intervalli di misura originali. La cronologia delle modifiche salva un’istantanea all’avvio, alla fine e per modifiche esplicite, comprese riassegnazione e annullamento. I campioni correnti aggiornano la registrazione senza altre istantanee; i numeri di revisione possono quindi avere salti.
+
+Rimuovere la configurazione di un punto conserva le registrazioni non terminate. In **Configura → Gestisci dati archiviati → Punti di ricarica archiviati**, seleziona il punto rimosso, controlla il numero di registrazioni non terminate e i dati coinvolti, quindi conferma esplicitamente l’eliminazione definitiva. Annullare conserva i dati. La pulizia elimina registrazioni, revisioni, campioni e prezzi del punto, ma non i dati Recorder di HA né i backup.
+
+Il formato attuale del registro di sviluppo è cambiato. I formati precedenti non supportati vengono rifiutati senza migrazione o eliminazione automatica. Un registro di test temporaneo potrebbe dover essere ricreato dopo un backup; l’aggiornamento dell’integrazione non esegue questa pulizia.
 
 ## Indice
 
@@ -201,7 +213,7 @@ Se serve intervenire, apri **Risorse** dal menu di **Impostazioni → Dashboard*
 
 | Campo | Valore |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-3` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-4` |
 | Tipo di risorsa | **Modulo JavaScript** |
 
 Se esiste già lo stesso percorso, aggiornalo senza duplicarlo. Se gestisci le risorse in YAML, registra lì lo stesso URL e tipo modulo; non installare una seconda copia. Vedi la [documentazione delle dashboard di Home Assistant](https://www.home-assistant.io/dashboards/dashboards/).
@@ -234,9 +246,9 @@ Ogni punto corrente mostra nome, stato, **Potenza**, **Prezzo attuale** e stato 
 
 In **Statistiche delle registrazioni → Periodo delle statistiche**, scegli **Oggi / Questo mese / Quest’anno / Dall’inizio / Intervallo personalizzato**. Per date personalizzate, indica **Inizio** e **Fine (esclusa)**, poi **Applica intervallo**. Per tutto il 1° settembre, per esempio, imposta inizio al 1° e fine al 2 settembre.
 
-Il riepilogo mostra **Energia**, **Costo**, **Attive / completate** e qualità. **Aggiorna** carica i risultati più recenti. Il grafico raggruppa per data; **Misura del grafico** alterna **Energia / Costo**. Espandi **Dettagli** sotto il grafico per la tabella giornaliera.
+Il riepilogo mostra **Energia**, **Costo**, **Attive / completate** e qualità. **Aggiorna** carica i risultati più recenti. Il grafico raggruppa secondo l’intervallo scelto; **Misura del grafico** alterna **Energia / Costo**. Espandi **Dettagli** sotto il grafico per la tabella per intervalli.
 
-> Segnaposto immagine 10: Statistiche, date personalizzate, Misura del grafico e Dettagli giornalieri espansi.
+> Segnaposto immagine 10: Statistiche, date personalizzate, Misura del grafico e Dettagli raggruppati espansi.
 
 ### Registrazioni · tutte le date
 

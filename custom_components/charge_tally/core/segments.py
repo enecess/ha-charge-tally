@@ -44,6 +44,7 @@ def split_interval(start: datetime, end: datetime, energy: Decimal, timezone: st
             allocated = cumulative
             result.append({'start': left.isoformat(), 'end': right.isoformat(),
                            'energy_kwh': str(portion), 'cost': None if price is None else str(portion * price),
+                           'unit_price': None if price is None else str(price), 'cost_basis': 'tariff',
                            'local_date': left.astimezone(zone).date().isoformat(),
                            'quality': ['price_unknown'] if price is None else []})
     return result

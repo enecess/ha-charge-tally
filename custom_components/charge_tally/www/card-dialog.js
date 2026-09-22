@@ -1,6 +1,6 @@
-import {tr} from './card-i18n.js?v=0.1.2-3';
-import {Latest,localInput,localCandidates,errorMessage,previewRequest,commitRequest} from './card-state.js?v=0.1.2-3';
-import {el,button,field,select,input,summaryView,segmentTable,quality,dateText} from './card-ui.js?v=0.1.2-3';
+import {tr} from './card-i18n.js?v=0.1.2-4';
+import {Latest,localInput,localCandidates,errorMessage,previewRequest,commitRequest} from './card-state.js?v=0.1.2-4';
+import {el,button,field,select,input,summaryView,segmentTable,quality,dateText,updateLabels} from './card-ui.js?v=0.1.2-4';
 
 export class RecordDialog {
   constructor(host,options){
@@ -10,11 +10,14 @@ export class RecordDialog {
     this.node.addEventListener('cancel',()=>this.close());this.node.addEventListener('close',()=>this.dispose());
     host.append(this.node);this.render();this.node.showModal();
   }
-  dispose(){if(this.closed)return;this.closed=true;this.latest.invalidate();this.node.remove();this.onClose?.();}
+  dispose(){if(this.closed)return;this.closed=true;this.latest.invalidate();for(const node of this.node.querySelectorAll('select'))node.selectControl?.dispose();this.node.remove();this.onClose?.();}
   close(){this.node.close();this.dispose();}
   setLanguage(language){
     if(this.language===language||this.closed)return;
-    this.language=language;this.render();this.updateButtons();
+    const node=this.node;this.language=language;this.node=el('dialog');this.render();
+    const mapping=updateLabels(node,this.node);this.node=node;
+    for(const key of ['content','error','previewBox','saveButton'])if(mapping.has(this[key]))this[key]=mapping.get(this[key]);
+    this.updateButtons();
   }
   fail(error){this.lastError=error;this.error.textContent=errorMessage(error,this.language);this.error.hidden=false;}
   async run(request,accept){
@@ -69,7 +72,7 @@ export class RecordDialog {
     const pointSelect=select(this.points,this.form.point_id,value=>{this.form.point_id=value;this.invalidatePreview();});pointSelect.disabled=!!record;pointSelect.dataset.locked=record?'true':'false';
     fields.append(field(this.t('point'),pointSelect),field(this.t('assignedIdentity'),select(this.identityOptions(),this.form.identity_id,value=>{this.form.identity_id=value;this.invalidatePreview();})));
     for(const key of ['start','end']){
-      const wrap=el('div'),control=input('datetime-local',this.form[key]);control.step='1';wrap.append(field(this.t(key==='start'?'from':'to'),control));
+      const wrap=el('div'),control=input('datetime-local',this.form[key]);control.step='1';wrap.append(field(this.t(key==='start'?'from':'endTime'),control));
       const ambiguity=el('div');wrap.append(ambiguity);
       const choices=()=>{ambiguity.replaceChildren();let candidates=[];try{candidates=localCandidates(control.value,timezone);}catch{this.fail({code:'timezone'});}
         if(candidates.length>1){const chosen=this.form[key+'_choice'];ambiguity.append(field(this.t('offset'),select([{id:'',name:this.t('choose')},...candidates.map(id=>({id,name:id}))],chosen,value=>{this.form[key+'_choice']=value;this.invalidatePreview();})));}

@@ -17,7 +17,7 @@
     "abort": {
       "single_instance_allowed": "Un seul registre Charge Tally est pris en charge.",
       "already_configured": "Charge Tally est déjà configuré.",
-      "currency_unbound": "Ce registre issu d’une préversion n’est associé à aucune devise. Sauvegardez-le et confirmez explicitement sa devise d’origine avant de le restaurer."
+      "currency_unbound": "Le registre contient des données comptables sans devise associée. Leur intégrité doit être rétablie avant son ouverture."
     }
   },
   "config_subentries": {
@@ -196,9 +196,14 @@
     },
     "archive_action": {
       "options": {
-        "delete_point": "Supprimer définitivement le point de charge, ses enregistrements, révisions, mesures et historique des prix",
+        "delete_point": "Supprimer définitivement toutes les données comptables du point de charge, y compris les enregistrements non terminés, révisions, mesures et historique des prix",
         "delete_identity": "Supprimer l’identité ; les anciennes révisions gardent son nom d’origine pour l’audit",
         "transfer_identity": "Transférer tous les enregistrements listés vers l’identité choisie sans modifier les montants, supprimer l’identité source et conserver son nom d’origine dans les anciennes révisions"
+      }
+    },
+    "archive_time": {
+      "options": {
+        "unfinished": "Des enregistrements non terminés existent"
       }
     }
   },
@@ -413,7 +418,7 @@
       },
       "archive_confirm": {
         "title": "Confirmer l’opération définitive",
-        "description": "- Objet : **{name}**\n- Opération : {operation}\n- Enregistrements (annulés inclus) : {records}\n- Enregistrements annulés : {voided}\n- Révisions : {revisions}\n- Période (UTC) : {start} – {end}\n- Énergie : {energy} kWh\n- Coût connu : {cost} {currency}\n- Identité destinataire : {target}\n\nCette opération est définitive et irréversible dans l’interface. Le nettoyage concerne uniquement le registre Charge Tally ; l’historique Recorder, les statistiques natives et les sauvegardes Home Assistant sont exclus. La devise peut être modifiée uniquement si aucun point de charge (même archivé) ni aucune donnée comptable ne subsiste.",
+        "description": "- Objet : **{name}**\n- Opération : {operation}\n- Enregistrements (annulés inclus) : {records}\n- Enregistrements non terminés: {active}\n- Enregistrements annulés : {voided}\n- Révisions : {revisions}\n- Période (UTC) : {start} – {end}\n- Énergie : {energy} kWh\n- Coût connu : {cost} {currency}\n- Identité destinataire : {target}\n\nCette opération est définitive et irréversible dans l’interface. Le nettoyage concerne uniquement le registre Charge Tally ; l’historique Recorder, les statistiques natives et les sauvegardes Home Assistant sont exclus. La devise peut être modifiée uniquement si aucun point de charge (même archivé) ni aucune donnée comptable ne subsiste.",
         "data": {
           "confirm": "Je comprends les conséquences et confirme la suppression définitive"
         }

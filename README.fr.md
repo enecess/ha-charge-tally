@@ -8,13 +8,25 @@ Comptabilisez l’énergie et le coût des recharges dans Home Assistant, par po
 - Mesure à partir d’un compteur d’énergie cumulée, intégration de la puissance, ou mesure d’énergie associée à la détection par puissance.
 - Prix fixes, dynamiques ou par plages horaires quotidiennes, y compris les prix nuls et négatifs.
 - Détection automatique, ou démarrage et fin des enregistrements depuis la carte ou les automatisations Home Assistant.
-- Suivi en direct, statistiques du jour, du mois, de l’année, de toute la période ou d’une période personnalisée, et graphiques journaliers.
+- Suivi en direct, statistiques du jour, du mois, de l’année, de toute la période ou d’une période personnalisée, et graphiques regroupés par plage.
 - Ajout d’enregistrements passés, modification des enregistrements terminés, changement d’identité, invalidation des erreurs, consultation des segments et de l’historique des modifications.
 - Gestion des points et identités archivés, et suppression définitive des données devenues inutiles.
 
 Deux accès principaux : **Paramètres → Appareils et services → Charge Tally** pour la configuration, et la carte **Charge Tally** du tableau de bord pour consulter et gérer les enregistrements. La carte réunit plusieurs zones sur une même page ; les détails et formulaires s’ouvrent dans des fenêtres de dialogue.
 
 > Emplacement de capture 01 : carte complète avec les points, les statistiques et la liste des enregistrements.
+
+## Comportement actuel de la carte et de la comptabilité
+
+À l’ouverture, seules les commandes de charge sont dépliées. Les statistiques et les enregistrements sont repliés. Les mises à jour conservent les sections ouvertes et les commandes ; recharger la page rétablit les valeurs initiales. Le graphique et l’historique se chargent à l’ouverture de leur section.
+
+Les graphiques regroupent Aujourd’hui par heure, Ce mois par jour, Cette année par mois et Total par année. Pour une plage personnalisée, l’écart entre les dates du calendrier local détermine le regroupement : jusqu’à 2 jours par heure, jusqu’à 90 jours par jour, jusqu’à 730 jours par mois, puis par année. Les intervalles suivent le fuseau du registre et les changements d’heure. Graphiques et totaux couvrent la même plage ; un coût inconnu reste inconnu.
+
+Les segments de facturation des aperçus et détails fusionnent les intervalles adjacents dont la base de facturation, le tarif et la qualité sont identiques. Ils expliquent la facture, sans représenter chaque relevé. Les statistiques temporelles utilisent toujours les intervalles de mesure d’origine. L’historique des modifications conserve un instantané au démarrage, à la fin ou lors d’une modification explicite, y compris réaffectation et annulation. Les relevés courants modifient l’enregistrement sans nouvel instantané ; les numéros de révision peuvent donc comporter des sauts.
+
+Supprimer la configuration d’un point conserve ses enregistrements inachevés. Dans **Configurer → Gérer les données archivées → Points de charge archivés**, sélectionnez le point supprimé, vérifiez le nombre d’enregistrements inachevés et les données concernées, puis confirmez explicitement la suppression définitive. Annuler préserve les données. Le nettoyage supprime les enregistrements, révisions, mesures et tarifs du point, sans supprimer les données Recorder de HA ni les sauvegardes.
+
+Le format actuel du registre de développement a changé. Les anciens formats non pris en charge sont refusés sans migration ni suppression automatique. Il peut être nécessaire de recréer un registre de test jetable après sauvegarde ; la mise à jour n’effectue pas ce nettoyage.
 
 ## Sommaire
 
@@ -201,7 +213,7 @@ Si un enregistrement manuel reste nécessaire, ouvrez **Ressources** dans le men
 
 | Champ | Valeur |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-3` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-4` |
 | Type de ressource | **Module JavaScript** |
 
 Si une ressource utilise déjà ce chemin, mettez-la à jour au lieu de la dupliquer. Si vous gérez les ressources en YAML, déclarez cette même adresse comme module dans votre configuration ; n’installez pas une seconde copie de la carte. Consultez la [documentation des tableaux de bord Home Assistant](https://www.home-assistant.io/dashboards/dashboards/) pour la gestion des ressources.
@@ -234,9 +246,9 @@ Chaque point actuel affiche son nom, son état, la **Puissance**, le **Prix actu
 
 Dans **Statistiques des enregistrements → Période des statistiques**, choisissez **Aujourd’hui / Ce mois-ci / Cette année / Toute la période / Période personnalisée**. Pour une période personnalisée, renseignez **Début** et **Fin (exclue)**, puis cliquez sur **Appliquer la période**. Pour consulter toute la journée du 1er septembre, choisissez le 1er septembre comme début et le 2 septembre comme fin.
 
-Le récapitulatif affiche **Énergie**, **Coût**, le nombre **Actifs / terminés** et les indications de qualité. **Actualiser** récupère les derniers résultats. Le graphique est journalier ; **Mesure du graphique** permet de choisir **Énergie** ou **Coût**. Développez **Détails** sous le graphique pour consulter les valeurs quotidiennes dans un tableau.
+Le récapitulatif affiche **Énergie**, **Coût**, le nombre **Actifs / terminés** et les indications de qualité. **Actualiser** récupère les derniers résultats. Le graphique est regroupé selon la plage choisie ; **Mesure du graphique** permet de choisir **Énergie** ou **Coût**. Développez **Détails** sous le graphique pour consulter les valeurs par intervalle dans un tableau.
 
-> Emplacement de capture 10 : statistiques, dates personnalisées, mesure du graphique et tableau quotidien développé.
+> Emplacement de capture 10 : statistiques, dates personnalisées, mesure du graphique et tableau regroupé développé.
 
 ### Enregistrements · toutes les dates
 

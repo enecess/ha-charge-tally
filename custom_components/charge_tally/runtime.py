@@ -459,7 +459,9 @@ class Runtime:
         return await self._apply("bind_preview", token, principal, point_id, expected_revision)
 
     async def async_public_command(self, command, payload, principal, authorize):
-        return await self._apply("public_command", command, payload, principal, dt_util.utcnow(), authorize=authorize)
+        from .record_views import record_view
+        result = await self._apply("public_command", command, payload, principal, dt_util.utcnow(), authorize=authorize)
+        return record_view(result)
 
     async def async_command(self, command, payload):
         if command == "preview" and "energy_kwh" not in payload:
@@ -530,6 +532,10 @@ class Runtime:
         if self._closed:
             return
         self._closing = True
+        self._gate.set()
+        # Let an active refresh finish before removing the subscriptions it creates.
+        async with self._config_lock:
+            pass
         for unsub in self._unsubs:
             unsub()
         self._unsubs.clear()
@@ -545,7 +551,6 @@ class Runtime:
         for cancel in self._timers.values():
             cancel()
         self._timers.clear()
-        self._gate.set()
         if self._tasks:
             await asyncio.gather(*self._tasks)
         async with self._lock:

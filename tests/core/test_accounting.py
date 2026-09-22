@@ -4,6 +4,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 from custom_components.charge_tally.ledger import Ledger
 from custom_components.charge_tally.accounting import Accounting
@@ -33,6 +34,200 @@ class AccountingTests(unittest.TestCase):
                     timezone='UTC', energy_kwh='21', cost=None, note='manual')
         data.update(changes)
         return data
+
+    def test_sequential_append_preserves_previous_segment_and_revision(self):
+        record = self.app.start('home', 'personal', T, 'start')
+        self.interval()
+        previous = self.ledger._db.execute('SELECT position,data FROM segments').fetchall()
+        sql = []
+        self.ledger._db.set_trace_callback(sql.append)
+        self.interval(T + timedelta(seconds=30), T + timedelta(seconds=35), '.001')
+        self.ledger._db.set_trace_callback(None)
+        self.assertFalse(any('DELETE FROM segments' in statement for statement in sql))
+        self.assertEqual(self.ledger._db.execute('SELECT position,data FROM segments WHERE position=0').fetchall(), previous)
+        current = self.ledger.get_record(record['id'])
+        self.assertEqual(D(current['energy_kwh']), D('.061'))
+        self.assertEqual(current['revision'], 3)
+        self.assertEqual(current['_segment_count'], 2)
+        self.assertEqual(current['_accounted_until'], (T + timedelta(seconds=35)).isoformat())
+
+    def test_incremental_matches_forced_full_rebuild_for_720_samples(self):
+        other = Ledger(str(Path(self.directory.name) / 'full'))
+        self.addCleanup(other.close)
+        other.put_point({'id': 'home', 'name': 'home'})
+        other.put_identity({'id': 'personal', 'name': 'personal'})
+        full = Accounting(other)
+        actual = self.app.start('home', 'personal', T, 'start')
+        expected = full.start('home', 'personal', T, 'start')
+        for index in range(720):
+            left = T + timedelta(seconds=index * 5)
+            right = left + timedelta(seconds=5)
+            energy = D('0') if index % 2 else D('.002')
+            prices = [(left, D('-1') if index % 3 else D('2'))]
+            self.app.add_interval('home', left, right, energy, prices)
+            data = full._interval_data('home', left, right, energy, prices, ())
+            with other.transaction():
+                other.put_interval(data)
+                rebuilt, parts, _ = full._build(other.get_record(expected['id']))
+                rebuilt['revision'] += 1
+                other.save_record(rebuilt, parts, audit=False)
+        result = self.ledger.get_record(actual['id'])
+        self.assertEqual(D(result['energy_kwh']), D('.720'))
+        self.assertEqual(D(result['known_cost']), D('0'))
+        self.assertEqual({**result, 'id': expected['id']}, other.get_record(expected['id']))
+        self.assertEqual(self.ledger.list_segments(actual['id']), other.list_segments(expected['id']))
+        self.assertEqual(result['_segment_count'], 720)
+
+    def test_append_failure_rolls_back_observation_cursor_and_retry(self):
+        record = self.app.start('home', 'personal', T, 'start')
+        self.interval()
+        before = self.ledger.get_record(record['id'])
+        version = self.ledger.data_version()
+        self.ledger._db.execute("CREATE TEMP TRIGGER fail_append BEFORE INSERT ON segments WHEN NEW.position=1 BEGIN SELECT RAISE(ABORT, 'append failed'); END")
+        with self.assertRaisesRegex(Exception, 'append failed'):
+            self.interval(T + timedelta(seconds=30), T + timedelta(seconds=35), '.001')
+        self.assertEqual(self.ledger.get_record(record['id']), before)
+        self.assertEqual(self.ledger.data_version(), version)
+        self.assertEqual(len(self.ledger.list_intervals('home')), 1)
+        self.assertEqual(len(self.ledger.list_segments(record['id'])), 1)
+        self.ledger._db.execute('DROP TRIGGER fail_append')
+        for _ in range(2):
+            self.interval(T + timedelta(seconds=30), T + timedelta(seconds=35), '.001')
+        self.assertEqual(D(self.ledger.get_record(record['id'])['energy_kwh']), D('.061'))
+        self.assertEqual(self.ledger.get_record(record['id'])['_segment_count'], 2)
+
+    def test_append_precision_midnight_price_changes_and_unknown_cost(self):
+        start = T - timedelta(seconds=7)
+        record = self.app.start('home', 'personal', start, 'start', timezone='UTC')
+        samples = [
+            (start, T - timedelta(seconds=2), '123456789.123456789123456789123456789', [(start, D('1.23456789123456789123456789'))]),
+            (T - timedelta(seconds=2), T + timedelta(seconds=3), '.000000000000000000000001234567891',
+             [(T - timedelta(seconds=2), D('-.123456789123456789123456789')), (T + timedelta(seconds=1), D('2'))]),
+            (T + timedelta(seconds=3), T + timedelta(seconds=8), '.002', []),
+            (T + timedelta(seconds=8), T + timedelta(seconds=13), '.003', [(T + timedelta(seconds=8), D('1'))]),
+        ]
+        for left, right, energy, prices in samples:
+            self.app.add_interval('home', left, right, D(energy), prices)
+            actual = self.ledger.get_record(record['id'])
+            expected, parts, _ = self.app._build(dict(actual))
+            self.assertEqual(actual, expected)
+            self.assertEqual(self.ledger.list_segments(record['id']), parts)
+        self.assertFalse(actual['cost_complete'])
+        self.assertEqual(actual['quality'], ['estimated', 'missing_price', 'provisional'])
+        self.assertEqual(actual['_segment_count'], 6)
+
+    def test_restart_continues_append_from_persisted_cursor(self):
+        record = self.app.start('home', 'personal', T, 'start')
+        self.interval()
+        reopened = Ledger(str(Path(self.directory.name) / 'db'))
+        self.addCleanup(reopened.close)
+        sql = []
+        reopened._db.set_trace_callback(sql.append)
+        Accounting(reopened).add_interval('home', T + timedelta(seconds=30), T + timedelta(seconds=35),
+                                         D('.001'), [(T + timedelta(seconds=30), D('1'))])
+        self.assertFalse(any('DELETE FROM segments' in statement for statement in sql))
+        self.assertEqual(D(reopened.get_record(record['id'])['energy_kwh']), D('.061'))
+        self.assertEqual(reopened.get_record(record['id'])['_segment_count'], 2)
+
+    def test_partial_start_gap_reset_and_late_samples_use_rebuild(self):
+        record = self.app.start('home', 'personal', T + timedelta(seconds=10), 'start')
+        for left, right, quality in [(0, 30, ()), (30, 40, ('reset',)), (50, 60, ())]:
+            sql = []
+            self.ledger._db.set_trace_callback(sql.append)
+            self.app.add_interval('home', T + timedelta(seconds=left), T + timedelta(seconds=right),
+                                  D('.030'), [(T, D('1'))], quality)
+            self.ledger._db.set_trace_callback(None)
+            self.assertTrue(any('DELETE FROM segments' in statement for statement in sql))
+        current = self.ledger.get_record(record['id'])
+        self.assertEqual(D(current['energy_kwh']), D('.050'))
+        self.assertIn('missing_energy', current['quality'])
+        self.app.end(record['id'], T + timedelta(seconds=70), 'end')
+        self.interval(T + timedelta(seconds=60), T + timedelta(seconds=70), '.001')
+        current = self.ledger.get_record(record['id'])
+        self.assertEqual(D(current['energy_kwh']), D('.051'))
+        self.assertEqual(self.ledger.list_revisions(record['id'])[-1]['record'], current)
+
+    def test_append_rejects_stale_segment_count_without_changing_ledger(self):
+        record = self.app.start('home', 'personal', T, 'start')
+        self.interval()
+        before = self.ledger.get_record(record['id'])
+        version = self.ledger.data_version()
+        with self.assertRaisesRegex(ValueError, 'count conflict'):
+            self.ledger.append_record_segments({**before, 'revision': before['revision'] + 1}, [], 0)
+        self.assertEqual(self.ledger.get_record(record['id']), before)
+        self.assertEqual(self.ledger.data_version(), version)
+        self.assertEqual(len(self.ledger.list_segments(record['id'])), 1)
+
+    def test_live_samples_update_revision_without_audit_snapshots(self):
+        record = self.app.start('home', 'personal', T, 'start')
+        version = self.ledger.data_version()
+        self.interval()
+        current = self.ledger.get_record(record['id'])
+        self.assertGreater(current['revision'], record['revision'])
+        self.assertGreater(self.ledger.data_version(), version)
+        self.assertEqual(len(self.ledger.list_revisions(record['id'])), 1)
+        with self.assertRaisesRegex(ValueError, 'revision'):
+            self.app.reassign(record['id'], 'company', record['revision'])
+        self.app.end(record['id'], T + timedelta(seconds=30), 'end')
+        self.assertEqual([r['record']['revision'] for r in self.ledger.list_revisions(record['id'])], [1, 3])
+
+    def test_batch_refresh_nested_rollback_and_no_change(self):
+        record = self.app.start('home', 'personal', T, 'start')
+        self.app.end(record['id'], T + timedelta(seconds=90), 'end')
+        with self.app.batch_refresh():
+            self.interval()
+            with self.assertRaisesRegex(ValueError, 'abort'):
+                with self.app.batch_refresh():
+                    self.interval(T + timedelta(seconds=30), T + timedelta(seconds=60))
+                    raise ValueError('abort')
+            with self.app.batch_refresh():
+                self.interval(T + timedelta(seconds=60), T + timedelta(seconds=90))
+        current = self.ledger.get_record(record['id'])
+        self.assertEqual(D(current['energy_kwh']), D('.120'))
+        self.assertEqual(current['revision'], 3)
+        self.assertEqual(len(self.ledger.list_revisions(record['id'])), 3)
+        version = self.ledger.data_version()
+        with self.app.batch_refresh():
+            self.app._refresh('home', T.isoformat(), (T + timedelta(seconds=90)).isoformat())
+        self.assertEqual(self.ledger.data_version(), version)
+        with self.assertRaisesRegex(ValueError, 'abort'):
+            with self.app.batch_refresh():
+                self.interval(T + timedelta(seconds=30), T + timedelta(seconds=60))
+                raise ValueError('abort')
+        self.assertEqual(self.ledger.get_record(record['id']), current)
+        self.interval(T + timedelta(seconds=30), T + timedelta(seconds=60))
+        self.assertEqual(D(self.ledger.get_record(record['id'])['energy_kwh']), D('.180'))
+
+    def test_batch_audit_failure_rolls_back_current_data_and_observations(self):
+        record = self.app.start('home', 'personal', T, 'start')
+        ended = self.app.end(record['id'], T + timedelta(seconds=30), 'end')
+        revisions = self.ledger.list_revisions(record['id'])
+        version = self.ledger.data_version()
+
+        def fail(record_id):
+            self.assertEqual(D(self.ledger.get_record(record_id)['known_cost']), D('.060'))
+            self.assertEqual(len(self.ledger.list_segments(record_id)), 1)
+            raise OSError('audit failure')
+
+        with patch.object(self.ledger, 'save_revision', side_effect=fail):
+            with self.assertRaisesRegex(OSError, 'audit failure'):
+                with self.app.batch_refresh():
+                    self.interval()
+        self.assertEqual(self.ledger.get_record(record['id']), ended)
+        self.assertEqual(self.ledger.list_segments(record['id']), [])
+        self.assertEqual(self.ledger.list_intervals('home'), [])
+        self.assertEqual(self.ledger.list_revisions(record['id']), revisions)
+        self.assertEqual(self.ledger.data_version(), version)
+        self.interval()
+        self.assertEqual(len(self.ledger.list_revisions(record['id'])), 3)
+
+    def test_prune_keeps_current_segments_without_an_audit_snapshot(self):
+        record = self.app.start('home', 'personal', T, 'start')
+        self.interval()
+        self.assertEqual(self.ledger.list_revisions(record['id'])[0]['segments'], [])
+        self.ledger.prune(before=T + timedelta(days=365))
+        self.assertEqual(len(self.ledger.list_intervals('home')), 1)
+        self.assertEqual(len(self.ledger.list_segments(record['id'])), 1)
 
     def test_start_conflicts_concurrency_and_idempotency(self):
         first = self.app.start('home', 'personal', T, 'start')
@@ -174,12 +369,33 @@ class AccountingTests(unittest.TestCase):
         data = self.manual(end=T + timedelta(seconds=30), prices=[(T, '1')])
         del data['cost']
         record = self.app.commit_preview(self.app.preview(data)['token'], 'save')
+        original_segments = self.ledger.list_segments(record['id'])
+        self.assertEqual(original_segments[0]['unit_price'], '1')
+        self.assertEqual(original_segments[0]['cost_basis'], 'tariff')
         self.ledger.put_price_version({'id': 'new', 'point_id': 'home', 'at': T.isoformat(), 'price': '2'})
         edit = self.app.preview({'record_id': record['id'], 'expected_revision': record['revision'],
                                  'identity_id': 'company', 'note': 'corrected'})
         changed = self.app.commit_preview(edit['token'], 'edit')
         self.assertEqual(changed['known_cost'], record['known_cost'])
         self.assertEqual(changed['note'], 'corrected')
+        self.assertEqual(self.ledger.list_segments(record['id']), original_segments)
+
+    def test_manual_cost_metadata_for_explicit_energy_and_measured_gaps(self):
+        self.interval(end=T + timedelta(seconds=10))
+        for measured in (False, True):
+            for cost in ('5', None):
+                with self.subTest(measured=measured, cost=cost):
+                    data = self.manual(end=T + timedelta(seconds=30), cost=cost)
+                    if measured:
+                        del data['energy_kwh']
+                    preview = self.app.preview(data)
+                    self.assertTrue(preview['segments'])
+                    for part in preview['segments']:
+                        self.assertIsNone(part['unit_price'])
+                        self.assertEqual(part['cost_basis'], 'unknown' if cost is None else 'manual')
+                    if measured:
+                        self.assertEqual(len(preview['segments']), 2)
+                        self.assertEqual(D(preview['segments'][1]['energy_kwh']), 0)
 
     def test_observed_gap_can_be_replaced_by_validated_history(self):
         record = self.app.start('home', 'personal', T, 'start')
