@@ -1,7 +1,7 @@
-import {SelectControl} from './card-controls.js?v=0.1.2-4';
-import {el,field} from './card-ui.js?v=0.1.2-4';
-import {formatDecimal,formatCost} from './card-state.js?v=0.1.2-4';
-import {tr} from './card-i18n.js?v=0.1.2-4';
+import {SelectControl} from './card-controls.js?v=0.1.2-5';
+import {el,field} from './card-ui.js?v=0.1.2-5';
+import {formatDecimal,formatCost} from './card-state.js?v=0.1.2-5';
+import {tr} from './card-i18n.js?v=0.1.2-5';
 
 export function chartGeometry(values,{width=600,height=144,padding=12}={}){
   const low=Math.min(0,...values),high=Math.max(0,...values);

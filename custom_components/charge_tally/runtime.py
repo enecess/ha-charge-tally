@@ -7,6 +7,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import timedelta
+from decimal import Decimal
 from functools import partial
 from typing import TYPE_CHECKING
 
@@ -95,6 +96,16 @@ class Runtime:
                         *args,
                         self._measurement_available(args[1]["point_id"]),
                     )
+                if method in ("command", "public_command") and args[0] == "end":
+                    point_id = next(
+                        (
+                            record["point_id"]
+                            for record in self.snapshot["records"]
+                            if record["id"] == args[1]["record_id"]
+                        ),
+                        None,
+                    )
+                    arguments = (*args, self._low_power_available(point_id))
                 result, snapshot = await self._worker(
                     self._store.apply, method, *arguments
                 )
@@ -127,6 +138,22 @@ class Runtime:
         except (ValueError, TypeError):
             return False
         return True
+
+    def _low_power_available(self, point_id):
+        """Reject cached low evidence when a newer HA event is still queued."""
+        point = self.points.get(point_id)
+        if point is None or not self._measurement_available(point_id):
+            return False
+        entity = point.get("power_entity")
+        state = self.hass.states.get(entity) if entity else None
+        if state is None:
+            return False
+        try:
+            return power_w(
+                state.state, state.attributes.get("unit_of_measurement")
+            ) < Decimal(str(point.get("detection", {}).get("end_w", 0)))
+        except (ValueError, TypeError):
+            return False
 
     def _publish(self, snapshot):
         self._revision += 1
@@ -400,9 +427,12 @@ class Runtime:
             (
                 point,
                 role,
-                self._observation(
-                    self.hass.states.get(entity), dt_util.utcnow(), entity
-                ),
+                {
+                    **self._observation(
+                        self.hass.states.get(entity), dt_util.utcnow(), entity
+                    ),
+                    "detection_evidence": False,
+                },
             )
             for entity, pairs in self._sources().items()
             for point, role in pairs
@@ -442,6 +472,7 @@ class Runtime:
                 observation = self._observation(
                     self.hass.states.get(entity), now, entity
                 )
+                observation["detection_evidence"] = False
                 self._queue(self._handle_observation(point_id, "power", observation))
 
             self._timers[point_id] = async_track_point_in_utc_time(

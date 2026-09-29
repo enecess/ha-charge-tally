@@ -131,7 +131,7 @@ After enabling **Automatic charging detection**, configure **Automatic detection
 
 Choose thresholds matching actual standby and charging power. Confirmed boundaries are backdated to when the condition first became true. A pause shorter than the end duration remains in the same record. Select the identity before power rises: ownership is remembered when start confirmation begins.
 
-Detection is optional; you can use **Start record** and **End record** instead.
+Detection is optional; you can use **Start recording manually** and **End recording** instead.
 
 > Screenshot placeholder 04: Measurement and detection and the Automatic detection dialog.
 
@@ -182,7 +182,7 @@ Under **Settings → Devices & services → Charge Tally**, use:
 
 Renaming keeps historical ownership. Clearing **Enabled** removes the identity from new selections but preserves history. Deleting its configuration also preserves history; archive management can then remove it permanently. Disabling and deleting configuration are different operations.
 
-Before changing measurement or detection, end the current record and wait for **Confirming start / Confirming end** to finish. Price changes apply from the change time without repricing earlier amounts. Also end the record before deleting a point: removing configuration does not automatically settle an ongoing charge.
+Before changing measurement or detection, end the current record and wait for **Confirming charging / Confirming end** to finish. Price changes apply from the change time without repricing earlier amounts. Also end the record before deleting a point: removing configuration does not automatically settle an ongoing charge.
 
 > Screenshot placeholder 07: Shared identity setup and the separate configuration entries for points and the main integration.
 
@@ -213,7 +213,7 @@ If necessary, open **Resources** from the **Settings → Dashboards** menu. Enab
 
 | Field | Value |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-4` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-5` |
 | Resource type | **JavaScript module** |
 
 Update an existing entry for that path rather than duplicating it. If you manage resources in YAML, register this URL and module type there; do not install a second card copy. See the [Home Assistant dashboard documentation](https://www.home-assistant.io/dashboards/dashboards/).
@@ -228,6 +228,10 @@ The title shows **Connected** or **Disconnected · waiting for a fresh snapshot*
 
 ### Live charging point panels
 
+The panel separates recording state from **Power** and **Detection**. **Not recording**, **Manual recording in progress** and **Automatic recording in progress** describe the ledger; an active record does not imply that the charger is drawing power. Detection separately reports waiting, confirmation, a manual-record pause, unavailable data or waiting for power to fall.
+
+During start confirmation, **Locked identity for automatic record** shows the identity captured when confirmation began. **Next / manual record identity** changes the next automatic record or an immediate manual start, without changing that locked identity or an active record.
+
 Each current point shows its name, status, **Power**, **Current price** and **Detection** state. Unavailable measurements may be blank. Detection here is only a status: change it in point configuration or with the native **Detection** switch.
 
 | Content | Meaning |
@@ -235,10 +239,10 @@ Each current point shows its name, status, **Power**, **Current price** and **De
 | **Selected identity** | Select the next charge’s ownership when no record is active |
 | **This record** | Identity assigned to the active record |
 | **Next record identity** | Prepare the next identity without changing the current record |
-| **Current record · provisional** | Active energy, cost, start, elapsed time and quality notices |
+| **Recording · Current total** | Active energy, cost, start, elapsed time and quality notices |
 | **Details** | Open the active record |
 | **Change record identity** | Correct its ownership |
-| **Start record / End record** | Begin/end accounting at the current time |
+| **Start recording manually / End recording** | Begin/end accounting at the current time |
 
 > Screenshot placeholder 09: Active charging, current/next identity, provisional cost and actions.
 
@@ -262,17 +266,19 @@ Only point and identity filters apply: **statistics dates do not filter this lis
 
 ### Start and end manually
 
-1. Set the point’s **Selected identity**.
-2. Click **Start record** and verify **Current record · provisional** appears.
-3. When charging finishes, click **End record**, then review it from the record list.
+1. Select the point’s identity and click **Start recording manually**; during start confirmation, use **Start recording now**.
+2. Verify **Manual recording in progress** and the current totals. An immediate manual start uses the currently selected identity and clears the automatic candidate.
+3. Click **End recording** to finish, then review the record in the list.
 
-These buttons only record boundaries; they do not control the charger. A manually started record needs a manual or automation end, even if automatic detection is configured.
+These buttons only record boundaries; they do not control the charger. A manually started record must be ended explicitly from the card or an automation action. Automatic detection pauses throughout that record, even at zero power, and never ends it automatically. A valid energy baseline is required to start; an existing record can still be ended if measurements become unavailable.
 
 ### Detect charging automatically
 
-With detection configured and enabled, states can progress through **Confirming start → Charging → Confirming end → No active record**. If power no longer meets the condition during confirmation, that pending start or end is canceled without necessarily creating or ending a record.
+With detection configured and enabled, detection can progress through **Confirming charging → Tracking an automatic record → Confirming end → Waiting for automatic detection**. If the power condition fails during confirmation, the pending start or end is canceled. Automatic confirmation uses the locked candidate identity even if the selector changes. You can end an automatic record early with **End recording manually**, or **End recording now** during end confirmation.
 
-Before pausing with the native **Detection** switch, finish active records and pending confirmation. If thresholds are not configured, open **Configure charging point** first instead of just enabling the switch. After a manual end, detection must observe power below the end threshold before detecting another charge.
+After an explicit end, detection normally waits for power to fall below the end threshold. It can resume immediately only if the latest valid low-power observation is no later than the end command, its age does not exceed the duration set by **Maximum allocation interval (seconds)**, and neither unavailable data nor a restart has invalidated it. High, missing, future or stale readings do not release the block. After `unknown` or unavailable power, a subsequent valid low-power observation is required. While blocked, manual recording remains available.
+
+Before pausing with the native **Detection** switch, finish active records and pending confirmation. If thresholds are not configured, open **Configure charging point** first.
 
 ### View details and revisions
 
@@ -409,7 +415,7 @@ Local brand icons require **Home Assistant 2026.3 or newer**; older icon behavio
 | Card missing | Integration loaded, frontend refreshed, correct Resources URL and JavaScript module type |
 | **No accessible charging points. Configure Charge Tally or check permissions.** | At least one point and user read permission; identities alone create no live point |
 | No automatic records | Power source, completed detection setup, switch enabled, thresholds/durations satisfied |
-| **Start record** unavailable | Sources and point identity entity available; loading/repair completed |
+| **Start recording manually** unavailable | Sources and point identity entity available; loading/repair completed |
 | Identity change did not affect this record | Selector prepares the next record; use **Change record identity** |
 | Today still shows older records | Dates filter statistics, not **Records · all dates** |
 | Known subtotal only or native cost unavailable | Review gaps, historical prices, currency and quality; do not assume free charging |

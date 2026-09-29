@@ -131,7 +131,7 @@ Dopo aver attivato **Rilevamento automatico della ricarica**, configura **Rileva
 
 Scegli soglie adatte alla potenza reale di standby e ricarica. Alla conferma, l’orario viene riportato al momento iniziale della condizione. Una pausa più breve della durata di fine resta nella stessa registrazione. Seleziona l’identità prima che salga la potenza: viene memorizzata quando inizia la conferma dell’avvio.
 
-Il rilevamento è facoltativo: puoi usare **Avvia registrazione** e **Termina registrazione**.
+Il rilevamento è facoltativo: puoi usare **Avvia contabilizzazione manualmente** e **Termina contabilizzazione**.
 
 > Segnaposto immagine 04: Misurazione e rilevamento e finestra Rilevamento automatico.
 
@@ -182,7 +182,7 @@ In **Impostazioni → Dispositivi e servizi → Charge Tally**, usa:
 
 Rinominare non cambia l’attribuzione storica. Deselezionare **Abilitata** impedisce nuove selezioni ma conserva lo storico. Eliminare la configurazione conserva anch’esso lo storico, rendendo possibile la successiva rimozione permanente tramite archivi. Disabilitare ed eliminare la configurazione sono operazioni diverse.
 
-Prima di cambiare misurazione o rilevamento, termina la registrazione attiva e attendi la fine di **Conferma dell’avvio in corso / Conferma della fine in corso**. I nuovi prezzi valgono dal momento della modifica e non ricalcolano gli importi precedenti. Termina la registrazione anche prima di eliminare un punto: rimuoverne la configurazione non conclude automaticamente una ricarica in corso.
+Prima di cambiare misurazione o rilevamento, termina la registrazione attiva e attendi la fine di **Conferma della ricarica in corso / Conferma della fine in corso**. I nuovi prezzi valgono dal momento della modifica e non ricalcolano gli importi precedenti. Termina la registrazione anche prima di eliminare un punto: rimuoverne la configurazione non conclude automaticamente una ricarica in corso.
 
 > Segnaposto immagine 07: Configurazione dell’identità e voci separate per punti e integrazione principale.
 
@@ -213,7 +213,7 @@ Se serve intervenire, apri **Risorse** dal menu di **Impostazioni → Dashboard*
 
 | Campo | Valore |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-4` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-5` |
 | Tipo di risorsa | **Modulo JavaScript** |
 
 Se esiste già lo stesso percorso, aggiornalo senza duplicarlo. Se gestisci le risorse in YAML, registra lì lo stesso URL e tipo modulo; non installare una seconda copia. Vedi la [documentazione delle dashboard di Home Assistant](https://www.home-assistant.io/dashboards/dashboards/).
@@ -228,6 +228,10 @@ Accanto al titolo appare **Connesso** oppure **Disconnesso · in attesa di dati 
 
 ### Pannelli dei punti in tempo reale
 
+Il pannello distingue lo stato della contabilizzazione da **Potenza** e **Rilevamento**. **Nessuna contabilizzazione in corso**, **Contabilizzazione manuale in corso** e **Contabilizzazione automatica in corso** descrivono il registro; una registrazione attiva non implica che il caricatore stia assorbendo corrente. Il rilevamento indica separatamente attesa, conferma, pausa durante una registrazione manuale, dati non disponibili o attesa del calo di potenza.
+
+Durante la conferma dell’avvio, **Identità fissata per la registrazione automatica** mostra l’identità memorizzata all’inizio della conferma. **Identità della prossima registrazione / registrazione manuale** vale per la prossima registrazione automatica o per un avvio manuale immediato, senza cambiare l’identità fissata del candidato o quella della registrazione attiva.
+
 Ogni punto corrente mostra nome, stato, **Potenza**, **Prezzo attuale** e stato di **Rilevamento**. Valori non disponibili possono essere vuoti. Qui Rilevamento è solo un’indicazione: per cambiarlo usa la configurazione o l’interruttore nativo **Rilevamento**.
 
 | Contenuto | Significato |
@@ -235,10 +239,10 @@ Ogni punto corrente mostra nome, stato, **Potenza**, **Prezzo attuale** e stato 
 | **Identità selezionata** | Attribuzione della prossima ricarica quando non vi sono registrazioni attive |
 | **Questa registrazione** | Identità della registrazione attiva |
 | **Identità della prossima registrazione** | Prepara la successiva senza cambiare quella corrente |
-| **Registrazione corrente · provvisoria** | Energia, costo, inizio, durata e qualità attuali |
+| **Contabilizzazione in corso · Totale attuale** | Energia, costo, inizio, durata e qualità attuali |
 | **Dettagli** | Apre la registrazione corrente |
 | **Cambia identità della registrazione** | Corregge l’attribuzione corrente |
-| **Avvia registrazione / Termina registrazione** | Inizia/termina la contabilizzazione all’ora attuale |
+| **Avvia contabilizzazione manualmente / Termina contabilizzazione** | Inizia/termina la contabilizzazione all’ora attuale |
 
 > Segnaposto immagine 09: Ricarica attiva, identità corrente e successiva, costo provvisorio e pulsanti.
 
@@ -262,17 +266,19 @@ Valgono solo i filtri per punto e identità: **le date delle statistiche non fil
 
 ### Avviare e terminare manualmente
 
-1. Imposta **Identità selezionata** per il punto.
-2. Premi **Avvia registrazione** e verifica che appaia **Registrazione corrente · provvisoria**.
-3. Alla fine della ricarica premi **Termina registrazione**, poi aprila nell’elenco per verificarla.
+1. Seleziona l’identità e **Avvia contabilizzazione manualmente**; durante la conferma dell’avvio, usa **Avvia contabilizzazione ora**.
+2. Verifica **Contabilizzazione manuale in corso** e i totali attuali. L’avvio manuale immediato usa l’identità attualmente selezionata e cancella il candidato automatico.
+3. Premi **Termina contabilizzazione** e controlla la registrazione nell’elenco.
 
-Questi pulsanti registrano gli orari, senza comandare il caricatore. Una registrazione avviata manualmente deve essere terminata manualmente o da un’automazione, anche se il rilevamento automatico è configurato.
+Questi pulsanti registrano gli orari senza comandare il caricatore. Una registrazione avviata manualmente deve essere terminata esplicitamente dalla scheda o da un’azione di automazione. Il rilevamento automatico rimane in pausa e non la termina mai, nemmeno a potenza zero. Per iniziare serve una lettura iniziale valida dell’energia; una registrazione esistente può essere terminata anche se le misure diventano indisponibili.
 
 ### Rilevare automaticamente la ricarica
 
-Con rilevamento configurato e attivo, gli stati possono essere **Conferma dell’avvio in corso → In ricarica → Conferma della fine in corso → Nessuna registrazione attiva**. Se la condizione di potenza cessa durante la conferma, l’avvio o la fine in sospeso viene annullato senza necessariamente creare o terminare una registrazione.
+Con il rilevamento configurato e attivo, la sequenza può essere **Conferma della ricarica in corso → Monitoraggio di una registrazione automatica → Conferma della fine in corso → In attesa del rilevamento automatico**. Se la condizione di potenza cessa durante la conferma, la conferma in sospeso viene annullata. La conferma automatica usa l’identità fissata del candidato anche se la selezione cambia. Puoi terminare in anticipo una registrazione automatica con **Termina contabilizzazione manualmente**, oppure **Termina contabilizzazione ora** durante la conferma della fine.
 
-Prima di sospendere con l’interruttore nativo **Rilevamento**, termina le registrazioni attive e attendi la fine delle conferme. Se mancano le soglie, apri prima **Configura punto di ricarica**, anziché attivare soltanto l’interruttore. Dopo una fine manuale, il rilevamento deve osservare potenza sotto la soglia di fine prima di riconoscere la ricarica successiva.
+Dopo una fine esplicita, il rilevamento normalmente attende una potenza inferiore alla soglia di fine. Può riprendere subito solo se l’ultima misura valida di bassa potenza non è successiva al comando di fine, la sua età non supera la durata di validità impostata in **Intervallo massimo di ripartizione (secondi)** e non è stata invalidata da dati indisponibili o da un riavvio. Misure alte, mancanti, future o obsolete non rimuovono il blocco. Dopo una potenza `unknown` o indisponibile occorre una successiva misura valida sotto la soglia. Durante il blocco resta possibile avviare manualmente una registrazione.
+
+Prima di sospendere con **Rilevamento**, termina le registrazioni attive e le conferme in sospeso. Se mancano le soglie, apri **Configura punto di ricarica**.
 
 ### Consultare dettagli e revisioni
 
@@ -409,7 +415,7 @@ Le icone locali del marchio richiedono **Home Assistant 2026.3 o successivo**. N
 | Scheda assente | Integrazione caricata, frontend aggiornato, URL e tipo Modulo JavaScript corretti in Risorse |
 | **Nessun punto di ricarica accessibile. Configura Charge Tally o verifica le autorizzazioni.** | Deve esistere un punto e l’utente deve poterlo leggere; le sole identità non creano punti attivi |
 | Nessuna registrazione automatica | Fonte di potenza, rilevamento configurato, interruttore attivo, soglie e durate effettivamente soddisfatte |
-| **Avvia registrazione** non disponibile | Fonti ed entità dell’identità disponibili, caricamento e riparazione completati |
+| **Avvia contabilizzazione manualmente** non disponibile | Fonti ed entità dell’identità disponibili, caricamento e riparazione completati |
 | Cambiare identità non modifica la registrazione corrente | Il selettore prepara la prossima; usa **Cambia identità della registrazione** |
 | Oggi mostra ancora registrazioni vecchie | Le date filtrano le statistiche, non **Registrazioni · tutte le date** |
 | Solo subtotale noto o costo nativo assente | Verifica lacune, prezzi storici, valuta e qualità; non presumere una ricarica gratuita |

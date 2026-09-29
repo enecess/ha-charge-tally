@@ -57,6 +57,7 @@ class RuntimeStore:
         for state in self.states.values():
             state["available"] = False
             state["interrupted"] = True
+            state["detection_power_at"] = None
             if state.get("detector"):
                 data = state["detector"]
                 if data["state"] == "pending_start":
@@ -233,10 +234,12 @@ class RuntimeStore:
                     reading_at=None,
                     available=False,
                     detector=None,
+                    detection_power_at=None,
                     input_epoch=at.isoformat(),
                 )
             if old and old.get("detection") != data.get("detection"):
                 state["detector"] = None
+                state["detection_power_at"] = None
             if old is None or old.get("price") != data["price"]:
                 price = data["price"]
                 if old and any(
@@ -417,7 +420,12 @@ class RuntimeStore:
         elif role == "power":
             state["power_w"] = None if value is None else str(value)
             state["power_at"] = at.isoformat()
-            self.detect(point_id, at, value)
+            self.detect(
+                point_id,
+                at,
+                value,
+                evidence=observation.get("detection_evidence", True),
+            )
         else:
             return self.energy(point_id, at, value)
 
@@ -479,11 +487,20 @@ class RuntimeStore:
             if state["helper_error"]:
                 self.detect(point_id, now, None)
 
-    def detect(self, point_id, at, power):
+    def detect(self, point_id, at, power, *, evidence=True):
         point, state = self.points[point_id], self.states[point_id]
         config = point.get("detection", {})
         if not config.get("enabled"):
             return
+        last = (state.get("detector") or {}).get("last_at")
+        if last and at < instant(last):
+            return
+        # Timer and initial snapshots may advance detection, but are not fresh reports.
+        if power is None or not state.get("available") or state.get("helper_error"):
+            state["detection_power_at"] = None
+        elif evidence:
+            state["detection_power_at"] = at.isoformat()
+            state["detection_power_w"] = str(power)
         active = self.active(point_id)
         if active and active["source"] == "manual":
             return
@@ -495,13 +512,13 @@ class RuntimeStore:
         )
         if state.get("detector"):
             detector.restore(state["detector"], interrupted=False)
-        if detector.snapshot().get("last_at") and at < instant(
-            detector.snapshot()["last_at"]
-        ):
-            return
         events = detector.observe(
             at,
-            power if state.get("available") and not state.get("helper_error") else None,
+            power
+            if state.get("available")
+            and not state.get("helper_error")
+            and (evidence or not detector.snapshot().get("blocked"))
+            else None,
             state["selected_identity_id"],
         )
         for event in events:
@@ -602,13 +619,23 @@ class RuntimeStore:
                 else instant(self.ledger.get_checkpoint(key) or now.isoformat())
             )
             self.ledger.put_checkpoint(key, at.isoformat())
-            return self.accounting.start(
+            result = self.accounting.start(
                 point_id,
                 data.get("identity_id", state["selected_identity_id"]),
                 at,
                 request_id,
                 timezone=self.timezone,
             )
+            if self.points[point_id].get("detection", {}).get("enabled"):
+                detector = state.get("detector") or {}
+                state["detector"] = {
+                    **detector,
+                    "state": "idle",
+                    "candidate": None,
+                    "identity_id": None,
+                    "last_at": max(now.isoformat(), detector.get("last_at") or ""),
+                }
+            return result
         if command == "end":
             record = self.ledger.get_record(data["record_id"])
             if not record:
@@ -622,10 +649,30 @@ class RuntimeStore:
             self.ledger.put_checkpoint(key, at.isoformat())
             result = self.accounting.end(record["id"], at, data["request_id"])
             state = self.states[record["point_id"]]
-            if state.get("detector"):
-                state["detector"].update(
-                    state="idle", candidate=None, identity_id=None, blocked=True
+            config = self.points.get(record["point_id"], {}).get("detection", {})
+            if config.get("enabled"):
+                observed = state.get("detection_power_at")
+                recent_low = (
+                    source_available
+                    and state.get("available")
+                    and not state.get("helper_error")
+                    and observed is not None
+                    and 0
+                    <= (now - instant(observed)).total_seconds()
+                    <= self.points[record["point_id"]].get("max_gap_seconds", 600)
+                    and Decimal(state["detection_power_w"])
+                    < Decimal(str(config["end_w"]))
                 )
+                state["detector"] = {
+                    "state": "idle",
+                    "candidate": None,
+                    "identity_id": None,
+                    "last_at": max(
+                        now.isoformat(),
+                        (state.get("detector") or {}).get("last_at") or "",
+                    ),
+                    "blocked": not recent_low,
+                }
             return result
         if command == "select_identity":
             identity = self.ledger.get_identity(data["identity_id"])
@@ -717,12 +764,34 @@ class RuntimeStore:
                 continue
             state = self.states[point_id]
             active = self.active(point_id)
+            detector = state.get("detector") or {}
+            recording_state = active["source"] if active else "idle"
+            detection_state = (
+                "disabled"
+                if not point.get("detection", {}).get("enabled")
+                else "paused_manual"
+                if recording_state == "manual"
+                else "blocked"
+                if detector.get("blocked")
+                else "unavailable"
+                if not state.get("available")
+                or state.get("helper_error")
+                or state.get("power_w") is None
+                else detector.get("state", "charging" if active else "idle")
+            )
+            if detection_state == "idle":
+                detection_state = "waiting"
             points.append(
                 {
                     "id": point_id,
                     "name": point["name"],
                     "selected_identity_id": state["selected_identity_id"],
                     "active_record": record_view(active) if active else None,
+                    "recording_state": recording_state,
+                    "detection_state": detection_state,
+                    "candidate_identity_id": detector.get("identity_id")
+                    if detection_state == "pending_start"
+                    else None,
                     "normalized_energy_kwh": state["normalized_energy_kwh"],
                     "power_w": state.get("power_w"),
                     "current_price": state.get("current_price"),

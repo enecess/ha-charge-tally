@@ -24,7 +24,7 @@ class CardResource(TypedDict):
     manual: bool
 
 
-CARD_URL = "/charge_tally/charge-tally-card.js?v=0.1.2-4"
+CARD_URL = "/charge_tally/charge-tally-card.js?v=0.1.2-5"
 
 
 async def async_register(hass: HomeAssistant) -> CardResource:

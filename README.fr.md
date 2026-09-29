@@ -131,7 +131,7 @@ Après avoir activé **Détection automatique de la recharge**, renseignez **Dé
 
 Adaptez les seuils aux puissances réelles de veille et de recharge du chargeur. Après confirmation, l’heure retenue revient au début de la condition. Une pause plus courte que la durée de confirmation de l’arrêt reste dans le même enregistrement. Choisissez l’identité avant la montée en puissance : l’attribution est mémorisée dès le début de la confirmation.
 
-La comptabilisation fonctionne aussi sans détection ; utilisez alors **Démarrer un enregistrement** et **Terminer l’enregistrement**.
+La comptabilisation fonctionne aussi sans détection ; utilisez alors **Démarrer la comptabilisation manuellement** et **Terminer la comptabilisation**.
 
 > Emplacement de capture 04 : section « Mesure et détection » de « Sources de mesure » et fenêtre « Détection automatique ».
 
@@ -213,7 +213,7 @@ Si un enregistrement manuel reste nécessaire, ouvrez **Ressources** dans le men
 
 | Champ | Valeur |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-4` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-5` |
 | Type de ressource | **Module JavaScript** |
 
 Si une ressource utilise déjà ce chemin, mettez-la à jour au lieu de la dupliquer. Si vous gérez les ressources en YAML, déclarez cette même adresse comme module dans votre configuration ; n’installez pas une seconde copie de la carte. Consultez la [documentation des tableaux de bord Home Assistant](https://www.home-assistant.io/dashboards/dashboards/) pour la gestion des ressources.
@@ -228,6 +228,10 @@ Si une ressource utilise déjà ce chemin, mettez-la à jour au lieu de la dupli
 
 ### Panneaux des points en direct
 
+Le panneau distingue la comptabilisation de la **Puissance** et de la **Détection**. **Aucune comptabilisation en cours**, **Comptabilisation manuelle en cours** et **Comptabilisation automatique en cours** décrivent le registre ; un enregistrement actif ne signifie pas que le chargeur consomme du courant. La détection indique séparément l’attente, la confirmation, la suspension pendant un enregistrement manuel, les données indisponibles ou l’attente d’une baisse de puissance.
+
+Pendant la confirmation du début, **Identité fixée pour l’enregistrement automatique** indique l’identité mémorisée au début de la confirmation. **Identité du prochain enregistrement / enregistrement manuel** sert au prochain enregistrement automatique ou à un démarrage manuel immédiat, sans modifier l’identité fixée ni celle de l’enregistrement actif.
+
 Chaque point actuel affiche son nom, son état, la **Puissance**, le **Prix actuel** et l’état de **Détection**. La puissance ou le prix peuvent être vides lorsqu’ils ne sont pas disponibles. **Détection** est un indicateur ; modifiez la détection dans la configuration du point ou avec l’interrupteur natif **Détection de la recharge**.
 
 | Élément affiché | Signification |
@@ -235,10 +239,10 @@ Chaque point actuel affiche son nom, son état, la **Puissance**, le **Prix actu
 | **Identité sélectionnée** | En l’absence d’enregistrement actif, choisir l’identité de la prochaine recharge |
 | **Cet enregistrement** | Identité déjà attribuée à l’enregistrement actif |
 | **Identité du prochain enregistrement** | Préparer l’identité suivante pendant une recharge, sans modifier l’attribution actuelle |
-| **Enregistrement en cours · provisoire** | Énergie, coût, début, durée et indications de qualité de la recharge en cours |
+| **Comptabilisation en cours · Total actuel** | Énergie, coût, début, durée et indications de qualité de la recharge en cours |
 | **Détails** | Ouvrir les détails de l’enregistrement actif |
 | **Changer l’identité de l’enregistrement** | Corriger son attribution |
-| **Démarrer un enregistrement / Terminer l’enregistrement** | Démarrer ou terminer la comptabilisation à l’heure actuelle |
+| **Démarrer la comptabilisation manuellement / Terminer la comptabilisation** | Démarrer ou terminer la comptabilisation à l’heure actuelle |
 
 > Emplacement de capture 09 : panneau pendant une recharge, identité actuelle et suivante, coût provisoire et boutons d’action.
 
@@ -262,17 +266,19 @@ Seuls les filtres de point et d’identité s’appliquent : **les dates des sta
 
 ### Démarrer et terminer manuellement
 
-1. Choisissez l’identité dans **Identité sélectionnée** sur le point concerné.
-2. Cliquez sur **Démarrer un enregistrement** et vérifiez l’apparition de **Enregistrement en cours · provisoire**.
-3. À la fin de la recharge, cliquez sur **Terminer l’enregistrement**, puis ouvrez-le dans la liste pour le vérifier.
+1. Choisissez l’identité puis **Démarrer la comptabilisation manuellement** ; pendant la confirmation du début, utilisez **Démarrer la comptabilisation maintenant**.
+2. Vérifiez **Comptabilisation manuelle en cours** et les totaux actuels. Le démarrage manuel immédiat utilise l’identité actuellement sélectionnée et efface le candidat automatique.
+3. Cliquez sur **Terminer la comptabilisation**, puis vérifiez l’enregistrement dans la liste.
 
-Ces boutons enregistrent les horaires sans démarrer ni arrêter le chargeur. Un enregistrement commencé manuellement doit être terminé manuellement ou par une automatisation ; même si la détection est configurée, elle ne terminera pas cet enregistrement manuel.
+Ces boutons enregistrent les horaires sans commander le chargeur. Un enregistrement démarré manuellement doit être terminé explicitement depuis la carte ou par une action d’automatisation. La détection automatique reste suspendue pendant cet enregistrement et ne le termine jamais, même à puissance nulle. Le démarrage exige une mesure d’énergie initiale valide ; un enregistrement existant peut être terminé même si les mesures deviennent indisponibles.
 
 ### Détecter automatiquement les recharges
 
-Après configuration et activation de la détection, les états peuvent se succéder ainsi : **Confirmation du début → Recharge en cours → Confirmation de la fin → Aucun enregistrement actif**. Si la condition de puissance cesse pendant la confirmation, celle-ci est annulée et ne crée ou ne termine pas forcément un enregistrement.
+Une fois configurée et activée, la détection peut suivre **Confirmation de la recharge → Suivi d’un enregistrement automatique → Confirmation de la fin → En attente de détection automatique**. Si la condition de puissance cesse pendant la confirmation, celle-ci est annulée. La confirmation automatique conserve l’identité fixée du candidat, même si la sélection change. **Terminer la comptabilisation manuellement** permet de terminer un enregistrement automatique plus tôt ; pendant la confirmation de fin, utilisez **Terminer la comptabilisation maintenant**.
 
-Avant de suspendre la détection avec l’interrupteur natif **Détection de la recharge**, terminez l’enregistrement actif et attendez la fin des confirmations. Si les seuils n’ont jamais été renseignés, revenez à **Configurer le point de recharge** ; activer l’interrupteur seul ne suffit pas. Après une fin manuelle, la détection doit d’abord observer une puissance inférieure au seuil d’arrêt avant de pouvoir détecter la recharge suivante.
+Après une fin explicite, la détection attend normalement une puissance inférieure au seuil de fin. Elle peut reprendre immédiatement uniquement si la dernière mesure valide de faible puissance ne dépasse pas l’heure de la commande de fin, n’est pas plus ancienne que la durée de validité définie par **Intervalle maximal de répartition (secondes)** et n’a pas été invalidée par des données indisponibles ou un redémarrage. Une mesure élevée, absente, future ou trop ancienne ne lève pas le blocage. Après une puissance `unknown` ou indisponible, une nouvelle mesure valide sous le seuil est nécessaire. Le démarrage manuel reste possible pendant le blocage.
+
+Avant de suspendre la détection avec **Détection de la recharge**, terminez les enregistrements actifs et les confirmations. Si les seuils manquent, ouvrez **Configurer le point de recharge**.
 
 ### Consulter les détails et les modifications
 
@@ -409,7 +415,7 @@ Les icônes de marque locales sont prises en charge à partir de **Home Assistan
 | Carte introuvable | Chargez d’abord l’intégration, actualisez le frontend, puis vérifiez l’adresse dans « Ressources » et le type Module JavaScript |
 | **Aucun point de recharge accessible. Configurer Charge Tally ou vérifier les autorisations.** | Vérifiez qu’au moins un point existe et que l’utilisateur peut le lire ; les identités seules ne créent pas de point en direct |
 | Aucun enregistrement automatique | Vérifiez la source de puissance, la configuration complète de la détection, l’interrupteur activé et le respect réel des seuils et durées |
-| « Démarrer un enregistrement » indisponible | Vérifiez la source de mesure, la disponibilité de l’entité d’identité du point, et un éventuel chargement ou une réparation en cours |
+| « Démarrer la comptabilisation manuellement » indisponible | Vérifiez la source de mesure, la disponibilité de l’entité d’identité du point, et un éventuel chargement ou une réparation en cours |
 | Le changement d’identité ne modifie pas la recharge actuelle | La liste prépare l’identité suivante ; utilisez « Changer l’identité de l’enregistrement » pour corriger une recharge existante |
 | D’anciens enregistrements restent visibles avec « Aujourd’hui » | La période concerne les statistiques ; « Enregistrements · toutes les dates » n’est pas filtré par ces dates |
 | Seulement un sous-total connu, ou aucune valeur du coût natif | Vérifiez les lacunes de mesure, l’historique des prix et la devise ; consultez la qualité dans les détails et ne considérez pas le coût comme nul |

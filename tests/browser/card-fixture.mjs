@@ -25,7 +25,7 @@ export async function createCardFixture(t,config={}){
   await page.goto(`http://127.0.0.1:${server.address().port}`);
   await page.waitForFunction(()=>customElements.get('charge-tally-card'));
   await page.evaluate(config=>{
-    const snapshot={generation:1,points:[{id:'p',name:'Garage',status:'idle',active:true,available:true,selected_identity_id:'i',identity_entity_id:'select.garage',power_w:'0',current_price:'.5',quality:[]}],archived_points:[],identities:[{id:'i',name:'Family',active:true},{id:'j',name:'Guest',active:true}],timezone:'UTC',currency:'CNY'};
+    const snapshot={generation:1,points:[{id:'p',name:'Garage',status:'idle',recording_state:'idle',detection_state:'waiting',candidate_identity_id:null,detection_enabled:true,active:true,available:true,selected_identity_id:'i',identity_entity_id:'select.garage',power_w:'0',current_price:'.5',quality:[]}],archived_points:[],identities:[{id:'i',name:'Family',active:true},{id:'j',name:'Guest',active:true}],timezone:'UTC',currency:'CNY'};
     const pending=[],listeners=new Map();
     const connection={connected:true,addEventListener:(k,f)=>listeners.set(k,f),removeEventListener:k=>listeners.delete(k),subscribeMessage:async callback=>{queueMicrotask(()=>callback(snapshot));return ()=>{};}};
     const card=document.createElement('charge-tally-card');card.setConfig(config);

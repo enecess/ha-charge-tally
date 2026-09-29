@@ -1,6 +1,6 @@
-import {tr} from './card-i18n.js?v=0.1.2-4';
-import {Latest,localInput,localCandidates,errorMessage,previewRequest,commitRequest} from './card-state.js?v=0.1.2-4';
-import {el,button,field,select,input,summaryView,segmentTable,quality,dateText,updateLabels} from './card-ui.js?v=0.1.2-4';
+import {tr} from './card-i18n.js?v=0.1.2-5';
+import {Latest,localInput,localCandidates,errorMessage,previewRequest,commitRequest} from './card-state.js?v=0.1.2-5';
+import {el,button,field,select,input,summaryView,segmentTable,quality,dateText,updateLabels} from './card-ui.js?v=0.1.2-5';
 
 export class RecordDialog {
   constructor(host,options){

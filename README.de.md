@@ -131,7 +131,7 @@ Mit **Automatische Ladeerkennung** folgt **Automatische Erkennung**:
 
 Passe die Schwellen an Standby- und Ladeleistung an. Nach Bestätigung gilt rückwirkend der Beginn der erfüllten Bedingung. Kürzere Pausen bleiben im selben Eintrag. Wähle die Identität vor dem Leistungsanstieg, da sie bereits zu Beginn der Bestätigung festgehalten wird.
 
-Auch ohne Erkennung funktionieren **Eintrag starten** und **Eintrag beenden**.
+Auch ohne Erkennung funktionieren **Erfassung manuell starten** und **Erfassung beenden**.
 
 > Screenshot-Platzhalter 04: Messquellen mit Erkennung und deren Parameterdialog.
 
@@ -182,7 +182,7 @@ Unter **Einstellungen → Geräte & Dienste → Charge Tally**:
 
 Umbenennen erhält die historische Zuordnung. Ohne **Aktiviert** ist die Identität nicht mehr neu auswählbar; Historie bleibt. Auch Konfiguration löschen erhält den Verlauf; erst danach lässt sich die Identität dauerhaft über die Archivverwaltung entfernen. Deaktivieren ist kein Löschen.
 
-Beende vor Änderungen an Messung oder Erkennung den Eintrag und warte, bis **Start wird bestätigt / Ende wird bestätigt** endet. Preisänderungen gelten ab Änderung und berechnen erfasste Beträge nicht neu. Beende Einträge auch vor dem Löschen eines Punkts: Konfiguration löschen beendet laufende Erfassung nicht automatisch.
+Beende vor Änderungen an Messung oder Erkennung den Eintrag und warte, bis **Laden wird bestätigt / Ende wird bestätigt** endet. Preisänderungen gelten ab Änderung und berechnen erfasste Beträge nicht neu. Beende Einträge auch vor dem Löschen eines Punkts: Konfiguration löschen beendet laufende Erfassung nicht automatisch.
 
 > Screenshot-Platzhalter 07: Gemeinsame Identität und getrennte Konfigurationseinstiege.
 
@@ -213,7 +213,7 @@ Falls nötig, öffne im Menü unter **Einstellungen → Dashboards** die **Resso
 
 | Feld | Inhalt |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-4` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-5` |
 | Ressourcentyp | **JavaScript-Modul** |
 
 Aktualisiere vorhandene Ressourcen mit demselben Pfad, statt sie doppelt anzulegen. Bei YAML-Ressourcenverwaltung trage dieselbe Adresse als Modul ein. Installiere keine zweite Karte. Siehe [HA-Dashboard-Dokumentation](https://www.home-assistant.io/dashboards/dashboards/).
@@ -228,6 +228,10 @@ Neben dem Titel steht **Verbunden** oder **Verbindung getrennt · aktuelle Momen
 
 ### Live-Bereich des Ladepunkts
 
+Der Bereich zeigt Erfassung, **Leistung** und **Erkennung** getrennt. **Keine Erfassung**, **Manuelle Erfassung läuft** und **Automatische Erfassung läuft** beschreiben den Eintrag; ein aktiver Eintrag bedeutet nicht, dass der Lader gerade Strom bezieht. Die Erkennung zeigt separat Warten, Bestätigung, Pause während manueller Erfassung, fehlende Daten oder Warten auf Leistungsabfall.
+
+Während der Startbestätigung zeigt **Festgelegte Identität für den automatischen Eintrag** die beim Beginn der Bestätigung gespeicherte Zuordnung. **Identität für nächsten / manuellen Eintrag** gilt für den nächsten automatischen Eintrag oder einen sofortigen manuellen Start. Sie ändert weder die festgelegte Kandidatenidentität noch den aktiven Eintrag.
+
 Jeder aktuelle Punkt zeigt Name, Status, **Leistung**, **Aktueller Preis** und **Erkennung**. Fehlende Leistung oder Preise können leer sein. **Erkennung** ist hier eine Anzeige; ändere Einstellungen in der Punktkonfiguration oder über den nativen Schalter **Ladeerkennung**.
 
 | Anzeige | Bedeutung |
@@ -235,10 +239,10 @@ Jeder aktuelle Punkt zeigt Name, Status, **Leistung**, **Aktueller Preis** und *
 | **Ausgewählte Identität** | Ohne aktiven Eintrag: Identität der nächsten Ladung |
 | **Dieser Eintrag** | Bereits zugeordnete Identität des aktiven Eintrags |
 | **Identität für den nächsten Eintrag** | Nächste Zuordnung vorbereiten, ohne den laufenden Eintrag zu ändern |
-| **Aktueller Eintrag · vorläufig** | Energie, Kosten, Beginn, Dauer und Qualität des laufenden Eintrags |
+| **Erfassung läuft · Bisherige Summe** | Energie, Kosten, Beginn, Dauer und Qualität des laufenden Eintrags |
 | **Details** | Aktuellen Eintrag öffnen |
 | **Identität des Eintrags ändern** | Aktuelle Zuordnung korrigieren |
-| **Eintrag starten / Eintrag beenden** | Erfassung zum aktuellen Zeitpunkt |
+| **Erfassung manuell starten / Erfassung beenden** | Erfassung zum aktuellen Zeitpunkt |
 
 > Screenshot-Platzhalter 09: Laufender Eintrag mit aktueller/nächster Identität und vorläufigen Kosten.
 
@@ -262,17 +266,19 @@ Nur Punkt- und Identitätsfilter gelten: **Der Statistikzeitraum schränkt die L
 
 ### Manuell starten und beenden
 
-1. Wähle am Punkt die **Ausgewählte Identität**.
-2. Wähle **Eintrag starten** und prüfe **Aktueller Eintrag · vorläufig**.
-3. Wähle am Ende **Eintrag beenden** und prüfe den Eintrag in der Liste.
+1. Wähle die Identität und **Erfassung manuell starten**; während der Startbestätigung heißt der Knopf **Erfassung jetzt starten**.
+2. Prüfe **Manuelle Erfassung läuft** und die aktuellen Summen. Ein sofortiger manueller Start verwendet die aktuell ausgewählte Identität und verwirft den automatischen Kandidaten.
+3. Wähle **Erfassung beenden** und prüfe den Eintrag in der Liste.
 
-Die Knöpfe erfassen Zeitpunkte und schalten den Lader nicht. Manuell gestartete Einträge müssen manuell oder per Automation beendet werden, auch bei eingerichteter automatischer Erkennung.
+Die Knöpfe erfassen Zeitpunkte und schalten den Lader nicht. Ein manuell gestarteter Eintrag muss über die Karte oder eine Automationsaktion ausdrücklich beendet werden. Die automatische Erkennung pausiert währenddessen und beendet ihn auch bei null Leistung nicht. Zum Start ist ein gültiger Energie-Ausgangswert erforderlich; ein bestehender Eintrag kann auch bei fehlenden Messdaten beendet werden.
 
 ### Laden automatisch erkennen
 
-Bei aktivierter Erkennung ist die Folge **Start wird bestätigt → Lädt → Ende wird bestätigt → Kein aktiver Eintrag** möglich. Entfällt während der Bestätigung die Leistungsbedingung, wird der Kandidat verworfen; es entsteht oder endet dann möglicherweise kein Eintrag.
+Bei eingerichteter und aktivierter Erkennung ist die Folge **Laden wird bestätigt → Automatischer Eintrag wird erfasst → Ende wird bestätigt → Warten auf automatische Erkennung** möglich. Entfällt während der Bestätigung die Leistungsbedingung, wird die ausstehende Bestätigung verworfen. Die automatische Bestätigung verwendet die festgelegte Kandidatenidentität, auch nach einer Änderung der Auswahl. Mit **Erfassung manuell beenden** kannst du einen automatischen Eintrag vorzeitig beenden; während der Endbestätigung heißt der Knopf **Erfassung jetzt beenden**.
 
-Beende vor dem Pausieren mit **Ladeerkennung** aktive Einträge und offene Bestätigungen. Fehlen Schwellenwerte, ergänze sie unter **Ladepunkt konfigurieren**; Einschalten allein genügt nicht. Nach manuellem Beenden muss die Leistung zuerst unter die Endschwelle fallen, bevor ein neuer Ladevorgang erkannt werden kann.
+Nach ausdrücklichem Beenden wartet die Erkennung normalerweise auf Leistung unter der Endschwelle. Sie kann sofort fortfahren, wenn die letzte gültige niedrige Leistungsmessung nicht nach dem Endbefehl liegt, nicht älter als die unter **Maximales Zuordnungsintervall (Sekunden)** eingestellte Gültigkeitsdauer ist und weder fehlende Daten noch ein Neustart sie ungültig gemacht haben. Hohe, fehlende, zukünftige oder veraltete Messwerte lösen die Sperre nicht. Nach `unknown` oder nicht verfügbarer Leistung ist eine neue gültige Messung unter der Endschwelle nötig. Während der Sperre bleibt manuelles Starten möglich.
+
+Beende vor dem Pausieren mit **Ladeerkennung** aktive Einträge und offene Bestätigungen. Fehlen Schwellenwerte, ergänze sie unter **Ladepunkt konfigurieren**.
 
 ### Details und Revisionen ansehen
 
@@ -409,7 +415,7 @@ Lokale Markenbilder werden ab **Home Assistant 2026.3** unterstützt. Die Symbol
 | Karte fehlt | Integration laden, Frontend aktualisieren, Ressourcenadresse und JavaScript-Modul prüfen |
 | **Keine zugänglichen Ladepunkte. Charge Tally konfigurieren oder Berechtigungen prüfen.** | Mindestens einen Punkt und Leserechte sicherstellen; Identitäten allein erzeugen keinen Live-Punkt |
 | Keine automatischen Einträge | Leistungsquelle, vollständige Erkennung, Schalter, Schwellen und Bestätigungsdauer prüfen |
-| „Eintrag starten“ nicht verfügbar | Messquelle, Identitätsentität und Lade-/Reparaturzustand prüfen |
+| „Erfassung manuell starten“ nicht verfügbar | Messquelle, Identitätsentität und Lade-/Reparaturzustand prüfen |
 | Identitätsauswahl ändert laufenden Eintrag nicht | Auswahl gilt für den nächsten; für bestehende „Identität des Eintrags ändern“ nutzen |
 | Alte Einträge trotz „Heute“ | Statistikzeitraum gilt nicht für „Einträge · alle Zeiträume“ |
 | Nur bekannte Kosten oder leere native Kostenentität | Messlücken, Preisverlauf, Währung und Qualität in Details prüfen; nicht kostenlos |

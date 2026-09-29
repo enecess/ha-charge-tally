@@ -1,7 +1,7 @@
-import {ChartView} from './card-chart.js?v=0.1.2-4';
-import {SelectControl} from './card-controls.js?v=0.1.2-4';
-import {el,button,field,input,summaryView,quality,dateText} from './card-ui.js?v=0.1.2-4';
-import {formatDecimal,formatCost,errorMessage} from './card-state.js?v=0.1.2-4';
+import {ChartView} from './card-chart.js?v=0.1.2-5';
+import {SelectControl} from './card-controls.js?v=0.1.2-5';
+import {el,button,field,input,summaryView,quality,dateText} from './card-ui.js?v=0.1.2-5';
+import {formatDecimal,formatCost,errorMessage} from './card-state.js?v=0.1.2-5';
 
 const text=(node,value)=>{if(node.textContent!==String(value))node.textContent=value;};
 const label=(control,value)=>text(control.label.firstChild,value);
@@ -40,16 +40,23 @@ export class CardView {
   }
   createPoint(id){
     const c=this.card,node=el('article',null,{class:'point','data-point-id':id}),head=el('div',null,{class:'row spread'}),name=el('h3'),status=el('span',null,{class:'badge'});head.append(name,status);
-    const measurements=el('div',null,{class:'row muted'}),message=el('p',null,{class:'quality'}),select=selector(value=>c.selectIdentity(id,value)),summary=el('div',null,{class:'spaced stack'}),actions=el('div',null,{class:'row spaced'});
+    const detection=el('p',null,{class:'muted'}),candidate=el('p'),hint=el('small'),measurements=el('div',null,{class:'row muted'}),message=el('p',null,{class:'quality'}),select=selector(value=>c.selectIdentity(id,value)),summary=el('div',null,{class:'spaced stack'}),actions=el('div',null,{class:'row spaced'});
     const current=()=>c.snapshot?.points.find(p=>p.id===id);
-    const details=button('',()=>{const p=current();if(p?.active_record)c.details(p.active_record);}),reassign=button('',()=>{const p=current();if(p?.active_record)c.openDialog('reassign',{record:p.active_record});}),live=button('',()=>{const p=current();if(p)c.live(p.active_record?'end':'start',p);},false,'primary');actions.append(details,reassign,live);node.append(head,measurements,message,select.label,summary,actions);return {node,name,status,measurements,message,select,summary,details,reassign,live};
+    const details=button('',()=>{const p=current();if(p?.active_record)c.details(p.active_record);}),reassign=button('',()=>{const p=current();if(p?.active_record)c.openDialog('reassign',{record:p.active_record});}),live=button('',()=>{const p=current();if(p)c.live(p.active_record?'end':'start',p);},false,'primary');actions.append(details,reassign,live);node.append(head,detection,measurements,message,candidate,hint,select.label,summary,actions);return {node,name,status,detection,candidate,hint,measurements,message,select,summary,details,reassign,live};
   }
   updatePoint(v,p,online){
-    const c=this.card,t=key=>c.t(key),active=p.active_record;text(v.name,p.name);text(v.status,t(p.status));text(v.measurements,`${t('power')}: ${formatDecimal(p.power_w,c.language)} W · ${t('price')}: ${formatDecimal(p.current_price,c.language,4)} ${c.snapshot.currency}/kWh · ${t('detector')}: ${t(p.detection_enabled?'enabled':'disabled')}`);text(v.message,[p.error,quality(p.quality,c.language)].filter(Boolean).join(' · '));v.message.hidden=!v.message.textContent;
+    const c=this.card,t=key=>c.t(key),active=p.active_record;
+    const recording=p.recording_state??(active?(active.source==='automatic'?'automatic':'manual'):'idle');
+    const detection=p.detection_state??(!p.detection_enabled?'disabled':recording==='manual'?'paused_manual':p.status==='idle'?'waiting':p.status);
+    const detectionKey={disabled:'detectionDisabled',waiting:'detectionWaiting',paused_manual:'detectionPausedManual',blocked:'detectionBlocked',unavailable:'detectionUnavailable',charging:'detectionCharging',pending_start:'pending_start',pending_end:'pending_end'}[detection]||'detectionUnavailable';
+    text(v.name,p.name);text(v.status,t({idle:'recordingIdle',manual:'recordingManual',automatic:'recordingAutomatic'}[recording]||'recordingIdle'));
+    text(v.detection,`${t('detector')}: ${t(detectionKey)}`);
+    const pending=detection==='pending_start';v.candidate.hidden=!pending;text(v.candidate,pending?`${t('candidateIdentity')}: ${c.identityName(p.candidate_identity_id)}`:'');
+    v.hint.hidden=recording!=='manual'&&!pending;text(v.hint,recording==='manual'?t('manualEndRequired'):pending?t('candidateHint'):'');text(v.measurements,`${t('power')}: ${formatDecimal(p.power_w,c.language)} W · ${t('price')}: ${formatDecimal(p.current_price,c.language,4)} ${c.snapshot.currency}/kWh`);text(v.message,[p.error,quality(p.quality,c.language)].filter(Boolean).join(' · '));v.message.hidden=!v.message.textContent;
     const selected=c.pendingSelections.get(p.id)?.identityId??p.selected_identity_id;
-    v.select.update({options:c.snapshot.identities.filter(i=>i.active!==false),value:selected,disabled:!online||!!c.busy||!c.canSelect(p)||!!c.pendingSelections.get(p.id)});label(v.select,t(active?'next':'selected'));
-    if(active)v.summary.replaceChildren(el('strong',`${t('current')}: ${c.identityName(active.identity_id)}`),summaryView(active,c.snapshot.currency,c.language),el('small',`${t('began')}: ${dateText(active.start,active.timezone)} (${active.timezone}) · ${t('duration')}: ${Math.max(0,Math.floor((Date.now()-Date.parse(active.start))/60000))} min`));else text(v.summary,t('idle'));
-    v.details.hidden=v.reassign.hidden=!active;text(v.details,t('details'));text(v.reassign,t('reassign'));text(v.live,t(active?'end':'start'));v.details.disabled=v.reassign.disabled=!online||!!c.busy;v.live.disabled=!online||!!c.busy||!p.identity_entity_id||(!active&&!p.available);
+    v.select.update({options:c.snapshot.identities.filter(i=>i.active!==false),value:selected,disabled:!online||!!c.busy||!c.canSelect(p)||!!c.pendingSelections.get(p.id)});label(v.select,t(pending?'nextManualIdentity':active?'next':'selected'));
+    if(active)v.summary.replaceChildren(el('strong',`${t('current')}: ${c.identityName(active.identity_id)}`),summaryView(active,c.snapshot.currency,c.language),el('small',`${t('began')}: ${dateText(active.start,active.timezone)} (${active.timezone}) · ${t('duration')}: ${Math.max(0,Math.floor((Date.now()-Date.parse(active.start))/60000))} min`));else text(v.summary,'');
+    v.details.hidden=v.reassign.hidden=!active;text(v.details,t('details'));text(v.reassign,t('reassign'));text(v.live,t(active?(recording==='manual'?'end':detection==='pending_end'?'endNow':'endAutomatic'):pending?'startNow':'startManual'));v.details.disabled=v.reassign.disabled=!online||!!c.busy;v.live.disabled=!online||!!c.busy||!p.identity_entity_id||(!active&&(!p.available||c.pendingSelections.has(p.id)));
   }
   updateChart(){
     const c=this.card;this.chart.hidden=c.config.show_chart===false||!c.summary;

@@ -131,7 +131,7 @@ Po włączeniu **Automatyczne wykrywanie ładowania** otwiera się **Automatyczn
 
 Dostosuj progi do rzeczywistej mocy czuwania i ładowania. Po potwierdzeniu czas wpisu jest cofany do początku spełnienia warunku. Krótsze przerwy pozostają częścią tego samego wpisu. Wybierz tożsamość przed wzrostem mocy, ponieważ zapamiętywana jest już przy rozpoczęciu potwierdzania.
 
-Bez wykrywania nadal działają **Rozpocznij wpis** i **Zakończ wpis**.
+Bez wykrywania nadal działają **Rozpocznij rejestrowanie ręcznie** i **Zakończ rejestrowanie**.
 
 > Miejsce na zrzut ekranu 04: Źródła pomiarów, wykrywanie i okno parametrów.
 
@@ -182,7 +182,7 @@ W **Ustawienia → Urządzenia oraz usługi → Charge Tally** dostępne są:
 
 Zmiana nazwy zachowuje przypisanie historii. Wyłączenie **Włączona** uniemożliwia nowe wybieranie tożsamości, ale zachowuje historię. Usunięcie konfiguracji również pozostawia historię; dopiero potem można trwale usunąć tożsamość przez archiwum. Wyłączenie i usunięcie konfiguracji to różne operacje.
 
-Przed zmianą pomiaru lub wykrywania zakończ wpis i poczekaj, aż zakończy się **Potwierdzanie rozpoczęcia / Potwierdzanie zakończenia**. Zmiana ceny działa od chwili zmiany, bez przeliczania zapisanych kwot. Przed usunięciem punktu także zakończ wpis: usunięcie konfiguracji nie rozlicza automatycznie trwającego ładowania.
+Przed zmianą pomiaru lub wykrywania zakończ wpis i poczekaj, aż zakończy się **Potwierdzanie ładowania / Potwierdzanie zakończenia**. Zmiana ceny działa od chwili zmiany, bez przeliczania zapisanych kwot. Przed usunięciem punktu także zakończ wpis: usunięcie konfiguracji nie rozlicza automatycznie trwającego ładowania.
 
 > Miejsce na zrzut ekranu 07: Tożsamość współdzielona i osobne wejścia konfiguracji.
 
@@ -213,7 +213,7 @@ Jeśli potrzebna jest rejestracja ręczna, w menu **Ustawienia → Pulpity** otw
 
 | Pole | Wartość |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-4` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-5` |
 | Typ zasobu | **Moduł JavaScript** |
 
 Istniejący zasób z tą samą ścieżką zaktualizuj, zamiast dodawać duplikat. Przy zarządzaniu zasobami w YAML wpisz tam tę samą ścieżkę i typ modułu. Nie instaluj drugiej kopii karty. Zobacz [dokumentację pulpitów HA](https://www.home-assistant.io/dashboards/dashboards/).
@@ -228,6 +228,10 @@ Obok tytułu widnieje **Połączono** albo **Rozłączono · oczekiwanie na aktu
 
 ### Bieżący panel punktu
 
+Panel pokazuje oddzielnie stan rejestrowania, **Moc** i **Wykrywanie**. **Brak rejestrowania**, **Rejestrowanie ręczne w toku** i **Rejestrowanie automatyczne w toku** opisują wpis; aktywny wpis nie oznacza, że ładowarka pobiera prąd. Wykrywanie osobno sygnalizuje oczekiwanie, potwierdzanie, wstrzymanie na czas ręcznego wpisu, brak danych lub oczekiwanie na spadek mocy.
+
+Podczas potwierdzania rozpoczęcia **Ustalona tożsamość wpisu automatycznego** pokazuje przypisanie zapamiętane na początku potwierdzania. **Tożsamość następnego / ręcznego wpisu** służy do kolejnego wpisu automatycznego lub natychmiastowego rozpoczęcia ręcznego; nie zmienia ustalonej tożsamości kandydata ani aktywnego wpisu.
+
 Każdy bieżący punkt pokazuje nazwę, stan, **Moc**, **Bieżąca cena** i **Wykrywanie**. Niedostępna moc lub cena może być pusta. **Wykrywanie** na karcie jest wskaźnikiem; zmieniaj je przez konfigurację punktu lub natywny przełącznik **Wykrywanie ładowania**.
 
 | Element | Znaczenie |
@@ -235,10 +239,10 @@ Każdy bieżący punkt pokazuje nazwę, stan, **Moc**, **Bieżąca cena** i **Wy
 | **Wybrana tożsamość** | Bez aktywnego wpisu: przypisanie następnego ładowania |
 | **Ten wpis** | Tożsamość już przypisana do aktywnego wpisu |
 | **Tożsamość następnego wpisu** | Przygotowanie kolejnego przypisania bez zmiany bieżącego |
-| **Bieżący wpis · dane wstępne** | Energia, koszt, początek, czas trwania i jakość bieżącego wpisu |
+| **Rejestrowanie w toku · Bieżąca suma** | Energia, koszt, początek, czas trwania i jakość bieżącego wpisu |
 | **Szczegóły** | Otwiera bieżący wpis |
 | **Zmień tożsamość wpisu** | Koryguje bieżące przypisanie |
-| **Rozpocznij wpis / Zakończ wpis** | Rejestruje początek lub koniec w bieżącej chwili |
+| **Rozpocznij rejestrowanie ręcznie / Zakończ rejestrowanie** | Rejestruje początek lub koniec w bieżącej chwili |
 
 > Miejsce na zrzut ekranu 09: Trwające ładowanie, bieżąca/następna tożsamość i wstępne koszty.
 
@@ -262,17 +266,19 @@ Działają tylko filtry punktu i tożsamości: **Daty statystyk nie filtrują te
 
 ### Ręczne rozpoczęcie i zakończenie
 
-1. Wybierz w punkcie **Wybrana tożsamość**.
-2. Kliknij **Rozpocznij wpis** i sprawdź **Bieżący wpis · dane wstępne**.
-3. Na końcu kliknij **Zakończ wpis** i sprawdź wpis na liście.
+1. Wybierz tożsamość i **Rozpocznij rejestrowanie ręcznie**; podczas potwierdzania rozpoczęcia użyj **Rozpocznij rejestrowanie teraz**.
+2. Sprawdź **Rejestrowanie ręczne w toku** i bieżące sumy. Natychmiastowe rozpoczęcie ręczne używa aktualnie wybranej tożsamości i usuwa kandydata automatycznego.
+3. Kliknij **Zakończ rejestrowanie** i sprawdź wpis na liście.
 
-Przyciski rejestrują czas i nie włączają ani nie wyłączają ładowarki. Wpis rozpoczęty ręcznie należy zakończyć ręcznie lub automatyzacją, nawet przy skonfigurowanym automatycznym wykrywaniu.
+Przyciski rejestrują czas i nie sterują ładowarką. Ręcznie rozpoczęty wpis trzeba jawnie zakończyć na karcie lub akcją automatyzacji. Automatyczne wykrywanie jest w tym czasie wstrzymane i nigdy nie kończy takiego wpisu, nawet przy zerowej mocy. Rozpoczęcie wymaga prawidłowego początkowego odczytu energii; istniejący wpis można zakończyć także przy niedostępnych pomiarach.
 
 ### Automatyczne wykrywanie ładowania
 
-Możliwa sekwencja to **Potwierdzanie rozpoczęcia → Ładowanie → Potwierdzanie zakończenia → Brak aktywnego wpisu**. Gdy podczas potwierdzania warunek mocy przestaje być spełniony, kandydat jest anulowany; wpis może nie powstać lub się nie zakończyć.
+Po skonfigurowaniu i włączeniu wykrywania możliwa jest sekwencja **Potwierdzanie ładowania → Śledzenie wpisu automatycznego → Potwierdzanie zakończenia → Oczekiwanie na automatyczne wykrycie**. Gdy warunek mocy przestaje być spełniony, trwające potwierdzanie jest anulowane. Potwierdzenie automatyczne używa ustalonej tożsamości kandydata, nawet po zmianie wyboru. Wpis automatyczny można zakończyć wcześniej przez **Zakończ rejestrowanie ręcznie**, a podczas potwierdzania zakończenia przez **Zakończ rejestrowanie teraz**.
 
-Przed wstrzymaniem przez **Wykrywanie ładowania** zakończ aktywne wpisy i poczekaj na koniec potwierdzania. Jeśli nie ustawiono progów, uzupełnij je w **Skonfiguruj punkt ładowania**; sam przełącznik nie wystarczy. Po ręcznym zakończeniu moc musi najpierw spaść poniżej progu zakończenia, zanim wykrywanie rozpocznie następne ładowanie.
+Po jawnym zakończeniu wykrywanie zwykle czeka na moc poniżej progu zakończenia. Może wznowić się od razu tylko wtedy, gdy ostatni prawidłowy odczyt niskiej mocy nie jest późniejszy od polecenia zakończenia, jego wiek nie przekracza czasu ważności ustawionego w **Maksymalny interwał przypisywania (sekundy)** i nie został unieważniony przez niedostępność danych lub ponowne uruchomienie. Wysokie, brakujące, przyszłe lub nieaktualne odczyty nie usuwają blokady. Po stanie mocy `unknown` lub niedostępności potrzebny jest kolejny prawidłowy odczyt poniżej progu. Podczas blokady nadal można rozpocząć wpis ręcznie.
+
+Przed wstrzymaniem przez **Wykrywanie ładowania** zakończ aktywne wpisy i potwierdzanie. Jeśli brakuje progów, uzupełnij je w **Skonfiguruj punkt ładowania**.
 
 ### Szczegóły i historia zmian
 
@@ -409,7 +415,7 @@ Lokalne obrazy marki są obsługiwane od **Home Assistant 2026.3**. Wyświetlani
 | Brak karty | Załaduj integrację, odśwież interfejs, sprawdź adres zasobu i moduł JavaScript |
 | **Brak dostępnych punktów ładowania. Skonfiguruj Charge Tally lub sprawdź uprawnienia.** | Zapewnij punkt i uprawnienia odczytu; same tożsamości nie tworzą panelu punktu |
 | Brak automatycznych wpisów | Sprawdź źródło mocy, pełną konfigurację wykrywania, przełącznik, progi i czas potwierdzenia |
-| „Rozpocznij wpis” niedostępne | Sprawdź źródło pomiaru, encję tożsamości i stan ładowania/naprawy integracji |
+| „Rozpocznij rejestrowanie ręcznie” niedostępne | Sprawdź źródło pomiaru, encję tożsamości i stan ładowania/naprawy integracji |
 | Wybór tożsamości nie zmienia aktywnego wpisu | Wybór dotyczy następnego; użyj „Zmień tożsamość wpisu” dla istniejącego |
 | Stare wpisy przy „Dzisiaj” | Daty statystyk nie filtrują „Wpisy · wszystkie daty” |
 | Tylko znany koszt częściowy lub pusta encja kosztu | Sprawdź luki pomiarów, historię cen, walutę i jakość w szczegółach; nie oznacza to bezpłatnego ładowania |

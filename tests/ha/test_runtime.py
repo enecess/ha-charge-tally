@@ -482,3 +482,121 @@ async def test_snapshot_failure_rolls_back_without_publication_and_next_reading_
     intervals = await runtime._read(runtime._store.ledger.list_intervals, "point")
     assert len(intervals) == 1
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.parametrize("public", [False, True])
+@pytest.mark.parametrize("live_power", ["1000", "unavailable"])
+async def test_end_checks_live_power_before_queued_change(
+    hass, tmp_path, freezer, live_power, monkeypatch, public
+):
+    entry, runtime = await setup_runtime(
+        hass,
+        tmp_path,
+        detection={
+            "enabled": True,
+            "start_w": "500",
+            "end_w": "100",
+            "start_seconds": 30,
+            "end_seconds": 60,
+        },
+    )
+    record = await runtime.async_command(
+        "start", {"point_id": "point", "request_id": "manual"}
+    )
+    await tick(hass, freezer, 1)
+    hass.states.async_set("sensor.power", "0", POWER, force_update=True)
+    await hass.async_block_till_done()
+    await tick(hass, freezer, 1)
+    release = asyncio.Event()
+    handle = runtime._handle_observation
+
+    async def delayed(point_id, role, data):
+        if role == "power":
+            await release.wait()
+        await handle(point_id, role, data)
+
+    monkeypatch.setattr(runtime, "_handle_observation", delayed)
+    hass.states.async_set("sensor.power", live_power, POWER)
+    try:
+        payload = {"record_id": record["id"], "request_id": "end"}
+        if public:
+            await runtime.async_public_command(
+                "end",
+                {
+                    **payload,
+                    "point_id": "point",
+                    "expected_revision": record["revision"],
+                },
+                "admin",
+                lambda: None,
+            )
+        else:
+            await runtime.async_command("end", payload)
+        blocked = runtime.snapshot["points"][0]["detection_state"]
+    finally:
+        release.set()
+    await hass.async_block_till_done()
+    assert blocked == "blocked"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_manual_takeover_cancels_timer_then_low_end_allows_next_cycle(
+    hass, tmp_path, freezer
+):
+    entry, runtime = await setup_runtime(
+        hass,
+        tmp_path,
+        detection={
+            "enabled": True,
+            "start_w": "500",
+            "end_w": "100",
+            "start_seconds": 30,
+            "end_seconds": 60,
+        },
+    )
+    hass.states.async_set("sensor.power", "1000", POWER)
+    await hass.async_block_till_done()
+    assert "point" in runtime._timers
+    record = await runtime.async_command(
+        "start", {"point_id": "point", "request_id": "manual"}
+    )
+    assert runtime._timers == {}
+    await tick(hass, freezer, 31)
+    assert runtime.snapshot["points"][0]["active_record"]["source"] == "manual"
+    hass.states.async_set("sensor.power", "0", POWER)
+    await hass.async_block_till_done()
+    await tick(hass, freezer, 1)
+    await runtime.async_command("end", {"record_id": record["id"], "request_id": "end"})
+    assert runtime.snapshot["points"][0]["detection_state"] == "waiting"
+    hass.states.async_set("sensor.power", "1000", POWER)
+    await hass.async_block_till_done()
+    await tick(hass, freezer, 31)
+    assert runtime.snapshot["points"][0]["active_record"]["source"] == "automatic"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_initial_observations_do_not_refresh_old_low_evidence(
+    hass, tmp_path, freezer
+):
+    entry, runtime = await setup_runtime(
+        hass,
+        tmp_path,
+        detection={
+            "enabled": True,
+            "start_w": "500",
+            "end_w": "100",
+            "start_seconds": 30,
+            "end_seconds": 60,
+        },
+    )
+    record = await runtime.async_command(
+        "start", {"point_id": "point", "request_id": "manual"}
+    )
+    await tick(hass, freezer, 1)
+    hass.states.async_set("sensor.power", "0", POWER, force_update=True)
+    await hass.async_block_till_done()
+    await tick(hass, freezer, 601)
+    await runtime._initial_observations({("point", "power")})
+    await runtime.async_command("end", {"record_id": record["id"], "request_id": "end"})
+    assert runtime.snapshot["points"][0]["detection_state"] == "blocked"
+    assert await hass.config_entries.async_unload(entry.entry_id)

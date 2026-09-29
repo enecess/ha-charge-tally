@@ -154,10 +154,10 @@ globalThis.document={createElement:tag=>{const node=new TestNode();node.tagName=
 globalThis.window={customCards:[]};
 globalThis.customElements={get:()=>undefined,define:()=>{}};
 const {ChargeTallyCard}=await import('../../custom_components/charge_tally/www/charge-tally-card.js');
-const {RecordDialog}=await import('../../custom_components/charge_tally/www/card-dialog.js?v=0.1.2-4');
-const {ChargeTallyEditor}=await import('../../custom_components/charge_tally/www/card-editor.js?v=0.1.2-4');
+const {RecordDialog}=await import('../../custom_components/charge_tally/www/card-dialog.js?v=0.1.2-5');
+const {ChargeTallyEditor}=await import('../../custom_components/charge_tally/www/card-editor.js?v=0.1.2-5');
 const state=await import('../../custom_components/charge_tally/www/card-state.js');
-const {summaryView,segmentTable}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.2-4');
+const {summaryView,segmentTable}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.2-5');
 
 const visibleText=node=>[node.textContent||'',...(node.children||[]).map(visibleText)].join(' ');
 test('revision history keeps a deleted identity name without restoring its selector entry',()=>{
@@ -265,4 +265,25 @@ test('total chart refresh uses the unified query with identity filter', () => {
   card._hass={connection:{connected:true},callWS:request=>{requests.push(request);return Promise.resolve({buckets:[]});}};
   card.refresh();
   assert.deepEqual(requests,[{type:'charge_tally/query',identity_id:'i',calendar_period:'total'}]);
+});
+
+test('manual start explicitly uses selected identity rather than locked automatic candidate',()=>{
+  const point={id:'p',identity_entity_id:'select.p',available:true,selected_identity_id:'j',candidate_identity_id:'i',recording_state:'idle',detection_state:'pending_start'};
+  assert.deepEqual(liveRequest('start',point,'op').service_data,{point_id:'p',identity_id:'j',request_id:'op'});
+});
+
+test('unconfirmed manual start retains original identity while a changed selection creates a new intent',async()=>{
+  const sent=[];
+  const card=controller(async request=>{sent.push(structuredClone(request));throw new Error('Response lost');});
+  const point={id:'p',identity_entity_id:'select.p',available:true,selected_identity_id:'i',candidate_identity_id:'candidate'};
+  card.live('start',point);await tick();
+  const original=card.pendingLive.request;
+  point.selected_identity_id='j';
+  assert.equal(original.service_data.identity_id,'i');
+  card.live('start',{...point,selected_identity_id:'i'});await tick();
+  assert.deepEqual(sent[1],sent[0]);
+  card.live('start',point);await tick();
+  assert.equal(sent[2].service_data.identity_id,'j');
+  assert.notEqual(sent[2].service_data.request_id,sent[0].service_data.request_id);
+  assert.equal(original.service_data.identity_id,'i');
 });
