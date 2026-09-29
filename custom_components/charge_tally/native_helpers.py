@@ -1,12 +1,16 @@
 """Own native Integral/Utility Meter entries without borrowing their internals."""
+
 import asyncio
 from copy import deepcopy
 from uuid import uuid4
 
-from homeassistant.config_entries import ConfigEntryState
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
+from homeassistant.util.json import load_json
 
 from .const import DOMAIN, PERIODS
 
@@ -26,24 +30,46 @@ class NativeHelpers:
     before creation. It recovers the ownership-save crash window without adopting
     same-name helpers. Native sensor unique IDs remain the helper entry IDs.
     """
-    def __init__(self, hass, entry):
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.hass = hass
         self.entry = entry
-        self._store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.helpers", atomic_writes=True)
+        self._store = Store(
+            hass, 1, f"{DOMAIN}.{entry.entry_id}.helpers", atomic_writes=True
+        )
         self._shared = hass.data.setdefault(f"{DOMAIN}_native_helpers", {}).setdefault(
-            entry.entry_id, {"lock": asyncio.Lock(), "loaded": False, "points": {}},
+            entry.entry_id,
+            {"lock": asyncio.Lock(), "loaded": False, "points": {}},
         )
 
-    async def _load(self):
+    async def _load(self) -> None:
         if not self._shared["loaded"]:
             data = await self._store.async_load()
             self._shared["points"] = data.get("points", {}) if data else {}
             self._shared["loaded"] = True
 
-    async def _save(self):
-        await self._store.async_save({"points": deepcopy(self._shared["points"])})
+    async def _save(self) -> None:
+        data = {"points": deepcopy(self._shared["points"])}
+        await self._store.async_save(data)
+        # Store logs some write failures without raising. Read the file directly;
+        # async_load may return cached data and cannot acknowledge persistence.
+        try:
+            persisted = await self.hass.async_add_executor_job(
+                load_json, self._store.path
+            )
+        except HomeAssistantError as err:
+            raise HelperSetupError("helper_storage_save_failed") from err
+        if persisted != {
+            "version": self._store.version,
+            "minor_version": self._store.minor_version,
+            "key": self._store.key,
+            "data": data,
+        }:
+            raise HelperSetupError("helper_storage_save_failed")
 
-    async def async_ensure(self, point_id: str, point: dict, source_entity_id: str | None = None) -> dict:
+    async def async_ensure(
+        self, point_id: str, point: dict, source_entity_id: str | None = None
+    ) -> dict:
         """Ensure Integral first; meters wait for runtime's normalized sensor ID."""
         async with self._shared["lock"]:
             await self._load()
@@ -65,8 +91,14 @@ class NativeHelpers:
             unit = state.attributes.get("unit_of_measurement") if state else None
             if unit not in ("W", "kW"):
                 raise HelperSetupError("invalid_power_source")
-            payload = {"name": f"{point['name']} integral", "source": point["power_entity"],
-                       "method": "left", "unit_time": "h", "max_sub_interval": {"seconds": 60}, "round": 6}
+            payload = {
+                "name": f"{point['name']} integral",
+                "source": point["power_entity"],
+                "method": "left",
+                "unit_time": "h",
+                "max_sub_interval": {"seconds": 60},
+                "round": 6,
+            }
             if unit == "W":
                 payload["unit_prefix"] = "k"
             desired["integral"] = ("integration", payload)
@@ -76,19 +108,34 @@ class NativeHelpers:
         for period in periods:
             role = f"utility_{period}"
             if source_entity_id is not None:
-                desired[role] = ("utility_meter", {
-                    "name": f"{point['name']} {period}", "source": source_entity_id, "cycle": period,
-                    "offset": 0, "tariffs": [], "net_consumption": False, "delta_values": False,
-                    "periodically_resetting": False, "always_available": False,
-                })
+                desired[role] = (
+                    "utility_meter",
+                    {
+                        "name": f"{point['name']} {period}",
+                        "source": source_entity_id,
+                        "cycle": period,
+                        "offset": 0,
+                        "tariffs": [],
+                        "net_consumption": False,
+                        "delta_values": False,
+                        "periodically_resetting": False,
+                        "always_available": False,
+                    },
+                )
             elif role in record["roles"]:
                 owned = record["roles"][role]
                 desired[role] = (owned["domain"], owned["payload"])
         for role in list(record["roles"]):
             owned = record["roles"][role]
             # Names may change without replacing measurement history.
-            old_payload = {key: value for key, value in owned["payload"].items() if key != "name"}
-            new_payload = {key: value for key, value in desired.get(role, (None, {}))[1].items() if key != "name"}
+            old_payload = {
+                key: value for key, value in owned["payload"].items() if key != "name"
+            }
+            new_payload = {
+                key: value
+                for key, value in desired.get(role, (None, {}))[1].items()
+                if key != "name"
+            }
             if role not in desired or old_payload != new_payload:
                 await self._remove_role(record, role)
         result = {"integral_entity_id": None, "utility_entities": {}}
@@ -114,7 +161,9 @@ class NativeHelpers:
         if entry.disabled_by is not None:
             raise HelperRepairRequired("disabled_owned_helper")
         # Omitted optional prefixes have measurement semantics, too.
-        expected_options = {"unit_prefix": None} if owned["domain"] == "integration" else {}
+        expected_options = (
+            {"unit_prefix": None} if owned["domain"] == "integration" else {}
+        )
         expected_options.update(owned["payload"])
         for key, value in expected_options.items():
             if key != "name" and entry.options.get(key) != value:
@@ -127,10 +176,15 @@ class NativeHelpers:
             if owned.get("entry_id"):
                 continue
             token = owned.get("creation_token")
-            if not isinstance(token, str) or not token.startswith(f"{DOMAIN}:{self.entry.entry_id}:"):
+            if not isinstance(token, str) or not token.startswith(
+                f"{DOMAIN}:{self.entry.entry_id}:"
+            ):
                 raise HelperRepairRequired("uncertain_helper_creation")
-            matches = [entry for entry in self.hass.config_entries.async_entries(owned["domain"])
-                       if entry.unique_id == token]
+            matches = [
+                entry
+                for entry in self.hass.config_entries.async_entries(owned["domain"])
+                if entry.unique_id == token
+            ]
             if len(matches) > 1:
                 raise HelperRepairRequired("ambiguous_helper_ownership")
             if matches:
@@ -144,18 +198,25 @@ class NativeHelpers:
 
     def _abort_pending_flow(self, owned):
         for flow in self.hass.config_entries.flow.async_progress_by_handler(
-            owned["domain"], match_context={"unique_id": owned["creation_token"]},
+            owned["domain"],
+            match_context={"unique_id": owned["creation_token"]},
         ):
             self.hass.config_entries.flow.async_abort(flow["flow_id"])
 
     async def _create(self, record, role, domain, payload):
-        owned = {"domain": domain, "payload": deepcopy(payload), "status": "creating",
-                 "creation_token": f"{DOMAIN}:{self.entry.entry_id}:{uuid4().hex}"}
+        owned = {
+            "domain": domain,
+            "payload": deepcopy(payload),
+            "status": "creating",
+            "creation_token": f"{DOMAIN}:{self.entry.entry_id}:{uuid4().hex}",
+        }
         record["roles"][role] = owned
         await self._save()
         try:
             result = await self.hass.config_entries.flow.async_init(
-                domain, context={"source": "user", "unique_id": owned["creation_token"]}, data=payload,
+                domain,
+                context={"source": "user", "unique_id": owned["creation_token"]},
+                data=payload,
             )
         except Exception as err:
             # The native flow may already have committed. Keep the token.
@@ -179,7 +240,9 @@ class NativeHelpers:
         if entry.state != ConfigEntryState.LOADED:
             raise HelperSetupError(f"{owned['domain']}_not_loaded")
         registry = er.async_get(self.hass)
-        entity_id = registry.async_get_entity_id("sensor", owned["domain"], entry.entry_id)
+        entity_id = registry.async_get_entity_id(
+            "sensor", owned["domain"], entry.entry_id
+        )
         if entity_id is None:
             raise HelperRepairRequired("missing_owned_entity")
         entity = registry.async_get(entity_id)
@@ -234,4 +297,6 @@ class NativeHelpers:
                     entry = self._owned_entry(owned)
                     if not await self.hass.config_entries.async_reload(entry.entry_id):
                         raise
-            return await self._ensure(point_id, record["point"], record.get("source_entity_id"))
+            return await self._ensure(
+                point_id, record["point"], record.get("source_entity_id")
+            )

@@ -1,18 +1,41 @@
 """Charge Tally integration."""
 
+from __future__ import annotations
 
-async def async_setup_entry(hass, entry):
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.typing import ConfigType
+
+    from .runtime import Runtime
+
+    type ChargeTallyConfigEntry = ConfigEntry[Runtime]
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Register actions even when no ledger entry can be loaded."""
+    from .api import async_register
+
+    async_register(hass)
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ChargeTallyConfigEntry) -> bool:
     """Load the ledger and actual HA entity platforms."""
     from .runtime import Runtime
+
     runtime = Runtime(hass, entry)
     entry.runtime_data = runtime
     try:
         await runtime.async_start()
-        await hass.config_entries.async_forward_entry_setups(entry, ["sensor", "select", "switch"])
+        await hass.config_entries.async_forward_entry_setups(
+            entry, ["sensor", "select", "switch"]
+        )
         await runtime.async_finish_helpers()
-        from .api import async_register
-        async_register(hass)
         from .frontend import async_setup
+
         await async_setup(hass)
     except BaseException:
         await runtime.async_close()
@@ -22,16 +45,20 @@ async def async_setup_entry(hass, entry):
     return True
 
 
-async def _async_update(hass, entry):
+async def _async_update(hass: HomeAssistant, entry: ChargeTallyConfigEntry) -> None:
     if entry.runtime_data.configured_currency != entry.data["currency"]:
         await hass.config_entries.async_reload(entry.entry_id)
     else:
         await entry.runtime_data.async_refresh_config()
 
 
-async def async_unload_entry(hass, entry):
+async def async_unload_entry(
+    hass: HomeAssistant, entry: ChargeTallyConfigEntry
+) -> bool:
     """Drain pending work before releasing the database worker."""
-    if not await hass.config_entries.async_unload_platforms(entry, ["sensor", "select", "switch"]):
+    if not await hass.config_entries.async_unload_platforms(
+        entry, ["sensor", "select", "switch"]
+    ):
         return False
     await entry.runtime_data.async_close()
     hass.data.get("charge_tally", {}).pop(entry.entry_id, None)

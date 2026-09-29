@@ -1,10 +1,9 @@
 """Validate the translation contract consumed by Home Assistant."""
 
 import json
-from pathlib import Path
 import re
 import unittest
-
+from pathlib import Path
 
 INTEGRATION = Path(__file__).resolve().parents[2] / "custom_components" / "charge_tally"
 LANGUAGES = ("en", "zh-Hans", "de", "fr", "pl", "it")
@@ -23,7 +22,9 @@ def flatten(value, prefix=()):
 
 class TranslationTests(unittest.TestCase):
     def test_supported_languages_preserve_home_assistant_translation_contract(self):
-        canonical = flatten(json.loads((INTEGRATION / "strings.json").read_text(encoding="utf-8")))
+        canonical = flatten(
+            json.loads((INTEGRATION / "strings.json").read_text(encoding="utf-8"))
+        )
         for language in LANGUAGES:
             with self.subTest(language=language):
                 path = INTEGRATION / "translations" / f"{language}.json"

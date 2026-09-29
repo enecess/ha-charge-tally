@@ -1,19 +1,25 @@
 """Ledger settings and explicit, previewed archive maintenance."""
+
 import sqlite3
 
 import voluptuous as vol
-
 from homeassistant.config_entries import OptionsFlow
-from homeassistant.helpers import config_validation as cv, selector
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import selector
 from homeassistant.helpers.translation import async_get_translations
 
 from .const import DOMAIN
 
 
 def _objects(items):
-    return selector.SelectSelector(selector.SelectSelectorConfig(options=[
-        {"value": item["id"], "label": f"{item['name']} ({item['id'][:8]})"} for item in items
-    ]))
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[
+                {"value": item["id"], "label": f"{item['name']} ({item['id'][:8]})"}
+                for item in items
+            ]
+        )
+    )
 
 
 class LedgerOptionsFlow(OptionsFlow):
@@ -36,7 +42,9 @@ class LedgerOptionsFlow(OptionsFlow):
             self._runtime()
         except ValueError:
             return self.async_abort(reason="runtime_unavailable")
-        return self.async_show_menu(step_id="init", menu_options=["currency", "archive"])
+        return self.async_show_menu(
+            step_id="init", menu_options=["currency", "archive"]
+        )
 
     async def async_step_currency(self, user_input=None):
         entry = self.config_entry
@@ -53,7 +61,9 @@ class LedgerOptionsFlow(OptionsFlow):
                 except (vol.Invalid, KeyError, AttributeError):
                     errors["base"] = "invalid_currency"
                 else:
-                    await runtime.async_change_currency(currency, self._original_currency)
+                    await runtime.async_change_currency(
+                        currency, self._original_currency
+                    )
                     return self.async_create_entry(title="", data=dict(entry.options))
         except ValueError as err:
             if str(err) == "currency_locked":
@@ -63,18 +73,32 @@ class LedgerOptionsFlow(OptionsFlow):
             raise
         except (OSError, sqlite3.Error):
             errors["base"] = "save_failed"
-        return self.async_show_form(step_id="currency", data_schema=vol.Schema({
-            vol.Required("currency", default=entry.data["currency"]): selector.TextSelector(),
-        }), description_placeholders={"currency": entry.data["currency"]}, errors=errors)
+        return self.async_show_form(
+            step_id="currency",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "currency", default=entry.data["currency"]
+                    ): selector.TextSelector(),
+                }
+            ),
+            description_placeholders={"currency": entry.data["currency"]},
+            errors=errors,
+        )
 
     async def async_step_locked(self, user_input=None):
         if user_input is not None:
             return await self.async_step_init()
-        return self.async_show_form(step_id="locked", data_schema=vol.Schema({}),
-                                    description_placeholders={"currency": self.config_entry.data["currency"]})
+        return self.async_show_form(
+            step_id="locked",
+            data_schema=vol.Schema({}),
+            description_placeholders={"currency": self.config_entry.data["currency"]},
+        )
 
     async def async_step_archive(self, user_input=None):
-        return self.async_show_menu(step_id="archive", menu_options=["archive_points", "archive_identities"])
+        return self.async_show_menu(
+            step_id="archive", menu_options=["archive_points", "archive_identities"]
+        )
 
     async def async_step_archive_points(self, user_input=None):
         self._archive_kind = "point"
@@ -86,8 +110,14 @@ class LedgerOptionsFlow(OptionsFlow):
 
     def _archive_error(self, err):
         reason = str(err)
-        if reason not in {"runtime_unavailable", "archive_not_found", "archive_configured",
-                          "archive_busy", "archive_stale", "archive_target"}:
+        if reason not in {
+            "runtime_unavailable",
+            "archive_not_found",
+            "archive_configured",
+            "archive_busy",
+            "archive_stale",
+            "archive_target",
+        }:
             raise err
         return self.async_abort(reason=reason)
 
@@ -103,8 +133,13 @@ class LedgerOptionsFlow(OptionsFlow):
                 object_id = user_input.get("object_id")
                 if object_id not in {item["id"] for item in items}:
                     return self.async_abort(reason="archive_not_found")
-                self._archive_preview = await runtime.async_archive_preview(self._archive_kind, object_id)
-                if self._archive_kind == "identity" and self._archive_preview["record_count"]:
+                self._archive_preview = await runtime.async_archive_preview(
+                    self._archive_kind, object_id
+                )
+                if (
+                    self._archive_kind == "identity"
+                    and self._archive_preview["record_count"]
+                ):
                     return await self.async_step_archive_target()
                 return await self.async_step_archive_confirm()
         except ValueError as err:
@@ -112,9 +147,15 @@ class LedgerOptionsFlow(OptionsFlow):
         except (OSError, sqlite3.Error):
             errors["base"] = "archive_failed"
             items = []
-        return self.async_show_form(step_id="archive_select", data_schema=vol.Schema({
-            vol.Required("object_id"): _objects(items),
-        }), errors=errors)
+        return self.async_show_form(
+            step_id="archive_select",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("object_id"): _objects(items),
+                }
+            ),
+            errors=errors,
+        )
 
     async def async_step_archive_empty(self, user_input=None):
         if user_input is not None:
@@ -133,7 +174,9 @@ class LedgerOptionsFlow(OptionsFlow):
                     errors["base"] = "archive_target"
                 else:
                     self._archive_preview = await runtime.async_archive_preview(
-                        "identity", self._archive_preview["id"], target,
+                        "identity",
+                        self._archive_preview["id"],
+                        target,
                     )
                     return await self.async_step_archive_confirm()
         except ValueError as err:
@@ -141,10 +184,21 @@ class LedgerOptionsFlow(OptionsFlow):
         except (OSError, sqlite3.Error):
             errors["base"] = "archive_failed"
             targets = []
-        return self.async_show_form(step_id="archive_target", data_schema=vol.Schema({
-            vol.Required("target_identity_id", default="unassigned"): _objects(targets),
-        }), description_placeholders={"name": self._archive_preview["name"],
-                                      "records": str(self._archive_preview["record_count"])}, errors=errors)
+        return self.async_show_form(
+            step_id="archive_target",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("target_identity_id", default="unassigned"): _objects(
+                        targets
+                    ),
+                }
+            ),
+            description_placeholders={
+                "name": self._archive_preview["name"],
+                "records": str(self._archive_preview["record_count"]),
+            },
+            errors=errors,
+        )
 
     async def async_step_archive_confirm(self, user_input=None):
         preview = self._archive_preview
@@ -155,7 +209,9 @@ class LedgerOptionsFlow(OptionsFlow):
             else:
                 try:
                     self._archive_result = await self._runtime().async_archive_delete(
-                        preview["kind"], preview["id"], preview["fingerprint"],
+                        preview["kind"],
+                        preview["id"],
+                        preview["fingerprint"],
                         preview.get("target_identity_id"),
                     )
                 except ValueError as err:
@@ -164,33 +220,62 @@ class LedgerOptionsFlow(OptionsFlow):
                     errors["base"] = "archive_failed"
                 else:
                     return await self.async_step_archive_done()
-        action = "delete_point" if preview["kind"] == "point" else (
-            "transfer_identity" if preview["record_count"] else "delete_identity"
+        action = (
+            "delete_point"
+            if preview["kind"] == "point"
+            else ("transfer_identity" if preview["record_count"] else "delete_identity")
         )
         translations = await async_get_translations(
-            self.hass, self.context.get("language", self.hass.config.language), "selector", {DOMAIN},
+            self.hass,
+            self.context.get("language", self.hass.config.language),
+            "selector",
+            {DOMAIN},
         )
-        end = (translations[f"component.{DOMAIN}.selector.archive_time.options.unfinished"]
-               if preview["active_count"] else preview.get("end") or "—")
-        return self.async_show_form(step_id="archive_confirm", data_schema=vol.Schema({
-            vol.Required("confirm", default=False): selector.BooleanSelector(),
-        }), description_placeholders={
-            "name": preview["name"], "records": str(preview["record_count"]),
-            "active": str(preview["active_count"]),
-            "voided": str(preview["void_count"]), "revisions": str(preview["revision_count"]),
-            "start": preview.get("start") or "—", "end": end,
-            "energy": str(preview["energy_kwh"]), "cost": str(preview["known_cost"]),
-            "currency": preview["currency"], "target": preview.get("target_name") or "—",
-            "operation": translations[f"component.{DOMAIN}.selector.archive_action.options.{action}"],
-        }, errors=errors)
+        end = (
+            translations[f"component.{DOMAIN}.selector.archive_time.options.unfinished"]
+            if preview["active_count"]
+            else preview.get("end") or "—"
+        )
+        return self.async_show_form(
+            step_id="archive_confirm",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("confirm", default=False): selector.BooleanSelector(),
+                }
+            ),
+            description_placeholders={
+                "name": preview["name"],
+                "records": str(preview["record_count"]),
+                "active": str(preview["active_count"]),
+                "voided": str(preview["void_count"]),
+                "revisions": str(preview["revision_count"]),
+                "start": preview.get("start") or "—",
+                "end": end,
+                "energy": str(preview["energy_kwh"]),
+                "cost": str(preview["known_cost"]),
+                "currency": preview["currency"],
+                "target": preview.get("target_name") or "—",
+                "operation": translations[
+                    f"component.{DOMAIN}.selector.archive_action.options.{action}"
+                ],
+            },
+            errors=errors,
+        )
 
     async def async_step_archive_done(self, user_input=None):
         if user_input is not None:
-            return self.async_create_entry(title="", data=dict(self.config_entry.options))
+            return self.async_create_entry(
+                title="", data=dict(self.config_entry.options)
+            )
         result = self._archive_result
-        return self.async_show_form(step_id="archive_done", data_schema=vol.Schema({}),
-                                    description_placeholders={
-            "name": self._archive_preview["name"],
-            "deleted": str(result["record_count"] if result["kind"] == "point" else 0),
-            "transferred": str(result["transferred_count"]),
-        })
+        return self.async_show_form(
+            step_id="archive_done",
+            data_schema=vol.Schema({}),
+            description_placeholders={
+                "name": self._archive_preview["name"],
+                "deleted": str(
+                    result["record_count"] if result["kind"] == "point" else 0
+                ),
+                "transferred": str(result["transferred_count"]),
+            },
+        )
