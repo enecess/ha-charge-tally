@@ -374,6 +374,9 @@ async def subscribe(
 
 @callback
 def async_register(hass: HomeAssistant) -> None:
+    from .nfc_api import async_register as async_register_nfc
+
+    async_register_nfc(hass)
     if hass.data.get("charge_tally_api_registered"):
         return
     for command, schema in SCHEMAS.items():

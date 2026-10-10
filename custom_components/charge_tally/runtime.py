@@ -179,6 +179,10 @@ class Runtime:
                 point["available"] = False
 
     async def async_start(self):
+        from .nfc_manager import NfcManager
+
+        self.nfc = NfcManager(self.hass, self.entry, runtime_lock=self._lock)
+        await self.nfc.async_load()
         self._store = await self._worker(
             RuntimeStore,
             self.path,
@@ -712,6 +716,35 @@ class Runtime:
         )
         return record_view(result)
 
+    async def async_select_identity(self, point_id, identity_id, *, authorize=None):
+        """Select through the same queue, rechecking references at execution time."""
+        from .api import anchor_for
+
+        def guard():
+            if self._closing or self._closed:
+                raise ValueError("runtime_unavailable")
+            if authorize is not None:
+                authorize()
+            anchor = anchor_for(self, point_id)
+            state = self.hass.states.get(anchor) if anchor else None
+            if state is None or state.state in ("unavailable", "unknown"):
+                raise ValueError("invalid_reference")
+            identity = self.entry.subentries.get(identity_id)
+            if identity_id != "unassigned" and (
+                identity is None
+                or identity.subentry_type != "identity"
+                or not identity.data.get("enabled", True)
+            ):
+                raise ValueError("invalid_reference")
+
+        return await self._apply(
+            "command",
+            "select_identity",
+            {"point_id": point_id, "identity_id": identity_id},
+            dt_util.utcnow(),
+            authorize=guard,
+        )
+
     async def async_command(self, command, payload):
         if command == "preview" and "energy_kwh" not in payload:
             data = dict(payload)
@@ -812,6 +845,8 @@ class Runtime:
         if self._closed:
             return
         self._closing = True
+        if hasattr(self, "nfc"):
+            await self.nfc.async_close()
         self._gate.set()
         # Let an active refresh finish before removing the subscriptions it creates.
         async with self._config_lock:

@@ -1,9 +1,9 @@
-import en from './locales/en.js?v=0.1.2-5';
-import zhHans from './locales/zh-Hans.js?v=0.1.2-5';
-import de from './locales/de.js?v=0.1.2-5';
-import fr from './locales/fr.js?v=0.1.2-5';
-import pl from './locales/pl.js?v=0.1.2-5';
-import it from './locales/it.js?v=0.1.2-5';
+import en from './locales/en.js?v=0.1.2-6';
+import zhHans from './locales/zh-Hans.js?v=0.1.2-6';
+import de from './locales/de.js?v=0.1.2-6';
+import fr from './locales/fr.js?v=0.1.2-6';
+import pl from './locales/pl.js?v=0.1.2-6';
+import it from './locales/it.js?v=0.1.2-6';
 
 const catalogs = {en, 'zh-Hans': zhHans, de, fr, pl, it};
 

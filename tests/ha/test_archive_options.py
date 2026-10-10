@@ -13,7 +13,7 @@ from test_runtime import POWER, setup_runtime, tick
 async def archive_flow(hass, entry, kind):
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] == FlowResultType.MENU
-    assert set(result["menu_options"]) == {"currency", "archive"}
+    assert set(result["menu_options"]) == {"currency", "archive", "nfc"}
     for step in (
         "archive",
         "archive_points" if kind == "point" else "archive_identities",

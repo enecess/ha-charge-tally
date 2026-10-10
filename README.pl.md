@@ -176,7 +176,7 @@ W **Ustawienia → Urządzenia oraz usługi → Charge Tally** dostępne są:
 | **Skonfiguruj punkt ładowania** | Nazwa, czujniki, wykrywanie, ceny i okresy statystyk |
 | **Dodaj współdzieloną tożsamość** | Pojazd, osoba lub inny cel |
 | **Skonfiguruj tożsamość** | Zmiana nazwy lub **Włączona** |
-| **Konfiguruj** przy głównej integracji | **Ustawienia księgi** i **Zarządzaj danymi archiwalnymi** |
+| **Konfiguruj** przy głównej integracji | **Ustawienia księgi** i **Zarządzaj danymi archiwalnymi**; **Powiązania tożsamości NFC** |
 
 **Współdzielona tożsamość** zawiera tylko **Nazwa** i **Włączona**. Tożsamości są wspólne dla punktów; ich nazwy nie mogą powtarzać nazw innych skonfigurowanych tożsamości. Wbudowana **Unassigned** oznacza nieprzypisane wpisy i zachowuje tę angielską nazwę na liście wyboru.
 
@@ -213,7 +213,7 @@ Jeśli potrzebna jest rejestracja ręczna, w menu **Ustawienia → Pulpity** otw
 
 | Pole | Wartość |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-5` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-6` |
 | Typ zasobu | **Moduł JavaScript** |
 
 Istniejący zasób z tą samą ścieżką zaktualizuj, zamiast dodawać duplikat. Przy zarządzaniu zasobami w YAML wpisz tam tę samą ścieżkę i typ modułu. Nie instaluj drugiej kopii karty. Zobacz [dokumentację pulpitów HA](https://www.home-assistant.io/dashboards/dashboards/).
@@ -429,3 +429,15 @@ Lokalne obrazy marki są obsługiwane od **Home Assistant 2026.3**. Wyświetlani
 Potrzebujesz pomocy? [Zgłoś problem](https://github.com/enecess/ha-charge-tally/issues), podając wersje HA i Charge Tally, tryb pomiaru i ceny, kroki oraz rzeczywisty komunikat. Zasłoń prywatne dane na zrzutach.
 
 [Licencja MIT](LICENSE)
+
+## Powiązania tożsamości NFC
+
+Administrator otwiera **Ustawienia → Urządzenia i usługi → Charge Tally → Konfiguruj → Powiązania tożsamości NFC**. Najpierw zarejestruj znacznik w HA, a potem wybierz znacznik, punkt, urządzenia skanujące i tożsamości. Można dodać kilka urządzeń lub samą tożsamość domyślną. Każda para znacznik/punkt ma jedną zarządzaną automatyzację. Wspólny znacznik może działać na kilku punktach niezależnie.
+
+Powiązanie urządzenia ma pierwszeństwo; pozostałe urządzenia korzystają z opcjonalnej tożsamości domyślnej. Bez niej nie ma działania. Bieżące zapisy i zablokowani kandydaci automatyczni zachowują tożsamość. Zmiana nazwy tożsamości nie usuwa powiązania. Usunięty znacznik, urządzenie lub punkt oraz wyłączona tożsamość blokują całe powiązanie do czasu naprawy, bez przejścia na inną tożsamość.
+
+Nazwa i opis automatyzacji wskazują zarządzanie przez Charge Tally. Edytuj powiązania w integracji, a śledzenie i wstrzymywanie wykonuj w HA. Zapis zachowuje wstrzymanie. Natywna zmiana ID encji w HA może włączyć automatyzację, więc sprawdź potem jej przełącznik. Zmiana zewnętrzna wymaga jawnego przywrócenia, a usunięcie — ponownego utworzenia. Po przerwaniu połączenia dokończenie oczekującej operacji używa tej samej automatyzacji.
+
+Przywracanie i ponowne tworzenie pozwalają naprawić nieprawidłowe powiązania przed potwierdzeniem. Nadpisanie zmian zewnętrznych wymaga potwierdzenia. Oczekujące usunięcie można anulować, dopóki automatyzacja istnieje, zachowując jej aktualną konfigurację HA.
+
+Przed usunięciem integracji usuń powiązania z tej strony, aby posprzątać ich automatyzacje. Wymagane są prawa administratora i komponenty automatyzacji oraz konfiguracji HA. Funkcja nie zapisuje znaczników NFC ani nie steruje ładowarką.

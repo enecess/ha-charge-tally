@@ -176,7 +176,7 @@ Dans **Paramètres → Appareils et services → Charge Tally**, utilisez l’ac
 | **Configurer le point de recharge** | Modifier le nom, les capteurs, la détection, les prix et les périodes |
 | **Ajouter une identité partagée** | Créer une identité pour un véhicule, une personne ou un autre usage |
 | **Configurer l’identité** | Modifier le nom ou l’état **Activée** |
-| **Configurer** sur l’intégration principale | Ouvrir **Paramètres du registre** et **Gérer les données archivées** |
+| **Configurer** sur l’intégration principale | Ouvrir **Paramètres du registre** et **Gérer les données archivées**; **Associations d’identité NFC** |
 
 La fenêtre **Identité partagée** contient seulement **Nom** et **Activée**. Les identités sont partagées entre les points ; leur nom ne doit pas dupliquer celui d’une autre identité configurée. L’identité intégrée **Unassigned** reçoit les enregistrements sans attribution ; ce nom anglais est conservé dans les listes de sélection.
 
@@ -213,7 +213,7 @@ Si un enregistrement manuel reste nécessaire, ouvrez **Ressources** dans le men
 
 | Champ | Valeur |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-5` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-6` |
 | Type de ressource | **Module JavaScript** |
 
 Si une ressource utilise déjà ce chemin, mettez-la à jour au lieu de la dupliquer. Si vous gérez les ressources en YAML, déclarez cette même adresse comme module dans votre configuration ; n’installez pas une seconde copie de la carte. Consultez la [documentation des tableaux de bord Home Assistant](https://www.home-assistant.io/dashboards/dashboards/) pour la gestion des ressources.
@@ -429,3 +429,15 @@ Les icônes de marque locales sont prises en charge à partir de **Home Assistan
 Besoin d’aide ? [Ouvrez un ticket](https://github.com/enecess/ha-charge-tally/issues) avec les versions de Home Assistant et Charge Tally, les modes de mesure et de tarification, les étapes et le message exact. Masquez les informations privées sur les captures.
 
 [Licence MIT](LICENSE)
+
+## Associations d’identité NFC
+
+Les administrateurs ouvrent **Paramètres → Appareils et services → Charge Tally → Configurer → Associations d’identité NFC**. Enregistrez un tag dans HA, puis choisissez tag, point, appareils de lecture et identités. Plusieurs appareils ou une identité par défaut seule sont possibles. Chaque paire tag/point possède une automatisation gérée ; un tag partagé peut agir sur plusieurs points indépendamment.
+
+Les associations propres à un appareil sont prioritaires. Les autres utilisent l’identité par défaut facultative ; sans elle, aucune action. Les enregistrements en cours et candidats automatiques verrouillés restent inchangés. Renommer une identité conserve l’association. Une référence supprimée ou une identité désactivée bloque toute l’association jusqu’à correction, sans repli silencieux sur une autre identité.
+
+L’automatisation indique qu’elle est gérée par Charge Tally. Modifiez les associations dans l’intégration ; utilisez HA pour les traces et la pause. L’enregistrement conserve la pause. Le renommage natif de l’identifiant d’entité HA peut réactiver l’automatisation : vérifiez ensuite son interrupteur. Une modification externe demande une restauration explicite ; une suppression demande de recréer l’automatisation. Après une coupure réseau, terminez l’opération en attente pour réutiliser la même automatisation.
+
+La restauration et la recréation permettent de corriger les associations invalides avant confirmation. Remplacer les modifications externes exige une confirmation explicite. Une suppression en attente peut être annulée tant que l’automatisation existe, en conservant sa configuration HA actuelle.
+
+Avant de supprimer l’intégration, supprimez les associations depuis cette page pour nettoyer leurs automatisations. La gestion exige un accès administrateur et les composants HA d’automatisation et de configuration. Elle n’écrit pas les tags NFC et ne commande pas le chargeur.

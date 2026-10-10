@@ -33,7 +33,7 @@ async def test_resource_registration_is_idempotent_and_serves_only_www(
     response = await client.get("/charge_tally/ledger.sqlite3")
     assert response.status == 404
     # Fetch the actual module graph, including versioned relative imports.
-    queue, seen = [frontend.CARD_URL], set()
+    queue, seen = [frontend.CARD_URL, frontend.NFC_URL], set()
     while queue:
         url = queue.pop()
         if url in seen:
@@ -53,11 +53,13 @@ async def test_resource_registration_is_idempotent_and_serves_only_www(
                 re.MULTILINE,
             )
         )
-    assert urlsplit(frontend.CARD_URL).query == "v=0.1.2-5"
+    assert urlsplit(frontend.CARD_URL).query == "v=0.1.2-6"
     paths = {urlsplit(url).path for url in seen}
     for module in ("card-controls", "card-view", "card-chart"):
         assert f"/charge_tally/{module}.js" in paths
     assert "/charge_tally/card-i18n.js" in paths
+    for module in ("nfc-panel", "nfc-api", "nfc-view", "nfc-styles"):
+        assert f"/charge_tally/{module}.js" in paths
     for language in ("en", "zh-Hans", "de", "fr", "pl", "it"):
         assert f"/charge_tally/locales/{language}.js" in paths
 

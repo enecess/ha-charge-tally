@@ -305,6 +305,28 @@
           "description": "Sélectionnez une entité de sélection d’identité du point ou saisissez un ID de point / d’enregistrement. Les références combinées doivent appartenir au même point."
         }
       }
+    },
+    "select_identity": {
+      "name": "Choisir l’identité d’enregistrement",
+      "description": "Scannez un tag pour choisir l’identité du prochain enregistrement. Les enregistrements en cours et les candidats automatiques verrouillés conservent leur identité.",
+      "fields": {
+        "point_id": {
+          "name": "Point de recharge",
+          "description": "Identifiant stable du point de recharge."
+        },
+        "identity_id": {
+          "name": "Identité",
+          "description": "Identifiant stable de l’identité, indépendant du nom."
+        },
+        "rule_id": {
+          "name": "Identifiant de l’association gérée",
+          "description": "Renseigné par l’automatisation NFC gérée. Pour un choix d’identité ordinaire, laisser les deux champs de gestion vides."
+        },
+        "rule_version": {
+          "name": "Version appliquée",
+          "description": "Renseigné par l’automatisation NFC gérée. Pour un choix d’identité ordinaire, laisser les deux champs de gestion vides."
+        }
+      }
     }
   },
   "exceptions": {
@@ -319,6 +341,18 @@
     },
     "overlap": {
       "message": "L’intervalle chevauche un autre enregistrement de ce point."
+    },
+    "invalid_reference": {
+      "message": "Un tag, appareil, point ou identité n’est plus disponible. Corrigez l’association."
+    },
+    "not_applied": {
+      "message": "La configuration a changé. Actualisez puis terminez l’opération ou restaurez la configuration de l’intégration."
+    },
+    "rule_missing": {
+      "message": "Automatisation absente"
+    },
+    "runtime_unavailable": {
+      "message": "Un accès administrateur et les composants HA d’automatisation et de configuration sont nécessaires."
     }
   },
   "entity": {
@@ -377,7 +411,8 @@
         "title": "Configuration du registre",
         "menu_options": {
           "currency": "Paramètres du registre",
-          "archive": "Gérer les données archivées"
+          "archive": "Gérer les données archivées",
+          "nfc": "Associations d’identité NFC"
         }
       },
       "locked": {
@@ -426,6 +461,10 @@
       "archive_done": {
         "title": "Opération d’archivage terminée",
         "description": "Opération terminée pour **{name}**. Enregistrements supprimés : {deleted}. Enregistrements transférés : {transferred}."
+      },
+      "nfc": {
+        "title": "Associations d’identité NFC",
+        "description": "[Associations d’identité NFC]({url})\n\nScannez un tag pour choisir l’identité du prochain enregistrement. Les enregistrements en cours et les candidats automatiques verrouillés conservent leur identité."
       }
     },
     "error": {

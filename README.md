@@ -176,7 +176,7 @@ Under **Settings → Devices & services → Charge Tally**, use:
 | **Configure charging point** | Change name, sensors, detection, pricing and statistics periods |
 | **Add shared identity** | Create an identity for a vehicle, person or other subject |
 | **Configure identity** | Change name or **Enabled** |
-| Main integration **Configure** | Open **Ledger settings** and **Manage archived data** |
+| Main integration **Configure** | Open **Ledger settings** and **Manage archived data**; **NFC identity links** |
 
 **Shared identity** contains **Name** and **Enabled**. Identities are shared across points; configured names must be unique. The built-in **Unassigned** holds unassigned records and retains that English name in selectors.
 
@@ -213,7 +213,7 @@ If necessary, open **Resources** from the **Settings → Dashboards** menu. Enab
 
 | Field | Value |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-5` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-6` |
 | Resource type | **JavaScript module** |
 
 Update an existing entry for that path rather than duplicating it. If you manage resources in YAML, register this URL and module type there; do not install a second card copy. See the [Home Assistant dashboard documentation](https://www.home-assistant.io/dashboards/dashboards/).
@@ -429,3 +429,15 @@ Local brand icons require **Home Assistant 2026.3 or newer**; older icon behavio
 Need help? [Open an issue](https://github.com/enecess/ha-charge-tally/issues) with HA and Charge Tally versions, input/price modes, steps and exact messages. Hide private information in screenshots.
 
 [MIT license](LICENSE)
+
+## NFC identity links
+
+Administrators can open **Settings → Devices & services → Charge Tally → Configure → NFC identity links**. Register a tag in HA first, then choose the tag, charging point, scanning devices and identities. Add multiple device bindings or only a default identity. Each tag/point pair has one managed automation. A shared tag can act on several points independently.
+
+Device bindings take priority; other devices use the optional default. Without a default, no action occurs. Scanning selects the identity for a later recording, preserving current records and locked automatic candidates. Identity renames preserve bindings. A deleted tag, device or point, or a disabled identity, blocks the whole link until repaired; it never silently falls back to another identity.
+
+Automations are marked **Charge Tally managed** and explain where to edit them. Edit mappings in the integration; use HA for traces and pausing. Saving preserves the paused state. HA's native entity ID rename can itself re-enable an automation, so check its switch afterward. External edits require explicit **Restore integration configuration**; deleted automations require **Recreate automation**. After a lost connection, **Complete pending operation** reuses the same automation.
+
+Restore and recreate let you repair invalid mappings before confirming. Replacing external edits requires explicit confirmation. A pending deletion can be cancelled while the automation still exists, preserving its current HA configuration.
+
+Before removing the entire integration, delete links from this page to clean up their automations. Management requires administrator access and loaded HA automation/configuration components. It does not write NFC tags or control a charger.

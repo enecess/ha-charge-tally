@@ -1,6 +1,7 @@
 """Ledger settings and explicit, previewed archive maintenance."""
 
 import sqlite3
+from urllib.parse import quote
 
 import voluptuous as vol
 from homeassistant.config_entries import OptionsFlow
@@ -43,7 +44,22 @@ class LedgerOptionsFlow(OptionsFlow):
         except ValueError:
             return self.async_abort(reason="runtime_unavailable")
         return self.async_show_menu(
-            step_id="init", menu_options=["currency", "archive"]
+            step_id="init", menu_options=["currency", "archive", "nfc"]
+        )
+
+    async def async_step_nfc(self, user_input=None):
+        """Link to the admin panel without duplicating its native API flow."""
+        if user_input is not None:
+            return self.async_create_entry(
+                title="", data=dict(self.config_entry.options)
+            )
+        return self.async_show_form(
+            step_id="nfc",
+            data_schema=vol.Schema({}),
+            description_placeholders={
+                "url": "/charge-tally-nfc?entry_id="
+                + quote(self.config_entry.entry_id, safe="")
+            },
         )
 
     async def async_step_currency(self, user_input=None):

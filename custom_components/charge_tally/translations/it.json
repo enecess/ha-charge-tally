@@ -305,6 +305,28 @@
           "description": "Seleziona un’entità di selezione dell’identità del punto oppure inserisci un ID del punto / ID della registrazione. I riferimenti combinati devono appartenere allo stesso punto."
         }
       }
+    },
+    "select_identity": {
+      "name": "Scegli identità di registrazione",
+      "description": "Scansiona un tag per scegliere l’identità della prossima registrazione. Le registrazioni in corso e i candidati automatici bloccati mantengono la loro identità.",
+      "fields": {
+        "point_id": {
+          "name": "Punto di ricarica",
+          "description": "ID stabile del punto di ricarica."
+        },
+        "identity_id": {
+          "name": "Identità",
+          "description": "ID stabile dell’identità, indipendente dal nome."
+        },
+        "rule_id": {
+          "name": "ID del collegamento gestito",
+          "description": "Compilato dall’automazione NFC gestita. Per la normale selezione dell’identità lascia vuoti entrambi i campi di gestione."
+        },
+        "rule_version": {
+          "name": "Versione applicata",
+          "description": "Compilato dall’automazione NFC gestita. Per la normale selezione dell’identità lascia vuoti entrambi i campi di gestione."
+        }
+      }
     }
   },
   "exceptions": {
@@ -319,6 +341,18 @@
     },
     "overlap": {
       "message": "L’intervallo si sovrappone a un’altra registrazione di questo punto."
+    },
+    "invalid_reference": {
+      "message": "Un tag, dispositivo, punto o identità non è più disponibile. Correggi l’associazione."
+    },
+    "not_applied": {
+      "message": "La configurazione è cambiata. Aggiorna e completa l’operazione oppure ripristina la configurazione dell’integrazione."
+    },
+    "rule_missing": {
+      "message": "Automazione assente"
+    },
+    "runtime_unavailable": {
+      "message": "Sono necessari l’accesso amministratore e i componenti HA di automazione e configurazione caricati."
     }
   },
   "entity": {
@@ -377,7 +411,8 @@
         "title": "Configurazione del registro",
         "menu_options": {
           "currency": "Impostazioni del registro",
-          "archive": "Gestisci dati archiviati"
+          "archive": "Gestisci dati archiviati",
+          "nfc": "Collegamenti identità NFC"
         }
       },
       "locked": {
@@ -426,6 +461,10 @@
       "archive_done": {
         "title": "Operazione archivio completata",
         "description": "Operazione completata per **{name}**. Record eliminati: {deleted}. Record trasferiti: {transferred}."
+      },
+      "nfc": {
+        "title": "Collegamenti identità NFC",
+        "description": "[Collegamenti identità NFC]({url})\n\nScansiona un tag per scegliere l’identità della prossima registrazione. Le registrazioni in corso e i candidati automatici bloccati mantengono la loro identità."
       }
     },
     "error": {

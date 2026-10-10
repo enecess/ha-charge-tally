@@ -1,10 +1,10 @@
-import {CardView} from './card-view.js?v=0.1.2-5';
-import {tr} from './card-i18n.js?v=0.1.2-5';
-import {styles} from './card-styles.js?v=0.1.2-5';
-import {Latest,Subscription,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.2-5';
-import {el} from './card-ui.js?v=0.1.2-5';
-import {RecordDialog} from './card-dialog.js?v=0.1.2-5';
-import './card-editor.js?v=0.1.2-5';
+import {CardView} from './card-view.js?v=0.1.2-6';
+import {tr} from './card-i18n.js?v=0.1.2-6';
+import {styles} from './card-styles.js?v=0.1.2-6';
+import {Latest,Subscription,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.2-6';
+import {el} from './card-ui.js?v=0.1.2-6';
+import {RecordDialog} from './card-dialog.js?v=0.1.2-6';
+import './card-editor.js?v=0.1.2-6';
 
 export class ChargeTallyCard extends HTMLElement {
   static getConfigElement(){return document.createElement('charge-tally-card-editor');}

@@ -1,3 +1,23 @@
+select_identity:
+  fields:
+    point_id:
+      required: true
+      selector:
+        text:
+    identity_id:
+      required: true
+      selector:
+        text:
+    rule_id:
+      advanced: true
+      selector:
+        text:
+    rule_version:
+      advanced: true
+      selector:
+        number:
+          min: 1
+          mode: box
 start:
   fields:
     entity_id:

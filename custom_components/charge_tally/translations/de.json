@@ -305,6 +305,28 @@
           "description": "Wählen Sie eine Entität zur Identitätsauswahl eines Ladepunkts oder geben Sie eine Ladepunkt-ID / Eintrags-ID ein. Kombinierte Verweise müssen zum selben Ladepunkt gehören."
         }
       }
+    },
+    "select_identity": {
+      "name": "Aufzeichnungsidentität auswählen",
+      "description": "Ein Tag scannt die Identität für die nächste Aufzeichnung ein. Laufende Aufzeichnungen und gesperrte automatische Kandidaten behalten ihre Identität.",
+      "fields": {
+        "point_id": {
+          "name": "Ladepunkt",
+          "description": "Stabile ID des Ladepunkts."
+        },
+        "identity_id": {
+          "name": "Identität",
+          "description": "Stabile Identitäts-ID, unabhängig vom Namen."
+        },
+        "rule_id": {
+          "name": "Verwaltete Verknüpfungs-ID",
+          "description": "Wird von der verwalteten NFC-Automation ausgefüllt. Für eine normale Identitätsauswahl beide Verwaltungsfelder leer lassen."
+        },
+        "rule_version": {
+          "name": "Angewendete Version",
+          "description": "Wird von der verwalteten NFC-Automation ausgefüllt. Für eine normale Identitätsauswahl beide Verwaltungsfelder leer lassen."
+        }
+      }
     }
   },
   "exceptions": {
@@ -319,6 +341,18 @@
     },
     "overlap": {
       "message": "Das Intervall überschneidet sich mit einem anderen Eintrag an diesem Ladepunkt."
+    },
+    "invalid_reference": {
+      "message": "Ein Tag, Gerät, Ladepunkt oder eine Identität ist nicht mehr verfügbar. Korrigieren Sie die Zuordnung."
+    },
+    "not_applied": {
+      "message": "Die Konfiguration wurde geändert. Aktualisieren Sie die Ansicht und schließen Sie den Vorgang ab oder stellen Sie die Integrationskonfiguration wieder her."
+    },
+    "rule_missing": {
+      "message": "Automation fehlt"
+    },
+    "runtime_unavailable": {
+      "message": "Administratorrechte sowie die geladenen HA-Komponenten für Automationen und Konfiguration sind erforderlich."
     }
   },
   "entity": {
@@ -377,7 +411,8 @@
         "title": "Buchkonfiguration",
         "menu_options": {
           "currency": "Bucheinstellungen",
-          "archive": "Archivierte Daten verwalten"
+          "archive": "Archivierte Daten verwalten",
+          "nfc": "NFC-Identitätsverknüpfungen"
         }
       },
       "locked": {
@@ -426,6 +461,10 @@
       "archive_done": {
         "title": "Archivvorgang abgeschlossen",
         "description": "Vorgang für **{name}** abgeschlossen. Gelöschte Einträge: {deleted}. Übertragene Einträge: {transferred}."
+      },
+      "nfc": {
+        "title": "NFC-Identitätsverknüpfungen",
+        "description": "[NFC-Identitätsverknüpfungen]({url})\n\nEin Tag scannt die Identität für die nächste Aufzeichnung ein. Laufende Aufzeichnungen und gesperrte automatische Kandidaten behalten ihre Identität."
       }
     },
     "error": {

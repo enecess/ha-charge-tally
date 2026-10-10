@@ -305,6 +305,28 @@
           "description": "Wybierz encję wyboru tożsamości punktu lub wpisz ID punktu / ID wpisu. Łączone odwołania muszą należeć do tego samego punktu."
         }
       }
+    },
+    "select_identity": {
+      "name": "Wybierz tożsamość zapisu",
+      "description": "Zeskanuj znacznik, aby wybrać tożsamość następnego zapisu. Bieżące zapisy i zablokowani kandydaci automatyczni zachowują swoją tożsamość.",
+      "fields": {
+        "point_id": {
+          "name": "Punkt ładowania",
+          "description": "Stały identyfikator punktu ładowania."
+        },
+        "identity_id": {
+          "name": "Tożsamość",
+          "description": "Stały identyfikator tożsamości, niezależny od nazwy."
+        },
+        "rule_id": {
+          "name": "ID zarządzanego powiązania",
+          "description": "Wypełniane przez zarządzaną automatyzację NFC. Dla zwykłego wyboru tożsamości pozostaw oba pola zarządzania puste."
+        },
+        "rule_version": {
+          "name": "Zastosowana wersja",
+          "description": "Wypełniane przez zarządzaną automatyzację NFC. Dla zwykłego wyboru tożsamości pozostaw oba pola zarządzania puste."
+        }
+      }
     }
   },
   "exceptions": {
@@ -319,6 +341,18 @@
     },
     "overlap": {
       "message": "Interwał nakłada się na inny wpis w tym punkcie."
+    },
+    "invalid_reference": {
+      "message": "Znacznik, urządzenie, punkt lub tożsamość nie są już dostępne. Popraw powiązanie."
+    },
+    "not_applied": {
+      "message": "Konfiguracja uległa zmianie. Odśwież i dokończ operację lub przywróć konfigurację integracji."
+    },
+    "rule_missing": {
+      "message": "Brak automatyzacji"
+    },
+    "runtime_unavailable": {
+      "message": "Wymagane są uprawnienia administratora oraz załadowane komponenty automatyzacji i konfiguracji HA."
     }
   },
   "entity": {
@@ -377,7 +411,8 @@
         "title": "Konfiguracja księgi",
         "menu_options": {
           "currency": "Ustawienia księgi",
-          "archive": "Zarządzaj danymi archiwalnymi"
+          "archive": "Zarządzaj danymi archiwalnymi",
+          "nfc": "Powiązania tożsamości NFC"
         }
       },
       "locked": {
@@ -426,6 +461,10 @@
       "archive_done": {
         "title": "Operacja archiwum zakończona",
         "description": "Zakończono operację dla **{name}**. Usunięte wpisy: {deleted}. Przeniesione wpisy: {transferred}."
+      },
+      "nfc": {
+        "title": "Powiązania tożsamości NFC",
+        "description": "[Powiązania tożsamości NFC]({url})\n\nZeskanuj znacznik, aby wybrać tożsamość następnego zapisu. Bieżące zapisy i zablokowani kandydaci automatyczni zachowują swoją tożsamość."
       }
     },
     "error": {

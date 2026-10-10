@@ -78,6 +78,4 @@ class IdentitySelect(TallyEntity, SelectEntity):
         )
         if identity is None:
             raise ValueError("Unknown identity")
-        await self.runtime.async_command(
-            "select_identity", {"point_id": self.id_, "identity_id": identity["id"]}
-        )
+        await self.runtime.async_select_identity(self.id_, identity["id"])

@@ -176,7 +176,7 @@ Unter **Einstellungen → Geräte & Dienste → Charge Tally**:
 | **Ladepunkt konfigurieren** | Name, Sensoren, Erkennung, Preise und Statistikzeiträume ändern |
 | **Gemeinsame Identität hinzufügen** | Identität für Fahrzeug, Person oder anderen Zweck |
 | **Identität konfigurieren** | Namen oder **Aktiviert** ändern |
-| **Konfigurieren** an der Hauptintegration | **Bucheinstellungen** und **Archivierte Daten verwalten** |
+| **Konfigurieren** an der Hauptintegration | **Bucheinstellungen** und **Archivierte Daten verwalten**; **NFC-Identitätsverknüpfungen** |
 
 **Gemeinsame Identität** enthält nur **Name** und **Aktiviert**. Identitäten gelten für alle Punkte; Namen dürfen nicht mit anderen konfigurierten Identitäten übereinstimmen. Die eingebaute Identität **Unassigned** für nicht zugeordnete Einträge behält diesen englischen Namen im Auswahlfeld.
 
@@ -213,7 +213,7 @@ Falls nötig, öffne im Menü unter **Einstellungen → Dashboards** die **Resso
 
 | Feld | Inhalt |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-5` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-6` |
 | Ressourcentyp | **JavaScript-Modul** |
 
 Aktualisiere vorhandene Ressourcen mit demselben Pfad, statt sie doppelt anzulegen. Bei YAML-Ressourcenverwaltung trage dieselbe Adresse als Modul ein. Installiere keine zweite Karte. Siehe [HA-Dashboard-Dokumentation](https://www.home-assistant.io/dashboards/dashboards/).
@@ -429,3 +429,15 @@ Lokale Markenbilder werden ab **Home Assistant 2026.3** unterstützt. Die Symbol
 Brauchst du Hilfe? [Erstelle ein Issue](https://github.com/enecess/ha-charge-tally/issues) mit HA- und Charge-Tally-Version, Mess- und Preismodus, Schritten und tatsächlicher Meldung. Verberge private Informationen in Screenshots.
 
 [MIT-Lizenz](LICENSE)
+
+## NFC-Identitätsverknüpfungen
+
+Administratoren öffnen **Einstellungen → Geräte & Dienste → Charge Tally → Konfigurieren → NFC-Identitätsverknüpfungen**. Registriere zuerst einen Tag in HA und wähle Tag, Ladepunkt sowie Geräte und Identitäten. Mehrere Gerätezuordnungen oder nur eine Standardidentität sind möglich. Je Tag/Ladepunkt-Paar entsteht eine verwaltete Automation; ein gemeinsamer Tag kann mehrere Punkte unabhängig steuern.
+
+Gerätespezifische Zuordnungen haben Vorrang, andere Geräte verwenden den optionalen Standard. Ohne Standard geschieht nichts. Laufende Aufzeichnungen und gesperrte automatische Kandidaten behalten ihre Identität. Umbenennungen einer Identität bleiben gültig. Gelöschte Tags, Geräte oder Punkte und deaktivierte Identitäten sperren die ganze Verknüpfung bis zur Korrektur; es gibt keinen stillen Rückfall auf eine andere Identität.
+
+Die Automation ist als von Charge Tally verwaltet gekennzeichnet. Bearbeite Zuordnungen in der Integration; HA bietet Ablaufverfolgung und Pausieren. Speichern behält die Pause bei. Eine native Änderung der HA-Entitäts-ID kann die Automation wieder einschalten; prüfe danach den Schalter. Externe Änderungen erfordern eine ausdrückliche Wiederherstellung, gelöschte Automationen eine Neuerstellung. Ausstehende Vorgänge nach Verbindungsabbrüchen verwenden dieselbe Automation.
+
+Vor Wiederherstellung oder Neuerstellung lassen sich ungültige Zuordnungen korrigieren. Das Überschreiben externer Änderungen muss bestätigt werden. Ein ausstehender Löschvorgang kann abgebrochen werden, solange die Automation noch existiert; ihre aktuelle HA-Konfiguration bleibt erhalten.
+
+Lösche Verknüpfungen vor dem Entfernen der Integration auf dieser Seite, um ihre Automationen aufzuräumen. Die Verwaltung benötigt Administratorrechte und geladene HA-Komponenten für Automation und Konfiguration. Sie beschreibt keine NFC-Tags und schaltet kein Ladegerät.

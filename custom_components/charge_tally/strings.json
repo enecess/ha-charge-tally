@@ -305,6 +305,28 @@
           "description": "Select one point identity select, or enter a point ID / record ID. Combined references must belong to the same point."
         }
       }
+    },
+    "select_identity": {
+      "name": "Select recording identity",
+      "description": "Scan a tag to select the identity for the next recording. Current records and locked automatic candidates keep their identity.",
+      "fields": {
+        "point_id": {
+          "name": "Charging point",
+          "description": "Stable charging point ID."
+        },
+        "identity_id": {
+          "name": "Identity",
+          "description": "Stable identity ID; names may change."
+        },
+        "rule_id": {
+          "name": "Managed link ID",
+          "description": "Filled automatically by a managed NFC automation; leave both managed fields empty for ordinary identity selection."
+        },
+        "rule_version": {
+          "name": "Applied link version",
+          "description": "Filled automatically by a managed NFC automation; leave both managed fields empty for ordinary identity selection."
+        }
+      }
     }
   },
   "exceptions": {
@@ -319,6 +341,18 @@
     },
     "overlap": {
       "message": "The interval overlaps another record at this point."
+    },
+    "invalid_reference": {
+      "message": "A tag, device, point or identity is no longer available. Repair the mapping before continuing."
+    },
+    "not_applied": {
+      "message": "The configuration changed. Refresh and resolve the pending operation or restore the integration configuration."
+    },
+    "rule_missing": {
+      "message": "Automation missing"
+    },
+    "runtime_unavailable": {
+      "message": "The manager requires administrator access and loaded Home Assistant automation and configuration components."
     }
   },
   "entity": {
@@ -377,7 +411,8 @@
         "title": "Ledger configuration",
         "menu_options": {
           "currency": "Ledger settings",
-          "archive": "Manage archived data"
+          "archive": "Manage archived data",
+          "nfc": "NFC identity links"
         }
       },
       "locked": {
@@ -426,6 +461,10 @@
       "archive_done": {
         "title": "Archive operation complete",
         "description": "Completed for **{name}**. Records deleted: {deleted}. Records transferred: {transferred}."
+      },
+      "nfc": {
+        "title": "NFC identity links",
+        "description": "[NFC identity links]({url})\n\nScan a tag to select the identity for the next recording. Current records and locked automatic candidates keep their identity."
       }
     },
     "error": {

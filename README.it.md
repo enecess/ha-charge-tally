@@ -176,7 +176,7 @@ In **Impostazioni → Dispositivi e servizi → Charge Tally**, usa:
 | **Configura punto di ricarica** | Modificare nome, sensori, rilevamento, prezzi e periodi |
 | **Aggiungi identità condivisa** | Creare un’identità per veicolo, persona o altro soggetto |
 | **Configura identità** | Cambiare nome o **Abilitata** |
-| **Configura** dell’integrazione principale | Aprire **Impostazioni del registro** e **Gestisci dati archiviati** |
+| **Configura** dell’integrazione principale | Aprire **Impostazioni del registro** e **Gestisci dati archiviati**; **Collegamenti identità NFC** |
 
 **Identità condivisa** contiene **Nome** e **Abilitata**. Le identità sono comuni a tutti i punti; i nomi configurati devono essere univoci. L’identità integrata **Unassigned** raccoglie le registrazioni non assegnate e mantiene questo nome inglese nei selettori.
 
@@ -213,7 +213,7 @@ Se serve intervenire, apri **Risorse** dal menu di **Impostazioni → Dashboard*
 
 | Campo | Valore |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-5` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-6` |
 | Tipo di risorsa | **Modulo JavaScript** |
 
 Se esiste già lo stesso percorso, aggiornalo senza duplicarlo. Se gestisci le risorse in YAML, registra lì lo stesso URL e tipo modulo; non installare una seconda copia. Vedi la [documentazione delle dashboard di Home Assistant](https://www.home-assistant.io/dashboards/dashboards/).
@@ -429,3 +429,15 @@ Le icone locali del marchio richiedono **Home Assistant 2026.3 o successivo**. N
 Serve aiuto? [Apri una segnalazione](https://github.com/enecess/ha-charge-tally/issues) indicando versioni HA e Charge Tally, modalità di acquisizione e prezzo, passaggi e messaggi effettivi. Nascondi le informazioni private nelle immagini.
 
 [Licenza MIT](LICENSE)
+
+## Collegamenti identità NFC
+
+Gli amministratori aprono **Impostazioni → Dispositivi e servizi → Charge Tally → Configura → Collegamenti identità NFC**. Registra prima un tag in HA, poi scegli tag, punto, dispositivi di scansione e identità. Puoi aggiungere più dispositivi o solo un’identità predefinita. Ogni coppia tag/punto ha un’automazione gestita; un tag condiviso può agire su più punti indipendenti.
+
+Le associazioni dei dispositivi hanno precedenza. Gli altri usano l’identità predefinita facoltativa; senza di essa non accade nulla. Le registrazioni in corso e i candidati automatici bloccati mantengono l’identità. Rinominare un’identità conserva il collegamento. Un tag, dispositivo o punto eliminato, oppure un’identità disattivata, blocca l’intero collegamento fino alla correzione, senza ripiego su un’altra identità.
+
+Nome e descrizione indicano che l’automazione è gestita da Charge Tally. Modifica i collegamenti nell’integrazione; usa HA per le tracce e la pausa. Il salvataggio mantiene la pausa. Rinominare l’ID dell’entità nativamente in HA può riattivare l’automazione: controlla quindi il suo interruttore. Le modifiche esterne richiedono un ripristino esplicito; le automazioni eliminate vanno ricreate. Dopo una disconnessione, completa l’operazione in sospeso per riutilizzare la stessa automazione.
+
+Ripristino e ricreazione consentono di correggere le associazioni non valide prima della conferma. Sostituire modifiche esterne richiede una conferma esplicita. Un’eliminazione in sospeso può essere annullata finché l’automazione esiste, conservando la configurazione HA attuale.
+
+Prima di rimuovere l’integrazione, elimina i collegamenti da questa pagina per ripulire le automazioni. Sono necessari i diritti amministratore e i componenti HA di automazione e configurazione. La funzione non scrive tag NFC e non controlla il caricatore.

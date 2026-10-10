@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, TypedDict
 
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.components.lovelace.const import LOVELACE_DATA
+from homeassistant.components.panel_custom import async_register_panel
 from homeassistant.const import EVENT_COMPONENT_LOADED
 from homeassistant.core import callback
 from homeassistant.setup import async_setup_component
@@ -24,13 +25,23 @@ class CardResource(TypedDict):
     manual: bool
 
 
-CARD_URL = "/charge_tally/charge-tally-card.js?v=0.1.2-5"
+CARD_URL = "/charge_tally/charge-tally-card.js?v=0.1.2-6"
+NFC_URL = "/charge_tally/nfc-panel.js?v=0.1.2-6"
 
 
 async def async_register(hass: HomeAssistant) -> CardResource:
     """Register static assets and update the storage dashboard resource."""
     lock = hass.data.setdefault("charge_tally_frontend_lock", asyncio.Lock())
     async with lock:
+        if not hass.data.get("charge_tally_nfc_panel_registered"):
+            await async_register_panel(
+                hass,
+                "charge-tally-nfc",
+                "charge-tally-nfc-panel",
+                module_url=NFC_URL,
+                require_admin=True,
+            )
+            hass.data["charge_tally_nfc_panel_registered"] = True
         if hass.http is not None and not hass.data.get(
             "charge_tally_static_registered"
         ):

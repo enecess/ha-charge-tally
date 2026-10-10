@@ -305,6 +305,28 @@
           "description": "选择一个充电点身份 select，或填写充电点 ID / 记录 ID。同时填写的定位信息必须属于同一点。"
         }
       }
+    },
+    "select_identity": {
+      "name": "选择记账身份",
+      "description": "扫描标签，选择下次记账身份。当前记录和已锁定的自动候选身份保持不变。",
+      "fields": {
+        "point_id": {
+          "name": "充电点",
+          "description": "充电点的固定 ID。"
+        },
+        "identity_id": {
+          "name": "身份",
+          "description": "身份的固定 ID，改名后保持不变。"
+        },
+        "rule_id": {
+          "name": "托管联动 ID",
+          "description": "由托管 NFC 自动化填入；普通身份切换请同时留空两个托管字段。"
+        },
+        "rule_version": {
+          "name": "已应用联动版本",
+          "description": "由托管 NFC 自动化填入；普通身份切换请同时留空两个托管字段。"
+        }
+      }
     }
   },
   "exceptions": {
@@ -319,6 +341,18 @@
     },
     "overlap": {
       "message": "该时段与此充电点的另一条记录重叠。"
+    },
+    "invalid_reference": {
+      "message": "标签、设备、充电点或身份已不可用。请修复映射后继续。"
+    },
+    "not_applied": {
+      "message": "配置已变化。请刷新后处理待完成操作，或恢复集成配置。"
+    },
+    "rule_missing": {
+      "message": "自动化缺失"
+    },
+    "runtime_unavailable": {
+      "message": "需要管理员权限，并加载 Home Assistant 的自动化与配置组件。"
     }
   },
   "entity": {
@@ -377,7 +411,8 @@
         "title": "账本配置",
         "menu_options": {
           "currency": "账本设置",
-          "archive": "管理归档数据"
+          "archive": "管理归档数据",
+          "nfc": "NFC 身份联动"
         }
       },
       "locked": {
@@ -426,6 +461,10 @@
       "archive_done": {
         "title": "归档操作完成",
         "description": "已完成 **{name}** 的操作。删除记录：{deleted} 条；转移记录：{transferred} 条。"
+      },
+      "nfc": {
+        "title": "NFC 身份联动",
+        "description": "[NFC 身份联动]({url})\n\n扫描标签，选择下次记账身份。当前记录和已锁定的自动候选身份保持不变。"
       }
     },
     "error": {

@@ -1,7 +1,7 @@
-import {ChartView} from './card-chart.js?v=0.1.2-5';
-import {SelectControl} from './card-controls.js?v=0.1.2-5';
-import {el,button,field,input,summaryView,quality,dateText} from './card-ui.js?v=0.1.2-5';
-import {formatDecimal,formatCost,errorMessage} from './card-state.js?v=0.1.2-5';
+import {ChartView} from './card-chart.js?v=0.1.2-6';
+import {SelectControl} from './card-controls.js?v=0.1.2-6';
+import {el,button,field,input,summaryView,quality,dateText} from './card-ui.js?v=0.1.2-6';
+import {formatDecimal,formatCost,errorMessage} from './card-state.js?v=0.1.2-6';
 
 const text=(node,value)=>{if(node.textContent!==String(value))node.textContent=value;};
 const label=(control,value)=>text(control.label.firstChild,value);
