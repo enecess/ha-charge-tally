@@ -431,8 +431,17 @@ async def test_store_silent_failure_blocks_creation_or_recovers_owned_helper(
         "periods": [],
     }
     helpers = NativeHelpers(hass, entry)
-    original_write = storage.write_utf8_file_atomic
-    original_prepare = storage.json_helper.prepare_save_json
+    # HA 2025.9 performs both operations inside json_helper.save_json.
+    write_module = (
+        storage if hasattr(storage, "write_utf8_file_atomic") else storage.json_helper
+    )
+    prepare_name = (
+        "prepare_save_json"
+        if hasattr(storage.json_helper, "prepare_save_json")
+        else "_orjson_bytes_default_encoder"
+    )
+    original_write = write_module.write_utf8_file_atomic
+    original_prepare = getattr(storage.json_helper, prepare_name)
 
     def should_fail(data):
         if data.get("key") != helpers._store.key:
@@ -459,10 +468,10 @@ async def test_store_silent_failure_blocks_creation_or_recovers_owned_helper(
 
     with monkeypatch.context() as failing_storage:
         if failure_kind == "write":
-            failing_storage.setattr(storage, "write_utf8_file_atomic", fail_write)
+            failing_storage.setattr(write_module, "write_utf8_file_atomic", fail_write)
         else:
             failing_storage.setattr(
-                storage.json_helper, "prepare_save_json", fail_serialization
+                storage.json_helper, prepare_name, fail_serialization
             )
         with pytest.raises(HelperSetupError, match="helper_storage_save_failed"):
             await helpers.async_ensure("point1", point)

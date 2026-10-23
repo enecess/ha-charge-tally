@@ -1,5 +1,6 @@
-import {NfcClient} from './nfc-api.js?v=0.1.2-6';
-import {NfcView} from './nfc-view.js?v=0.1.2-6';
+import {NfcClient} from './nfc-api.js?v=0.1.2-7';
+import {NfcView} from './nfc-view.js?v=0.1.2-7';
+import {newRequestId} from './request-id.js?v=0.1.2-7';
 
 const errorKey=error=>({
   conflict:'nfcErrorConflict',pending:'nfcErrorConflict',duplicate_rule:'nfcErrorDuplicate',
@@ -65,7 +66,7 @@ class NfcPanel extends HTMLElement {
   save(rule,draft,kind){
     if(this.model.busy)return;
     const signature=JSON.stringify([rule?.rule_id,draft,kind]);
-    if(this.intent?.signature!==signature)this.intent={signature,operationId:crypto.randomUUID()};
+    if(this.intent?.signature!==signature)this.intent={signature,operationId:newRequestId()};
     const intent={ruleId:rule?.rule_id||null,draft,expectedRevision:rule?.revision??null,operationId:this.intent.operationId};
     if(kind)intent.kind=kind;
     this.view.confirm(this.view.t({restore:'nfcRestore',recreate:'nfcRecreate'}[kind]||'nfcSave'),draft,()=>this.run(()=>this.client.save(intent)),kind==='restore'?'nfcRestoreHint':'nfcConfirmHint');
@@ -76,9 +77,9 @@ class NfcPanel extends HTMLElement {
     const draft=rule.applied?.draft||rule.pending?.draft;
     const key={delete:'nfcDelete',restore:'nfcRestore',recreate:'nfcRecreate',discard:'nfcDiscard'}[action];
     this.view.confirm(this.view.t(key),draft,()=>this.run(()=>{
-      if(action==='delete')return this.client.remove(rule,crypto.randomUUID());
+      if(action==='delete')return this.client.remove(rule,newRequestId());
       if(action==='discard')return this.client.cancel(rule);
-      return this.client.save({ruleId:rule.rule_id,expectedRevision:rule.revision,operationId:crypto.randomUUID(),kind:action});
+      return this.client.save({ruleId:rule.rule_id,expectedRevision:rule.revision,operationId:newRequestId(),kind:action});
     }));
   }
   async run(operation){

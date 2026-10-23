@@ -46,7 +46,7 @@
 
 ## 安装前准备
 
-需要 **Home Assistant 2025.3.4 或更新版本**，以及至少一个测量充电线路的传感器。安装和配置请使用管理员账户。界面会跟随 Home Assistant 的语言；本文使用简体中文界面实际显示的名称，通用菜单的位置可能随 HA 版本略有不同。
+需要 **Home Assistant 2025.9.0 或更新版本**，以及至少一个测量充电线路的传感器。安装和配置请使用管理员账户。界面会跟随 Home Assistant 的语言；本文使用简体中文界面实际显示的名称，通用菜单的位置可能随 HA 版本略有不同。
 
 | 已有数据 | “用电输入模式”选择 | 用途 |
 | --- | --- | --- |
@@ -213,7 +213,7 @@
 
 | 字段 | 内容 |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-6` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-7` |
 | 资源类型 | **JavaScript 模块** |
 
 已有相同路径的资源时更新它，避免重复添加。自行用 YAML 管理资源的用户，在自己的资源配置中登记同一地址与模块类型；不要再安装第二份卡片。资源管理方式见 [Home Assistant 仪表盘文档](https://www.home-assistant.io/dashboards/dashboards/)。

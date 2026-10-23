@@ -16,6 +16,25 @@ async function createRule(page){
   await page.waitForFunction(()=>window.fixture.rules[0]?.applied);
 }
 
+test('NFC links can be created, retried and deleted over non-localhost HTTP',async t=>{
+  const {page}=await createNfcFixture(t,'en',{insecure:true});
+  page.setDefaultTimeout(3000);
+  assert.deepEqual(await page.evaluate(()=>[isSecureContext,typeof crypto.randomUUID,typeof crypto.getRandomValues]),[false,'undefined','function']);
+  await createRule(page);
+  await page.locator('[data-action="edit"]').click();
+  await page.locator('[data-field="default"]').selectOption('');
+  await page.evaluate(()=>{window.fixture.lost=true;});
+  await page.locator('[data-action="save"]').click();
+  await page.locator('dialog [data-action="confirm"]').click();
+  await page.locator('[data-action="resume"]').click();
+  await page.waitForFunction(()=>window.fixture.rules[0].pending===null);
+  assert.equal(await page.evaluate(()=>window.fixture.posts),2);
+  assert.equal(await page.evaluate(()=>window.fixture.rules[0].applied.draft.default_identity_id),null);
+  await page.locator('[data-action="delete"]').click();
+  await page.locator('dialog [data-action="confirm"]').click();
+  await page.waitForFunction(()=>window.fixture.rules.length===0);
+});
+
 test('NFC admin creates stable device/default mappings and preserves drafts on refresh',async t=>{
   const {page}=await createNfcFixture(t);
   await createRule(page);

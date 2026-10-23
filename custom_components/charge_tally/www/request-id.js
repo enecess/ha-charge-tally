@@ -1,0 +1,6 @@
+export function newRequestId(){
+  if(typeof crypto.randomUUID==='function')return crypto.randomUUID();
+  // Request IDs are opaque; getRandomValues also works over local HTTP.
+  const bytes=crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes,value=>value.toString(16).padStart(2,'0')).join('');
+}

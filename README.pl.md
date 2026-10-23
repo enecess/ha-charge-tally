@@ -46,7 +46,7 @@ Bieżący format księgi deweloperskiej uległ zmianie. Nieobsługiwane starsze 
 
 ## Wymagania
 
-Potrzebujesz **Home Assistant 2025.3.4 lub nowszego**, przynajmniej jednego czujnika obwodu ładowania i konta administratora do instalacji oraz konfiguracji. Interfejs używa języka HA. Poniżej podano rzeczywiste polskie etykiety; położenie ogólnych menu może zależeć od wersji HA.
+Potrzebujesz **Home Assistant 2025.9.0 lub nowszego**, przynajmniej jednego czujnika obwodu ładowania i konta administratora do instalacji oraz konfiguracji. Interfejs używa języka HA. Poniżej podano rzeczywiste polskie etykiety; położenie ogólnych menu może zależeć od wersji HA.
 
 | Dostępny pomiar | „Tryb pomiaru energii” | Zastosowanie |
 | --- | --- | --- |
@@ -213,7 +213,7 @@ Jeśli potrzebna jest rejestracja ręczna, w menu **Ustawienia → Pulpity** otw
 
 | Pole | Wartość |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-6` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-7` |
 | Typ zasobu | **Moduł JavaScript** |
 
 Istniejący zasób z tą samą ścieżką zaktualizuj, zamiast dodawać duplikat. Przy zarządzaniu zasobami w YAML wpisz tam tę samą ścieżkę i typ modułu. Nie instaluj drugiej kopii karty. Zobacz [dokumentację pulpitów HA](https://www.home-assistant.io/dashboards/dashboards/).

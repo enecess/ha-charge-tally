@@ -20,3 +20,9 @@ def hass_storage():
 def hass_config_dir(tmp_path):
     """Keep each runtime's real storage isolated from other tests."""
     return str(tmp_path)
+
+
+@pytest.fixture(autouse=True)
+def isolated_hass_config(hass, tmp_path):
+    """Isolate real Store I/O on plugins predating hass_config_dir."""
+    hass.config.config_dir = str(tmp_path)

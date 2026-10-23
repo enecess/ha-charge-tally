@@ -1,10 +1,11 @@
-import {CardView} from './card-view.js?v=0.1.2-6';
-import {tr} from './card-i18n.js?v=0.1.2-6';
-import {styles} from './card-styles.js?v=0.1.2-6';
-import {Latest,Subscription,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.2-6';
-import {el} from './card-ui.js?v=0.1.2-6';
-import {RecordDialog} from './card-dialog.js?v=0.1.2-6';
-import './card-editor.js?v=0.1.2-6';
+import {CardView} from './card-view.js?v=0.1.2-7';
+import {newRequestId} from './request-id.js?v=0.1.2-7';
+import {tr} from './card-i18n.js?v=0.1.2-7';
+import {styles} from './card-styles.js?v=0.1.2-7';
+import {Latest,Subscription,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.2-7';
+import {el} from './card-ui.js?v=0.1.2-7';
+import {RecordDialog} from './card-dialog.js?v=0.1.2-7';
+import './card-editor.js?v=0.1.2-7';
 
 export class ChargeTallyCard extends HTMLElement {
   static getConfigElement(){return document.createElement('charge-tally-card-editor');}
@@ -111,7 +112,7 @@ export class ChargeTallyCard extends HTMLElement {
     if(this.busy||(service==='start'&&this.pendingSelections.has(point.id)))return;
     try{
       const intent=JSON.stringify([service,point.id,service==='end'?point.active_record?.id:point.selected_identity_id]);
-      if(this.pendingLive?.intent!==intent)this.pendingLive={intent,request:liveRequest(service,point,crypto.randomUUID())};
+      if(this.pendingLive?.intent!==intent)this.pendingLive={intent,request:liveRequest(service,point,newRequestId())};
       this.mutate(this.pendingLive.request);
     }catch(error){this.error=error;this.render();}
   }

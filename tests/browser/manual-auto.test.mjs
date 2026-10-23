@@ -12,6 +12,29 @@ const states=[
   ['idle','blocked','recordingIdle','detectionBlocked','startManual'],
   ['idle','unavailable','recordingIdle','detectionUnavailable','startManual'],
 ];
+
+test('manual start sends a retryable request over non-localhost HTTP',async t=>{
+  const {page}=await createCardFixture(t,{}, {insecure:true});
+  assert.equal(await page.evaluate(()=>isSecureContext),false);
+  await page.locator('[data-point-id] button.primary').click();
+  const request=await page.evaluate(()=>fixture.pending[0]?.request);
+  assert.equal(request?.service,'start');
+  assert.equal(request.service_data.identity_id,'i');
+  assert.ok(request.service_data.request_id.length>0);
+});
+
+test('record identity edits retain retry IDs over non-localhost HTTP',async t=>{
+  const {page}=await createCardFixture(t,{}, {insecure:true});
+  await page.evaluate(()=>fixture.card.openDialog('reassign',{record:{id:'r',revision:1,point_id:'p',identity_id:'i',start:'2026-09-22T08:00:00Z',timezone:'UTC',energy_kwh:'1',known_cost:'1',cost_complete:true}}));
+  await page.locator('dialog select').selectOption('j');
+  await page.locator('dialog button.primary').click();
+  const first=await page.evaluate(()=>fixture.pending[0].request);
+  assert.equal(first.identity_id,'j');
+  assert.ok(first.request_id.length>0);
+  await page.evaluate(()=>fixture.pending.shift().reject({code:'disconnected'}));
+  await page.locator('dialog button.primary').click();
+  assert.equal(await page.evaluate(()=>fixture.pending[0].request.request_id),first.request_id);
+});
 test('authoritative accounting and detection states remain separate from instantaneous power in all languages',async t=>{
   const {page}=await createCardFixture(t);
   for(const language of ['en','zh-Hans','de','fr','pl','it'])for(const [recording,detection,statusKey,detectionKey,actionKey]of states){

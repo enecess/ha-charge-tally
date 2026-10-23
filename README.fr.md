@@ -46,7 +46,7 @@ Le format actuel du registre de développement a changé. Les anciens formats no
 
 ## Avant de commencer
 
-Il faut **Home Assistant 2025.3.4 ou ultérieur** et au moins un capteur mesurant le circuit de recharge. Utilisez un compte administrateur pour installer et configurer l’intégration. L’interface suit la langue de Home Assistant ; ce guide reprend les libellés affichés en français. L’emplacement des menus généraux peut varier selon la version de HA.
+Il faut **Home Assistant 2025.9.0 ou ultérieur** et au moins un capteur mesurant le circuit de recharge. Utilisez un compte administrateur pour installer et configurer l’intégration. L’interface suit la langue de Home Assistant ; ce guide reprend les libellés affichés en français. L’emplacement des menus généraux peut varier selon la version de HA.
 
 | Données disponibles | Choix du « Mode de saisie de l’énergie » | Utilisation |
 | --- | --- | --- |
@@ -213,7 +213,7 @@ Si un enregistrement manuel reste nécessaire, ouvrez **Ressources** dans le men
 
 | Champ | Valeur |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-6` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-7` |
 | Type de ressource | **Module JavaScript** |
 
 Si une ressource utilise déjà ce chemin, mettez-la à jour au lieu de la dupliquer. Si vous gérez les ressources en YAML, déclarez cette même adresse comme module dans votre configuration ; n’installez pas une seconde copie de la carte. Consultez la [documentation des tableaux de bord Home Assistant](https://www.home-assistant.io/dashboards/dashboards/) pour la gestion des ressources.

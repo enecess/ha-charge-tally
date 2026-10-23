@@ -46,7 +46,7 @@ Il formato attuale del registro di sviluppo è cambiato. I formati precedenti no
 
 ## Prima di installare
 
-Servono **Home Assistant 2025.3.4 o successivo** e almeno un sensore che misuri il circuito di ricarica. Installa e configura con un account amministratore. L’interfaccia segue la lingua di Home Assistant; questa guida usa le etichette italiane effettive. La posizione dei menu generali di HA può variare tra versioni.
+Servono **Home Assistant 2025.9.0 o successivo** e almeno un sensore che misuri il circuito di ricarica. Installa e configura con un account amministratore. L’interfaccia segue la lingua di Home Assistant; questa guida usa le etichette italiane effettive. La posizione dei menu generali di HA può variare tra versioni.
 
 | Dati disponibili | **Modalità di acquisizione dell’energia** | Utilizzo |
 | --- | --- | --- |
@@ -213,7 +213,7 @@ Se serve intervenire, apri **Risorse** dal menu di **Impostazioni → Dashboard*
 
 | Campo | Valore |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-6` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-7` |
 | Tipo di risorsa | **Modulo JavaScript** |
 
 Se esiste già lo stesso percorso, aggiornalo senza duplicarlo. Se gestisci le risorse in YAML, registra lì lo stesso URL e tipo modulo; non installare una seconda copia. Vedi la [documentazione delle dashboard di Home Assistant](https://www.home-assistant.io/dashboards/dashboards/).

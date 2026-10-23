@@ -116,7 +116,7 @@ async def test_tag_choose_routes_once(
             if device:
                 event["device_id"] = device
             hass.bus.async_fire("tag_scanned", event)
-        await hass.async_block_till_done()
+            await hass.async_block_till_done()
         assert results == (
             [{"identity": "car"}, {"identity": "guest"}, {"identity": "guest"}]
             if default

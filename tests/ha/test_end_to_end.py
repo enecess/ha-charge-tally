@@ -1,5 +1,6 @@
 """Exercise the installed integration from config flows to durable accounting."""
 
+import asyncio
 import shutil
 from decimal import Decimal
 
@@ -121,6 +122,11 @@ async def test_flow_helpers_live_history_transfer_and_reload(
             blocking=True,
         )
     hass.states.async_set("sensor.e2e_power", "3600", POWER)
+    await hass.async_block_till_done()
+    # Some HA versions defer the helper's state notification beyond task draining.
+    async with asyncio.timeout(5):
+        while not entry.runtime_data._store.states[point_b].get("available"):
+            await asyncio.sleep(0)
     await hass.async_block_till_done()
     starts = [
         await action("start", point_id=point, request_id="start-" + point)

@@ -46,7 +46,7 @@ The current development ledger format has changed. Unsupported older formats are
 
 ## Before you install
 
-You need **Home Assistant 2025.3.4 or newer** and at least one sensor measuring the charging circuit. Use an administrator account for installation and configuration. The interface follows the Home Assistant language; this guide uses its actual English labels. General HA menu locations may vary by version.
+You need **Home Assistant 2025.9.0 or newer** and at least one sensor measuring the charging circuit. Use an administrator account for installation and configuration. The interface follows the Home Assistant language; this guide uses its actual English labels. General HA menu locations may vary by version.
 
 | Available measurement | **Energy input mode** | Use |
 | --- | --- | --- |
@@ -213,7 +213,7 @@ If necessary, open **Resources** from the **Settings → Dashboards** menu. Enab
 
 | Field | Value |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-6` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-7` |
 | Resource type | **JavaScript module** |
 
 Update an existing entry for that path rather than duplicating it. If you manage resources in YAML, register this URL and module type there; do not install a second card copy. See the [Home Assistant dashboard documentation](https://www.home-assistant.io/dashboards/dashboards/).

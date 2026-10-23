@@ -7,7 +7,7 @@ const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const root=resolve('custom_components/charge_tally/www');
 
-export async function createNfcFixture(t,language='en'){
+export async function createNfcFixture(t,language='en',{insecure=false}={}){
   const server=createServer(async(req,res)=>{
     try{
       const url=new URL(req.url,'http://localhost');
@@ -22,12 +22,14 @@ export async function createNfcFixture(t,language='en'){
   });
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   t.after(()=>new Promise(resolve=>server.close(resolve)));
-  const browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL||undefined,headless:true});
+  const browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL||undefined,headless:true,
+    args:insecure?['--host-resolver-rules=MAP charge-tally.test 127.0.0.1','--no-proxy-server']:[],
+  });
   t.after(()=>browser.close());
   const page=await browser.newPage({viewport:{width:390,height:844}});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   t.after(()=>assert.deepEqual(errors,[]));
-  await page.goto(`http://127.0.0.1:${server.address().port}/?entry_id=entry`);
+  await page.goto(`http://${insecure?'charge-tally.test':'127.0.0.1'}:${server.address().port}/?entry_id=entry`);
   await page.waitForFunction(()=>customElements.get('charge-tally-nfc-panel'),{},{timeout:5000});
   await page.evaluate(language=>{
     const catalog={

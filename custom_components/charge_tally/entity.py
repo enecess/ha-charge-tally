@@ -42,6 +42,13 @@ class TallyEntity(Entity):
         # HA caches translated names separately from their placeholders.
         self.__dict__.pop("name", None)
         if self.hass is not None:
+            # Older HA releases do not sync original_name when writing state.
+            registry = er.async_get(self.hass)
+            if (registered := registry.async_get(self.entity_id)) is not None:
+                if registered.original_name != self.name:
+                    self.registry_entry = registry.async_update_entity(
+                        self.entity_id, original_name=self.name
+                    )
             self.async_write_ha_state()
 
     @property

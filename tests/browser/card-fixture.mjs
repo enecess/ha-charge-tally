@@ -6,7 +6,7 @@ import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const root=resolve('custom_components/charge_tally/www');
-export async function createCardFixture(t,config={}){
+export async function createCardFixture(t,config={},{insecure=false}={}){
   const server=createServer(async(req,res)=>{
     try{
       const url=new URL(req.url,'http://localhost');
@@ -18,11 +18,13 @@ export async function createCardFixture(t,config={}){
   });
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   t.after(()=>new Promise(resolve=>server.close(resolve)));
-  const browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL||undefined,headless:true});
+  const browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL||undefined,headless:true,
+    args:insecure?['--host-resolver-rules=MAP charge-tally.test 127.0.0.1','--no-proxy-server']:[],
+  });
   t.after(()=>browser.close());
   const page=await browser.newPage();t.after(()=>page.close());
   const errors=[];page.on('pageerror',error=>errors.push(error.message));t.after(()=>assert.deepEqual(errors,[], 'No uncaught browser errors'));
-  await page.goto(`http://127.0.0.1:${server.address().port}`);
+  await page.goto(`http://${insecure?'charge-tally.test':'127.0.0.1'}:${server.address().port}`);
   await page.waitForFunction(()=>customElements.get('charge-tally-card'));
   await page.evaluate(config=>{
     const snapshot={generation:1,points:[{id:'p',name:'Garage',status:'idle',recording_state:'idle',detection_state:'waiting',candidate_identity_id:null,detection_enabled:true,active:true,available:true,selected_identity_id:'i',identity_entity_id:'select.garage',power_w:'0',current_price:'.5',quality:[]}],archived_points:[],identities:[{id:'i',name:'Family',active:true},{id:'j',name:'Guest',active:true}],timezone:'UTC',currency:'CNY'};

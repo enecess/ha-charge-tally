@@ -1,6 +1,7 @@
-import {tr} from './card-i18n.js?v=0.1.2-6';
-import {Latest,localInput,localCandidates,errorMessage,previewRequest,commitRequest} from './card-state.js?v=0.1.2-6';
-import {el,button,field,select,input,summaryView,segmentTable,quality,dateText,updateLabels} from './card-ui.js?v=0.1.2-6';
+import {tr} from './card-i18n.js?v=0.1.2-7';
+import {newRequestId} from './request-id.js?v=0.1.2-7';
+import {Latest,localInput,localCandidates,errorMessage,previewRequest,commitRequest} from './card-state.js?v=0.1.2-7';
+import {el,button,field,select,input,summaryView,segmentTable,quality,dateText,updateLabels} from './card-ui.js?v=0.1.2-7';
 
 export class RecordDialog {
   constructor(host,options){
@@ -54,12 +55,12 @@ export class RecordDialog {
     let target;
     if(this.mode==='reassign'){target=select(this.identityOptions(),this.targetIdentityId??this.record.identity_id);this.content.append(field(this.t('assignedIdentity'),target));}
     else this.content.append(el('p',this.t('voidHint')));
-    this.requestId??=crypto.randomUUID();
+    this.requestId??=newRequestId();
     this.content.append(this.action(this.mode==='void'?'confirmVoid':'save',()=>{
       const request={type:'charge_tally/'+this.mode,record_id:this.record.id,expected_revision:this.record.revision,request_id:this.requestId,...(target?{identity_id:target.value}:{})};
       this.run(request,()=>{this.onSaved();this.close();});
     },this.mode==='void'?'danger':'primary'));
-    target?.addEventListener('change',()=>{this.targetIdentityId=target.value;this.requestId=crypto.randomUUID();});
+    target?.addEventListener('change',()=>{this.targetIdentityId=target.value;this.requestId=newRequestId();});
   }
   renderForm(){
     const record=this.record,timezone=record?.timezone||this.timezone;
@@ -85,7 +86,7 @@ export class RecordDialog {
     const note=el('textarea');note.value=this.form.note;note.maxLength=2000;note.addEventListener('input',()=>{this.form.note=note.value;this.invalidatePreview();});
     this.previewBox=el('div');this.content.append(fields,field(this.t('note'),note),this.previewBox);
     const actions=el('div',null,{class:'row dialog-actions'});
-    actions.append(this.action('preview',()=>{try{const request=previewRequest(this.form,timezone,record);this.run(request,value=>{this.preview=value;this.requestId=crypto.randomUUID();this.renderPreview();});}catch(error){this.fail(error);}},'primary'));
+    actions.append(this.action('preview',()=>{try{const request=previewRequest(this.form,timezone,record);this.run(request,value=>{this.preview=value;this.requestId=newRequestId();this.renderPreview();});}catch(error){this.fail(error);}},'primary'));
     this.saveButton=this.action('save',()=>{if(this.preview)this.run(commitRequest(this.preview,this.requestId),()=>{this.onSaved();this.close();});},'primary');this.saveButton.disabled=true;actions.append(this.saveButton);this.content.append(actions);
     if(this.preview)this.renderPreview();
   }
