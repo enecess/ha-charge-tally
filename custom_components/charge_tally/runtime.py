@@ -24,6 +24,7 @@ from homeassistant.helpers.event import (
 from homeassistant.util import dt as dt_util
 
 from .accounting import instant
+from .archive import archive_ids
 from .core.units import energy_kwh, power_w
 from .history import HistorySource
 from .native_helpers import HelperSetupError, NativeHelpers
@@ -575,8 +576,8 @@ class Runtime:
         self._check_currency_runtime()
         points, identities = self._config()
         configured = points if kind == "point" else identities
-        if object_id is not None and (
-            object_id in configured or object_id == "unassigned"
+        if object_id is not None and any(
+            id_ in configured or id_ == "unassigned" for id_ in archive_ids(object_id)
         ):
             raise ValueError("archive_configured")
         if target_identity_id is not None and target_identity_id != "unassigned":

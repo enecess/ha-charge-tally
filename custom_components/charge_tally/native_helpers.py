@@ -280,6 +280,32 @@ class NativeHelpers:
             del self._shared["points"][point_id]
             await self._save()
 
+    async def async_remove_all(self):
+        """Remove only helpers with tokens recorded for this exact owner."""
+        async with self._shared["lock"]:
+            await self._load()
+            for record in self._shared["points"].values():
+                for owned in record["roles"].values():
+                    token = owned.get("creation_token")
+                    if not isinstance(token, str) or not token.startswith(
+                        f"{DOMAIN}:{self.entry.entry_id}:"
+                    ):
+                        continue
+                    self._abort_pending_flow(owned)
+                    for helper in self.hass.config_entries.async_entries(
+                        owned["domain"]
+                    ):
+                        if helper.unique_id == token and (
+                            not owned.get("entry_id")
+                            or helper.entry_id == owned["entry_id"]
+                        ):
+                            await self.hass.config_entries.async_remove(helper.entry_id)
+            await self._store.async_remove()
+            self._shared["points"].clear()
+            self.hass.data.get(f"{DOMAIN}_native_helpers", {}).pop(
+                self.entry.entry_id, None
+            )
+
     async def async_repair(self, point_id):
         """Explicitly recreate missing/altered owned helpers from saved config."""
         async with self._shared["lock"]:

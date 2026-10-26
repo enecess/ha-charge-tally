@@ -97,8 +97,9 @@ In **Charge Tally ledger**, enter the **Currency**, such as CNY, EUR or USD. Eac
 
 - Currency is editable when no charging points, including archived points, or accounting data remain. Identities alone do not lock it.
 - Adding a point locks it, even before the first charge.
-- Removing configuration preserves history. Clear all points and related data completely to change it again.
-- Amounts are not converted. When adding back a removed integration, first select the retained ledger’s original currency.
+- Removing a point or identity configuration preserves history. Clear all points and related data completely to change the currency again.
+- Removing the entire integration permanently deletes its ledger and private data. Adding it again creates a fresh ledger in the selected currency.
+- Old ledger files left by a previously removed integration are cleared when you submit this form.
 
 > Screenshot placeholder 03: Charge Tally ledger and its currency guidance.
 
@@ -374,7 +375,7 @@ The forms require **Request ID**; ending and reassignment also require **Expecte
 ### Permanently clear an archived charging point
 
 1. Open the main integration’s **Configure → Manage archived data → Archived charging points**.
-2. In **Select archived item**, select a point whose configuration was deleted.
+2. In **Select archived items**, select one or more points whose configurations were deleted.
 3. In **Confirm permanent operation**, review item, operation, records including voided, revisions, UTC range, energy and known cost.
 4. Check **I understand the impact and confirm permanent deletion** and submit. **Archive operation complete** reports the deleted count.
 
@@ -382,7 +383,9 @@ This deletes ledger records, revisions, samples and price history for the point,
 
 ### Permanently remove an archived identity
 
-Open **Configure → Manage archived data → Archived identities** and select an item. If records exist, choose **Receiving identity** under **Transfer identity records**: an enabled identity or **Unassigned**. With no records, go directly to confirmation.
+Open **Configure → Manage archived data → Archived identities** and select one or more items. If any selected identity has records, choose one **Receiving identity** under **Transfer identity records**: an enabled identity or **Unassigned**. With no records, go directly to confirmation.
+
+All selected items are processed together. If any item changes or an operation fails, none of the selected items are changed.
 
 All records, including voided ones, transfer without changing amounts. The source identity is deleted, while old revisions retain its name for audit. Unassigned cannot be deleted. In-use items or data changes during confirmation block the operation; finish active records or reopen the preview.
 
@@ -403,7 +406,7 @@ To start over with another currency, back up, delete unneeded point configuratio
 3. Restart Home Assistant and refresh the dashboard in the browser/app. For manually managed resources, check the resource version above too.
 4. Check points, records and statistics; follow helper repairs if prompted.
 
-The ledger is stored in the Home Assistant configuration directory. When Home Assistant creates a backup, the integration prepares a consistent ledger copy. Removing the integration or program files does not actively clear the ledger; select its original currency when adding it back. Restore matching configuration and ledger data rather than mixing dates.
+The ledger is stored in the Home Assistant configuration directory. Home Assistant backups receive a consistent ledger copy. Removing the entire integration permanently deletes its ledger, internal backup and private settings; adding it again creates a fresh ledger with the selected currency. Restarting, reloading or updating preserves data. Removing program files alone does not run cleanup. HA recorder history, native statistics, external backups and user automations are not deleted. Restore matching configuration and ledger data together.
 
 Local brand icons require **Home Assistant 2026.3 or newer**; older icon behavior does not affect accounting.
 

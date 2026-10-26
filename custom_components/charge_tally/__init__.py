@@ -63,3 +63,12 @@ async def async_unload_entry(
     await entry.runtime_data.async_close()
     hass.data.get("charge_tally", {}).pop(entry.entry_id, None)
     return True
+
+
+async def async_remove_entry(
+    hass: HomeAssistant, entry: ChargeTallyConfigEntry
+) -> None:
+    """Permanently clear owned data when the entire integration is removed."""
+    from .cleanup import async_remove_entry_data
+
+    await async_remove_entry_data(hass, entry)

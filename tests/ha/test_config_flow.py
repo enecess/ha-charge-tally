@@ -559,7 +559,7 @@ async def test_reserved_identity_rejected_before_create_and_reconfigure(
     assert entry.subentries[old_id].data == {"name": "Car", "enabled": False}
 
 
-async def test_currency_flow_uses_retained_ledger_binding(hass, tmp_path):
+async def test_new_currency_flow_replaces_orphan_ledger_binding(hass, tmp_path):
     hass.config.config_dir = str(tmp_path)
     from pathlib import Path
 
@@ -578,10 +578,5 @@ async def test_currency_flow_uses_retained_ledger_binding(hass, tmp_path):
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"currency": "USD"}
     )
-    assert result["errors"] == {"base": "currency_mismatch"}
-    assert not hass.config_entries.async_entries(DOMAIN)
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"currency": "CNY"}
-    )
     assert result["type"] == FlowResultType.CREATE_ENTRY
-    assert result["data"]["currency"] == "CNY"
+    assert result["data"]["currency"] == "USD"

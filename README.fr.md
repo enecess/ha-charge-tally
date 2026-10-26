@@ -97,8 +97,9 @@ Dans **Registre Charge Tally**, renseignez la **Devise**, par exemple EUR, CNY o
 
 - La devise peut être modifiée tant qu’il ne reste aucun point, même archivé, ni aucune donnée comptable. Les identités seules ne la verrouillent pas.
 - L’ajout d’un point verrouille la devise, même avant la première recharge.
-- Supprimer uniquement la configuration conserve l’historique ; il faut nettoyer tous les points et leurs données pour pouvoir modifier à nouveau la devise.
-- Aucune conversion monétaire automatique n’est effectuée. Lorsque vous ajoutez à nouveau une intégration supprimée, choisissez d’abord la devise d’origine du registre conservé.
+- Supprimer la configuration d’un point ou d’une identité conserve son historique ; nettoyez tous les points et leurs données pour pouvoir changer la devise.
+- Supprimer toute l’intégration efface définitivement son registre et ses données propres. Un nouvel ajout crée un registre vierge dans la devise choisie.
+- La validation de ce formulaire efface aussi les fichiers de registre laissés par une ancienne version supprimée.
 
 > Emplacement de capture 03 : fenêtre « Registre Charge Tally » et explications sur la devise.
 
@@ -374,7 +375,7 @@ Ces actions demandent aussi un **ID de la requête** ; terminer ou réaffecter e
 ### Supprimer définitivement un point archivé
 
 1. Sur l’intégration principale, ouvrez **Configurer → Gérer les données archivées → Points de charge archivés**.
-2. Dans **Choisir un objet archivé**, sélectionnez un point dont la configuration a été supprimée.
+2. Dans **Choisir les objets archivés**, sélectionnez un ou plusieurs points dont la configuration a été supprimée.
 3. Dans **Confirmer l’opération définitive**, vérifiez l’objet, l’opération, le nombre d’enregistrements incluant les invalidés, les révisions, la période UTC, l’énergie et le coût connu.
 4. Cochez **Je comprends les conséquences et confirme la suppression définitive**, puis validez. **Opération d’archivage terminée** affiche le résultat et le nombre de suppressions.
 
@@ -382,7 +383,9 @@ Cette opération supprime les enregistrements du point, leurs révisions, les me
 
 ### Supprimer définitivement une identité archivée
 
-Ouvrez **Configurer → Gérer les données archivées → Identités archivées**, puis sélectionnez l’objet. S’il possède des enregistrements, choisissez d’abord une **Identité destinataire** dans **Transférer les enregistrements** : une identité existante activée ou **Unassigned**. Sans enregistrement, vous passez directement à la confirmation.
+Ouvrez **Configurer → Gérer les données archivées → Identités archivées** et sélectionnez un ou plusieurs objets. Si l’un d’eux possède des enregistrements, choisissez une même **Identité destinataire** dans **Transférer les enregistrements** : une identité activée ou **Unassigned**. Sans enregistrement, passez directement à la confirmation.
+
+Tous les objets sélectionnés sont traités ensemble. Si un objet change ou si l’opération échoue, aucun objet sélectionné n’est modifié.
 
 Tous les enregistrements, y compris les invalidés, sont transférés avec leurs montants inchangés. L’identité source est supprimée ; les anciennes révisions conservent son nom d’origine pour l’audit. L’identité intégrée Unassigned ne peut pas être supprimée. Si l’objet est encore utilisé ou si les données changent pendant la confirmation, l’opération est bloquée : traitez les enregistrements actifs ou rouvrez l’aperçu.
 
@@ -403,7 +406,7 @@ Pour repartir avec une autre devise, effectuez les sauvegardes nécessaires, sup
 3. Redémarrez Home Assistant, puis actualisez le tableau de bord dans le navigateur ou l’application. Si vous gérez les ressources vous-même, vérifiez aussi la version de l’adresse indiquée plus haut.
 4. Vérifiez l’état des points, les enregistrements et les statistiques. Si une réparation des entrées auxiliaires est demandée, suivez la procédure.
 
-Le registre est conservé dans le répertoire de configuration Home Assistant ; lorsque Home Assistant crée une sauvegarde, l’intégration prépare une copie cohérente du registre. Supprimer l’intégration ou désinstaller ses fichiers ne vide pas volontairement le registre conservé ; lors du nouvel ajout, choisissez sa devise d’origine. Une restauration doit rétablir la configuration et le registre correspondants, sans mélanger des données de périodes différentes.
+Le registre est stocké dans le répertoire de configuration HA. Les sauvegardes HA reçoivent une copie cohérente. Supprimer toute l’intégration efface définitivement le registre, sa copie interne et les paramètres propres à l’intégration ; un nouvel ajout crée un registre vierge dans la devise choisie. Redémarrage, rechargement et mise à jour conservent les données. Supprimer uniquement les fichiers du programme ne lance pas le nettoyage. L’historique HA, les statistiques natives, les sauvegardes externes et les automatisations utilisateur sont conservés. Restaurez ensemble la configuration et le registre correspondants.
 
 Les icônes de marque locales sont prises en charge à partir de **Home Assistant 2026.3**. Leur affichage sur une version plus ancienne n’affecte pas la comptabilisation.
 

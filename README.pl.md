@@ -97,8 +97,9 @@ W oknie **Rejestr Charge Tally** podaj **Waluta**, na przykład PLN, EUR lub USD
 
 - Walutę można zmienić bez punktów, również archiwalnych, i bez zachowanych danych księgowych. Same tożsamości jej nie blokują.
 - Dodanie punktu blokuje walutę nawet przed pierwszym ładowaniem.
-- Usunięcie konfiguracji zachowuje historię; dopiero pełne usunięcie wszystkich punktów i powiązanych danych pozwala zmienić walutę.
-- Nie ma przeliczania walut. Przy ponownym dodawaniu usuniętej integracji wybierz pierwotną walutę zachowanej księgi.
+- Usunięcie konfiguracji pojedynczego punktu lub tożsamości zachowuje historię; usuń wszystkie punkty i ich dane, aby ponownie zmienić walutę.
+- Usunięcie całej integracji trwale usuwa jej księgę i prywatne dane. Ponowne dodanie tworzy pustą księgę w wybranej walucie.
+- Zatwierdzenie tego formularza usuwa też pliki księgi pozostawione po usunięciu starszej wersji integracji.
 
 > Miejsce na zrzut ekranu 03: „Rejestr Charge Tally” z walutą i objaśnieniami.
 
@@ -374,7 +375,7 @@ Wszystkie działania księgowe wymagają **ID żądania**, a zakończenie i zmia
 ### Trwałe usunięcie archiwalnego punktu
 
 1. Przy głównej integracji otwórz **Konfiguruj → Zarządzaj danymi archiwalnymi → Archiwalne punkty ładowania**.
-2. W **Wybierz obiekt archiwalny** wybierz punkt z usuniętą konfiguracją.
+2. W **Wybierz obiekty archiwalne** wybierz jeden lub więcej punktów z usuniętą konfiguracją.
 3. W **Potwierdź trwałą operację** sprawdź obiekt, operację, liczbę wpisów wraz z unieważnionymi, rewizje, zakres UTC, energię i znany koszt.
 4. Zaznacz **Rozumiem skutki i potwierdzam trwałe usunięcie** i zatwierdź. **Operacja archiwum zakończona** pokaże liczbę usuniętych wpisów.
 
@@ -382,7 +383,9 @@ Usuwane są wpisy punktu, powiązane rewizje, próbki i historia cen z księgi. 
 
 ### Trwałe usunięcie archiwalnej tożsamości
 
-Otwórz **Konfiguruj → Zarządzaj danymi archiwalnymi → Archiwalne tożsamości** i wybierz obiekt. Jeśli ma wpisy, najpierw w **Przenieś wpisy tożsamości** wybierz **Tożsamość docelowa**: istniejącą włączoną tożsamość albo **Unassigned**. Bez wpisów następuje bezpośrednio potwierdzenie.
+Otwórz **Konfiguruj → Zarządzaj danymi archiwalnymi → Archiwalne tożsamości** i wybierz jeden lub więcej obiektów. Jeśli którykolwiek ma wpisy, w **Przenieś wpisy tożsamości** wybierz wspólną **Tożsamość docelową**: włączoną tożsamość albo **Unassigned**. Bez wpisów następuje bezpośrednio potwierdzenie.
+
+Wszystkie wybrane obiekty są przetwarzane razem. Jeśli obiekt się zmieni lub operacja nie powiedzie się, żaden wybrany obiekt nie zostanie zmieniony.
 
 Wszystkie wpisy, również unieważnione, są przenoszone bez zmiany kwot. Pierwotna tożsamość zostaje usunięta, a stare rewizje zachowują jej nazwę. Unassigned nie można usunąć. Używany obiekt lub zmiana danych w trakcie potwierdzania blokuje operację: zakończ aktywne wpisy lub otwórz podgląd ponownie.
 
@@ -403,7 +406,7 @@ Aby zacząć od nowa w innej walucie, wykonaj potrzebną kopię, usuń nieużywa
 3. Uruchom HA ponownie i odśwież pulpit w przeglądarce lub aplikacji. Przy własnym zarządzaniu zasobami sprawdź wersję podanego wyżej adresu.
 4. Sprawdź punkty, wpisy i statystyki; wymagane naprawy przeprowadź przez interfejs napraw.
 
-Księga znajduje się w katalogu konfiguracji HA. Podczas tworzenia kopii zapasowej Home Assistant przygotowywana jest spójna kopia księgi. Usunięcie integracji lub jej plików programu nie czyści aktywnie zachowanej księgi. Ponowne dodanie wymaga pierwotnej waluty. Przywracaj pasującą konfigurację i księgę razem, bez mieszania stanów z różnych okresów.
+Księga znajduje się w katalogu konfiguracji HA. Kopie zapasowe HA zawierają jej spójną kopię. Usunięcie całej integracji trwale usuwa księgę, kopię wewnętrzną i prywatne ustawienia; ponowne dodanie tworzy pustą księgę w wybranej walucie. Restart, przeładowanie i aktualizacje zachowują dane. Samo usunięcie plików programu nie uruchamia czyszczenia. Historia HA, natywne statystyki, zewnętrzne kopie i automatyzacje użytkownika pozostają. Przywracaj razem pasującą konfigurację i księgę.
 
 Lokalne obrazy marki są obsługiwane od **Home Assistant 2026.3**. Wyświetlanie ikon w starszych wersjach nie wpływa na rozliczanie.
 

@@ -17,6 +17,69 @@ async def archived_point(hass, tmp_path):
     return entry, point_id
 
 
+async def archived_points(hass, tmp_path):
+    entry, first = await archived_point(hass, tmp_path)
+    await add_point(hass, entry)
+    second = next(iter(entry.subentries))
+    hass.config_entries.async_remove_subentry(entry, second)
+    await hass.async_block_till_done()
+    return entry, [first, second]
+
+
+async def test_batch_delete_removes_all_states_and_survives_reload(hass, tmp_path):
+    entry, ids = await archived_points(hass, tmp_path)
+    runtime = entry.runtime_data
+    preview = await runtime.async_archive_preview("point", ids)
+    result = await runtime.async_archive_delete("point", ids, preview["fingerprint"])
+    assert result["object_count"] == 2
+    assert not runtime.snapshot["archived_points"]
+    checkpoint = await runtime._read(runtime._store.ledger.get_checkpoint, "runtime")
+    assert all(
+        id_ not in checkpoint and id_ not in runtime._store.states for id_ in ids
+    )
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert not entry.runtime_data.snapshot["archived_points"]
+
+
+@pytest.mark.parametrize("cancel", [False, True])
+async def test_batch_prepare_rolls_back_all_objects_on_cancel_or_config_race(
+    hass, tmp_path, monkeypatch, cancel
+):
+    entry, ids = await archived_points(hass, tmp_path)
+    runtime = entry.runtime_data
+    preview = await runtime.async_archive_preview("point", ids)
+    original = runtime._worker
+    prepared, resume = asyncio.Event(), asyncio.Event()
+
+    async def worker(function, *args):
+        result = await original(function, *args)
+        if function == runtime._store.archive_prepare:
+            prepared.set()
+            await resume.wait()
+        return result
+
+    monkeypatch.setattr(runtime, "_worker", worker)
+    task = asyncio.create_task(
+        runtime.async_archive_delete("point", ids, preview["fingerprint"])
+    )
+    await prepared.wait()
+    if cancel:
+        task.cancel()
+    else:
+        original_config = runtime._config
+        monkeypatch.setattr(
+            runtime, "_config", lambda: ({ids[1]: {}}, original_config()[1])
+        )
+    resume.set()
+    with pytest.raises(asyncio.CancelledError if cancel else ValueError):
+        await task
+    checkpoint = await runtime._read(runtime._store.ledger.get_checkpoint, "runtime")
+    for id_ in ids:
+        assert await runtime._read(runtime._store.ledger.get_point, id_) is not None
+        assert id_ in checkpoint and id_ in runtime._store.states
+
+
 async def test_delete_point_removes_memory_and_checkpoint(hass, tmp_path):
     entry, point_id = await archived_point(hass, tmp_path)
     runtime = entry.runtime_data

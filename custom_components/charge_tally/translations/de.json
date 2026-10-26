@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Charge Tally-Abrechnungsbuch",
-        "description": "- Alle Ladepunkte und Einträge verwenden dieselbe Währung.\n- Unter Konfigurieren → Bucheinstellungen lässt sie sich ändern, wenn keine Ladepunkte (auch keine archivierten) und keine Buchungsdaten vorhanden sind. Identitäten allein sperren sie nicht.\n- Das Entfernen eines Ladepunkts behält Verlauf und Währungssperre bei. Erst die vollständige Bereinigung aller Punkte und zugehörigen Daten über Archivdaten verwalten ermöglicht Änderungen.\n- Dynamische Preise müssen dieselbe Währung verwenden; Beträge werden nicht automatisch umgerechnet.\n- Wähle beim Wiederherstellen eines gespeicherten Buchs zuerst dessen ursprüngliche Währung.",
+        "description": "- Alle Ladepunkte und Einträge verwenden dieselbe Währung.\n- Unter Konfigurieren → Bucheinstellungen lässt sie sich ändern, wenn keine Ladepunkte (auch keine archivierten) und keine Buchungsdaten vorhanden sind. Identitäten allein sperren sie nicht.\n- Das Entfernen eines Ladepunkts behält Verlauf und Währungssperre bei. Erst die vollständige Bereinigung aller Punkte und zugehörigen Daten über Archivdaten verwalten ermöglicht Änderungen.\n- Dynamische Preise müssen dieselbe Währung verwenden; Beträge werden nicht automatisch umgerechnet.\n- Das Entfernen der gesamten Integration löscht ihr Buch und ihre eigenen Daten dauerhaft. Beim erneuten Hinzufügen entsteht ein neues Buch in der gewählten Währung.\n- Beim Absenden werden auch Buchdateien gelöscht, die nach dem Entfernen einer älteren Version zurückgeblieben sind.",
         "data": {
           "currency": "Währung"
         }
@@ -12,12 +12,11 @@
     },
     "error": {
       "invalid_currency": "Wählen Sie einen gültigen Währungscode aus drei Buchstaben.",
-      "currency_mismatch": "Das gespeicherte Abrechnungsbuch verwendet eine andere Währung. Verwenden Sie dessen ursprüngliche Währung."
+      "cleanup_failed": "Das alte Buch konnte nicht gelöscht werden. Prüfe den Dateizugriff und versuche es erneut. Es wurde keine neue Konfiguration erstellt."
     },
     "abort": {
       "single_instance_allowed": "Es wird nur ein Charge Tally-Abrechnungsbuch unterstützt.",
-      "already_configured": "Charge Tally ist bereits eingerichtet.",
-      "currency_unbound": "Das Abrechnungsbuch enthält Buchungsdaten ohne Währungszuordnung. Die Datenintegrität muss vor dem Öffnen wiederhergestellt werden."
+      "already_configured": "Charge Tally ist bereits eingerichtet."
     }
   },
   "config_subentries": {
@@ -196,9 +195,9 @@
     },
     "archive_action": {
       "options": {
-        "delete_point": "Alle Buchhaltungsdaten des Ladepunkts einschließlich nicht abgeschlossener Datensätze, Revisionen, Messwerte und Preisverlauf dauerhaft löschen",
-        "delete_identity": "Identität löschen; alte Revisionen behalten ihren ursprünglichen Namen zur Prüfung",
-        "transfer_identity": "Alle aufgeführten Einträge ohne Betragsänderung an die gewählte Identität übertragen, die Quellidentität löschen und ihren ursprünglichen Namen in alten Revisionen erhalten"
+        "delete_point": "Ausgewählte Ladepunkte und ihre Einträge einschließlich unfertiger Einträge dauerhaft löschen",
+        "delete_identity": "Ausgewählte Identitäten dauerhaft löschen",
+        "transfer_identity": "Einträge übertragen und ausgewählte Identitäten dauerhaft löschen"
       }
     },
     "archive_time": {
@@ -434,10 +433,10 @@
         }
       },
       "archive_select": {
-        "title": "Archiviertes Objekt auswählen",
-        "description": "Nur Objekte mit gelöschtem Konfigurationseintrag stehen zur Auswahl. Das Deaktivieren eines Eintrags archiviert ihn nicht.",
+        "title": "Archivierte Objekte auswählen",
+        "description": "Wähle ein oder mehrere Objekte mit gelöschter Konfiguration. Deaktivieren allein archiviert sie nicht.",
         "data": {
-          "object_id": "Archiviertes Objekt"
+          "object_id": "Archivierte Objekte"
         }
       },
       "archive_empty": {
@@ -446,21 +445,21 @@
       },
       "archive_target": {
         "title": "Identitätseinträge übertragen",
-        "description": "Alle {records} aktuellen Einträge von **{name}**, einschließlich stornierter Einträge, werden der gewählten Identität zugeordnet. Beträge bleiben unverändert. Alte Revisionen behalten den ursprünglichen Identitätsnamen zur Prüfung.",
+        "description": "Übertrage alle {records} Einträge von **{name}**, einschließlich stornierter Einträge, an dieselbe Empfängeridentität. Beträge bleiben unverändert. Alte Revisionen behalten ihre ursprünglichen Identitätsnamen.",
         "data": {
           "target_identity_id": "Empfängeridentität"
         }
       },
       "archive_confirm": {
         "title": "Dauerhaften Vorgang bestätigen",
-        "description": "- Objekt: **{name}**\n- Vorgang: {operation}\n- Einträge (einschließlich stornierter): {records}\n- Nicht abgeschlossene Datensätze: {active}\n- Stornierte Einträge: {voided}\n- Revisionen: {revisions}\n- Zeitraum (UTC): {start} – {end}\n- Energie: {energy} kWh\n- Bekannte Kosten: {cost} {currency}\n- Empfängeridentität: {target}\n\nDieser Vorgang ist dauerhaft und kann in der Oberfläche nicht rückgängig gemacht werden. Nur das Charge Tally-Buch wird bereinigt; Home Assistant Recorder-Verlauf, native Statistiken und Sicherungen bleiben unberührt. Die Währung kann erst wieder geändert werden, wenn keine Ladepunkte (auch keine archivierten) und keine Buchungsdaten mehr vorhanden sind.",
+        "description": "- Objekte ({objects}): **{name}**\n- Vorgang: {operation}\n- Einträge (einschließlich stornierter): {records}\n- Nicht abgeschlossene Datensätze: {active}\n- Stornierte Einträge: {voided}\n- Revisionen: {revisions}\n- Zeitraum (UTC): {start} – {end}\n- Energie: {energy} kWh\n- Bekannte Kosten: {cost} {currency}\n- Empfängeridentität: {target}\n\nDieser Vorgang ist dauerhaft und kann in der Oberfläche nicht rückgängig gemacht werden. Nur das Charge Tally-Buch wird bereinigt; Home Assistant Recorder-Verlauf, native Statistiken und Sicherungen bleiben unberührt. Die Währung kann erst wieder geändert werden, wenn keine Ladepunkte (auch keine archivierten) und keine Buchungsdaten mehr vorhanden sind.\n\nAlle ausgewählten Objekte werden gemeinsam verarbeitet. Bei Änderungen oder Fehlern bleibt die gesamte Auswahl unverändert.",
         "data": {
           "confirm": "Ich verstehe die Auswirkungen und bestätige das dauerhafte Löschen"
         }
       },
       "archive_done": {
         "title": "Archivvorgang abgeschlossen",
-        "description": "Vorgang für **{name}** abgeschlossen. Gelöschte Einträge: {deleted}. Übertragene Einträge: {transferred}."
+        "description": "Abgeschlossen für {objects} Objekte: **{name}**. Gelöschte Einträge: {deleted}. Übertragene Einträge: {transferred}."
       },
       "nfc": {
         "title": "NFC-Identitätsverknüpfungen",
@@ -472,7 +471,8 @@
       "save_failed": "Die Währung konnte nicht gespeichert werden. Die bisherige Währung bleibt erhalten. Versuchen Sie es erneut.",
       "confirm_required": "Bestätigen Sie zuerst, dass Sie die Auswirkungen verstehen.",
       "archive_target": "Wählen Sie eine verfügbare Empfängeridentität.",
-      "archive_failed": "Der Archivvorgang ist fehlgeschlagen. Aktualisieren Sie die Vorschau und versuchen Sie es erneut."
+      "archive_failed": "Der Archivvorgang ist fehlgeschlagen. Aktualisieren Sie die Vorschau und versuchen Sie es erneut.",
+      "archive_selection_required": "Wähle mindestens ein archiviertes Objekt."
     },
     "abort": {
       "config_changed": "Die Währung wurde geändert, während dieses Formular geöffnet war. Öffnen Sie Konfigurieren erneut.",

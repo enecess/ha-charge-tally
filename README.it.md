@@ -97,8 +97,9 @@ In **Registro contabile Charge Tally**, inserisci la **Valuta**, per esempio CNY
 
 - La valuta è modificabile quando non restano punti, anche archiviati, né dati contabili. Le sole identità non la bloccano.
 - Aggiungere un punto la blocca, anche prima della prima ricarica.
-- Eliminare la configurazione conserva lo storico. Occorre eliminare completamente tutti i punti e i dati collegati per cambiarla di nuovo.
-- Non avviene alcuna conversione. Quando aggiungi nuovamente un’integrazione rimossa, seleziona prima la valuta originale del registro conservato.
+- Eliminare la configurazione di un punto o di un’identità conserva lo storico. Elimina tutti i punti e i dati collegati per cambiare di nuovo la valuta.
+- Rimuovere l’intera integrazione elimina definitivamente il registro e i suoi dati privati. Aggiungerla di nuovo crea un registro vuoto nella valuta scelta.
+- L’invio di questo modulo elimina anche i file del registro rimasti dopo la rimozione di una versione precedente.
 
 > Segnaposto immagine 03: Registro contabile Charge Tally e indicazioni sulla valuta.
 
@@ -374,7 +375,7 @@ I moduli richiedono **ID della richiesta**; fine e riassegnazione richiedono anc
 ### Eliminare definitivamente un punto archiviato
 
 1. Apri **Configura → Gestisci dati archiviati → Punti di ricarica archiviati** nell’integrazione principale.
-2. In **Seleziona oggetto archiviato**, scegli un punto la cui configurazione è stata eliminata.
+2. In **Seleziona oggetti archiviati**, scegli uno o più punti la cui configurazione è stata eliminata.
 3. In **Conferma operazione permanente**, verifica oggetto, operazione, record inclusi annullati, revisioni, intervallo UTC, energia e costo noto.
 4. Seleziona **Comprendo le conseguenze e confermo l’eliminazione permanente** e invia. **Operazione archivio completata** riporta il numero eliminato.
 
@@ -382,7 +383,9 @@ Vengono eliminati registrazioni, revisioni, campioni e storico dei prezzi del pu
 
 ### Rimuovere definitivamente un’identità archiviata
 
-Apri **Configura → Gestisci dati archiviati → Identità archiviate** e scegli l’oggetto. Se esistono registrazioni, in **Trasferisci record dell’identità** seleziona **Identità destinataria**: un’identità abilitata o **Unassigned**. Senza registrazioni si passa direttamente alla conferma.
+Apri **Configura → Gestisci dati archiviati → Identità archiviate** e scegli uno o più oggetti. Se almeno uno ha registrazioni, in **Trasferisci record dell’identità** scegli la stessa **Identità destinataria** per tutti: un’identità abilitata o **Unassigned**. Senza registrazioni si passa direttamente alla conferma.
+
+Tutti gli oggetti selezionati vengono elaborati insieme. Se un oggetto cambia o l’operazione fallisce, nessun oggetto selezionato viene modificato.
 
 Tutte le registrazioni, anche annullate, vengono trasferite senza cambiare importi. L’identità originale viene eliminata; le vecchie revisioni conservano il nome per verifica. Unassigned non può essere eliminata. Oggetti in uso o dati cambiati durante la conferma bloccano l’operazione: termina le registrazioni attive o riapri l’anteprima.
 
@@ -403,7 +406,7 @@ Per ricominciare con una valuta diversa, esegui un backup, elimina le configuraz
 3. Riavvia HA e aggiorna la dashboard nel browser o nell’app. Se gestisci manualmente le risorse, verifica anche la versione dell’URL indicato sopra.
 4. Controlla punti, registrazioni e statistiche; segui l’eventuale riparazione degli aiutanti.
 
-Il registro risiede nella cartella di configurazione HA. Quando Home Assistant crea un backup, l’integrazione prepara una copia coerente del registro. Rimuovere l’integrazione o i file del programma non svuota attivamente il registro; quando la aggiungi di nuovo seleziona la valuta originale. Ripristina configurazione e registro corrispondenti, senza mescolare periodi diversi.
+Il registro risiede nella cartella di configurazione HA. I backup HA ricevono una copia coerente. Rimuovere l’intera integrazione elimina definitivamente registro, backup interno e impostazioni private; aggiungerla di nuovo crea un registro vuoto nella valuta scelta. Riavvio, ricaricamento e aggiornamenti conservano i dati. La sola rimozione dei file del programma non esegue la pulizia. Storico HA, statistiche native, backup esterni e automazioni utente restano intatti. Ripristina insieme configurazione e registro corrispondenti.
 
 Le icone locali del marchio richiedono **Home Assistant 2026.3 o successivo**. Nelle versioni precedenti la visualizzazione dell’icona non influisce sui conteggi.
 

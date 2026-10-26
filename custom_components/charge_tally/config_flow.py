@@ -12,6 +12,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import selector
 from homeassistant.helpers.translation import async_get_translations
 
+from .cleanup import async_prepare_new_ledger
 from .config_validation import (
     validate_detection,
     validate_identity_name,
@@ -21,7 +22,6 @@ from .config_validation import (
 )
 from .const import DOMAIN, INPUT_MODES, NAME, PERIODS, RESTRICTED_POINT_FIELDS
 from .core.units import decimal_value, price_per_kwh
-from .ledger import retained_currency
 from .options_flow import LedgerOptionsFlow
 
 _NEXT_SUBENTRY_FLOW = getattr(
@@ -69,23 +69,21 @@ class ChargeTallyConfigFlow(ConfigFlow, domain=DOMAIN):
         if self._async_current_entries():
             return self.async_abort(reason="single_instance_allowed")
         errors = {}
-        try:
-            retained = await self.hass.async_add_executor_job(
-                retained_currency, self.hass.config.path("charge_tally/ledger.sqlite3")
-            )
-        except ValueError as err:
-            return self.async_abort(reason=str(err))
         if user_input is not None:
             try:
                 currency = cv.currency(user_input["currency"].strip().upper())
             except (vol.Invalid, KeyError, AttributeError):
                 errors["base"] = "invalid_currency"
             else:
-                if retained is not None and retained != currency:
-                    errors["base"] = "currency_mismatch"
+                await self.async_set_unique_id(DOMAIN)
+                self._abort_if_unique_id_configured()
+                try:
+                    await async_prepare_new_ledger(self.hass)
+                except OSError:
+                    errors["base"] = "cleanup_failed"
+                except ValueError as err:
+                    return self.async_abort(reason=str(err))
                 else:
-                    await self.async_set_unique_id(DOMAIN)
-                    self._abort_if_unique_id_configured()
                     return self.async_create_entry(
                         title=NAME, data={"currency": currency}
                     )
@@ -94,7 +92,7 @@ class ChargeTallyConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required(
-                        "currency", default=retained or self.hass.config.currency
+                        "currency", default=self.hass.config.currency
                     ): selector.TextSelector(),
                 }
             ),

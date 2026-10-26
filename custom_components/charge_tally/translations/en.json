@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Charge Tally ledger",
-        "description": "- All charging points and records share one currency.\n- Change it in Configure → Ledger settings when no charging points (including archived points) or accounting data remain. Identities alone do not lock it.\n- Removing a point keeps its history and the currency lock; fully clearing points and related data through Manage archived data allows changes again.\n- Dynamic prices must use the same currency; amounts are never converted automatically.\n- When restoring a retained ledger, select its original currency first.",
+        "description": "- All charging points and records share one currency.\n- Change it in Configure → Ledger settings when no charging points (including archived points) or accounting data remain. Identities alone do not lock it.\n- Removing a point keeps its history and the currency lock; fully clearing points and related data through Manage archived data allows changes again.\n- Dynamic prices must use the same currency; amounts are never converted automatically.\n- Removing the entire integration permanently deletes its ledger and private data. Adding it again creates a fresh ledger in the selected currency.\n- Old ledger files left by a previously removed integration are cleared when you submit this form.",
         "data": {
           "currency": "Currency"
         }
@@ -12,12 +12,11 @@
     },
     "error": {
       "invalid_currency": "Choose a valid three-letter currency code.",
-      "currency_mismatch": "The retained ledger uses another currency. Use its original currency."
+      "cleanup_failed": "Could not clear the old ledger. Check file access and try again; no new configuration was created."
     },
     "abort": {
       "single_instance_allowed": "Only one Charge Tally ledger is supported.",
-      "already_configured": "Charge Tally is already configured.",
-      "currency_unbound": "The ledger contains accounting data without a currency binding. Its data integrity must be restored before it can be opened."
+      "already_configured": "Charge Tally is already configured."
     }
   },
   "config_subentries": {
@@ -196,9 +195,9 @@
     },
     "archive_action": {
       "options": {
-        "delete_point": "Permanently delete all ledger data for the charging point, including unfinished records, revisions, samples and price history",
-        "delete_identity": "Delete the identity; old revisions keep its original name for audit",
-        "transfer_identity": "Transfer all listed records to the selected identity without changing amounts, delete the source identity and preserve its original name in old revisions"
+        "delete_point": "Permanently delete the selected charging points and their records, including unfinished records",
+        "delete_identity": "Permanently delete the selected identities",
+        "transfer_identity": "Transfer records and permanently delete the selected identities"
       }
     },
     "archive_time": {
@@ -434,10 +433,10 @@
         }
       },
       "archive_select": {
-        "title": "Select archived item",
-        "description": "Only items whose configuration entry has been deleted are available. Disabling an entry does not archive it.",
+        "title": "Select archived items",
+        "description": "Select one or more items whose configuration entries have been deleted. Disabling an entry does not archive it.",
         "data": {
-          "object_id": "Archived item"
+          "object_id": "Archived items"
         }
       },
       "archive_empty": {
@@ -446,21 +445,21 @@
       },
       "archive_target": {
         "title": "Transfer identity records",
-        "description": "Transfer all {records} current records belonging to **{name}**, including voided records, to the selected identity. Amounts remain unchanged. Old revisions retain the original identity name for audit.",
+        "description": "Transfer all {records} records belonging to **{name}**, including voided records, to one receiving identity. Amounts remain unchanged. Old revisions retain their original identity names for audit.",
         "data": {
           "target_identity_id": "Receiving identity"
         }
       },
       "archive_confirm": {
         "title": "Confirm permanent operation",
-        "description": "- Item: **{name}**\n- Operation: {operation}\n- Records (including voided): {records}\n- Unfinished records: {active}\n- Voided records: {voided}\n- Revisions: {revisions}\n- Time range (UTC): {start} – {end}\n- Energy: {energy} kWh\n- Known cost: {cost} {currency}\n- Receiving identity: {target}\n\nThis operation is permanent and cannot be undone in the interface. Cleanup affects only the Charge Tally ledger; Home Assistant recorder history, native statistics and backups are excluded. Currency changes become available only when no charging points (including archived points) or accounting data remain.",
+        "description": "- Items ({objects}): **{name}**\n- Operation: {operation}\n- Records (including voided): {records}\n- Unfinished records: {active}\n- Voided records: {voided}\n- Revisions: {revisions}\n- Time range (UTC): {start} – {end}\n- Energy: {energy} kWh\n- Known cost: {cost} {currency}\n- Receiving identity: {target}\n\nThis operation is permanent and cannot be undone in the interface. Cleanup affects only the Charge Tally ledger; Home Assistant recorder history, native statistics and backups are excluded. Currency changes become available only when no charging points (including archived points) or accounting data remain.\n\nAll selected items are processed together. If any item changes or an operation fails, none of the selected items are changed.",
         "data": {
           "confirm": "I understand the impact and confirm permanent deletion"
         }
       },
       "archive_done": {
         "title": "Archive operation complete",
-        "description": "Completed for **{name}**. Records deleted: {deleted}. Records transferred: {transferred}."
+        "description": "Completed for {objects} items: **{name}**. Records deleted: {deleted}. Records transferred: {transferred}."
       },
       "nfc": {
         "title": "NFC identity links",
@@ -472,7 +471,8 @@
       "save_failed": "Could not save the currency. The previous currency has been retained. Try again.",
       "confirm_required": "Confirm that you understand the impact before continuing.",
       "archive_target": "Select an available receiving identity.",
-      "archive_failed": "The archive operation failed. Refresh the preview and try again."
+      "archive_failed": "The archive operation failed. Refresh the preview and try again.",
+      "archive_selection_required": "Select at least one archived item."
     },
     "abort": {
       "config_changed": "The ledger currency changed while this form was open. Open Configure again.",

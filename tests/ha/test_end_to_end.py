@@ -396,7 +396,7 @@ async def test_automatic_accounting_edit_restore_backfill_and_confirmed_archive(
     await hass.async_block_till_done()
     runtime = entry.runtime_data
     form = await archive_flow(hass, entry, "point")
-    form = await choose(hass, form, {"object_id": point_id})
+    form = await choose(hass, form, {"object_id": [point_id]})
     assert form["description_placeholders"]["records"] == "3"
     assert form["description_placeholders"]["active"] == "1"
     form = await choose(hass, form, {"confirm": False})

@@ -7,6 +7,19 @@ from hashlib import sha256
 from .ledger import encode
 
 
+def archive_ids(value):
+    """Normalize single and batch selections before touching storage."""
+    values = [value] if isinstance(value, str) else value
+    if (
+        not isinstance(values, list)
+        or not values
+        or any(not isinstance(item, str) or not item for item in values)
+        or len(set(values)) != len(values)
+    ):
+        raise ValueError("archive_not_found")
+    return sorted(values)
+
+
 class ArchiveManager:
     def __init__(self, ledger):
         self.ledger = ledger
@@ -232,6 +245,59 @@ class ArchiveManager:
         )
         return summary, records, related
 
+    def _batch_snapshot(
+        self,
+        kind,
+        object_id,
+        configured_points,
+        configured_identities,
+        target_identity_id,
+    ):
+        ids = archive_ids(object_id)
+        snapshots = [
+            self._snapshot(
+                kind, id_, configured_points, configured_identities, target_identity_id
+            )
+            for id_ in ids
+        ]
+        summaries = [item[0] for item in snapshots]
+        summary = dict(summaries[0])
+        summary.update(ids=ids, object_count=len(ids), items=summaries)
+        if isinstance(object_id, str):
+            return summary, snapshots
+        summary.update(
+            id=ids,
+            name=", ".join(item["name"] for item in summaries),
+            fingerprint=sha256(
+                encode(
+                    [kind, ids, [item["fingerprint"] for item in summaries]]
+                ).encode()
+            ).hexdigest(),
+            revision_count=len(
+                {
+                    (record_id, revision)
+                    for _, _, related in snapshots
+                    for record_id, revision, _ in related["revisions"]
+                }
+            ),
+            start=min((s["start"] for s in summaries if s["start"]), default=None),
+            latest_ended_at=max(
+                (s["latest_ended_at"] for s in summaries if s["latest_ended_at"]),
+                default=None,
+            ),
+            cost_complete=all(s["cost_complete"] for s in summaries),
+        )
+        for key in ("record_count", "void_count", "active_count"):
+            summary[key] = sum(s[key] for s in summaries)
+        summary["end"] = None if summary["active_count"] else summary["latest_ended_at"]
+        with localcontext() as context:
+            context.prec = 36
+            for key in ("energy_kwh", "known_cost"):
+                summary[key] = str(
+                    sum((Decimal(s[key]) for s in summaries), Decimal(0))
+                )
+        return summary, snapshots
+
     def preview(
         self,
         kind,
@@ -241,7 +307,7 @@ class ArchiveManager:
         target_identity_id=None,
     ):
         with self.ledger.transaction():
-            return self._snapshot(
+            return self._batch_snapshot(
                 kind,
                 object_id,
                 configured_points,
@@ -259,61 +325,70 @@ class ArchiveManager:
         target_identity_id=None,
     ):
         with self.ledger.transaction():
-            summary, records, related = self._snapshot(
+            summary, snapshots = self._batch_snapshot(
                 kind,
                 object_id,
                 configured_points,
                 configured_identities,
                 target_identity_id,
             )
-            if kind == "identity" and records and target_identity_id is None:
+            if (
+                kind == "identity"
+                and summary["record_count"]
+                and target_identity_id is None
+            ):
                 raise ValueError("archive_target")
             if summary["fingerprint"] != fingerprint:
                 raise ValueError("archive_stale")
-            db = self.ledger._db
-            if kind == "point":
-                for record_id, revision, _ in related["revisions"]:
-                    db.execute(
-                        "DELETE FROM revisions WHERE record_id=? AND revision=?",
-                        (record_id, revision),
-                    )
-                for record in records:
-                    db.execute(
-                        "DELETE FROM segments WHERE record_id=?", (record["id"],)
-                    )
-                    db.execute("DELETE FROM records WHERE id=?", (record["id"],))
-                for table, key in [
-                    ("observation_resolutions", "resolutions"),
-                    ("observations", "observations"),
-                    ("price_versions", "prices"),
-                ]:
-                    for id_, _ in related[key]:
-                        db.execute(f"DELETE FROM {table} WHERE id=?", (id_,))
-                db.execute("DELETE FROM points WHERE id=?", (object_id,))
-            else:
-                for record_id, revision, data in related["revisions"]:
-                    if data["record"]["identity_id"] == object_id:
-                        data["record"]["identity_name"] = summary["name"]
-                        db.execute(
-                            "UPDATE revisions SET data=? WHERE record_id=? AND revision=?",
-                            (encode(data), record_id, revision),
-                        )
-                for record in records:
-                    record.update(
-                        identity_id=target_identity_id, revision=record["revision"] + 1
-                    )
-                    record.pop("identity_name", None)
-                    self.ledger.save_record(
-                        record, self.ledger.list_segments(record["id"])
-                    )
-                db.execute("DELETE FROM identities WHERE id=?", (object_id,))
-            for table in ("previews", "requests", "checkpoints"):
-                for id_, _ in related[table]:
-                    db.execute(f"DELETE FROM {table} WHERE id=?", (id_,))
-            self.ledger._bump()
+            # Validate the whole batch before changes can invalidate shared evidence.
+            for item, records, related in snapshots:
+                self._delete_snapshot(item, records, related)
             return dict(
                 kind=kind,
-                id=object_id,
-                record_count=len(records),
-                transferred_count=len(records) if kind == "identity" else 0,
+                id=summary["id"],
+                ids=summary["ids"],
+                object_count=summary["object_count"],
+                record_count=summary["record_count"],
+                transferred_count=summary["record_count"] if kind == "identity" else 0,
             )
+
+    def _delete_snapshot(self, summary, records, related):
+        kind, object_id = summary["kind"], summary["id"]
+        db = self.ledger._db
+        if kind == "point":
+            for record_id, revision, _ in related["revisions"]:
+                db.execute(
+                    "DELETE FROM revisions WHERE record_id=? AND revision=?",
+                    (record_id, revision),
+                )
+            for record in records:
+                db.execute("DELETE FROM segments WHERE record_id=?", (record["id"],))
+                db.execute("DELETE FROM records WHERE id=?", (record["id"],))
+            for table, key in [
+                ("observation_resolutions", "resolutions"),
+                ("observations", "observations"),
+                ("price_versions", "prices"),
+            ]:
+                for id_, _ in related[key]:
+                    db.execute(f"DELETE FROM {table} WHERE id=?", (id_,))
+            db.execute("DELETE FROM points WHERE id=?", (object_id,))
+        else:
+            for record_id, revision, data in related["revisions"]:
+                if data["record"]["identity_id"] == object_id:
+                    data["record"]["identity_name"] = summary["name"]
+                    db.execute(
+                        "UPDATE revisions SET data=? WHERE record_id=? AND revision=?",
+                        (encode(data), record_id, revision),
+                    )
+            for record in records:
+                record.update(
+                    identity_id=summary["target_identity_id"],
+                    revision=record["revision"] + 1,
+                )
+                record.pop("identity_name", None)
+                self.ledger.save_record(record, self.ledger.list_segments(record["id"]))
+            db.execute("DELETE FROM identities WHERE id=?", (object_id,))
+        for table in ("previews", "requests", "checkpoints"):
+            for id_, _ in related[table]:
+                db.execute(f"DELETE FROM {table} WHERE id=?", (id_,))
+        self.ledger._bump()

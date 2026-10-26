@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Registre Charge Tally",
-        "description": "- Tous les points de charge et enregistrements partagent une devise.\n- Modifiez-la dans Configurer → Paramètres du registre si aucun point (même archivé) ni aucune donnée comptable ne subsiste. Les identités seules ne la verrouillent pas.\n- Supprimer un point conserve son historique et le verrouillage. Nettoyer tous les points et leurs données via Gérer les données archivées permet de modifier à nouveau la devise.\n- Les prix dynamiques doivent utiliser cette devise ; aucun montant n’est converti automatiquement.\n- Pour restaurer un registre conservé, choisissez d’abord sa devise d’origine.",
+        "description": "- Tous les points de charge et enregistrements partagent une devise.\n- Modifiez-la dans Configurer → Paramètres du registre si aucun point (même archivé) ni aucune donnée comptable ne subsiste. Les identités seules ne la verrouillent pas.\n- Supprimer un point conserve son historique et le verrouillage. Nettoyer tous les points et leurs données via Gérer les données archivées permet de modifier à nouveau la devise.\n- Les prix dynamiques doivent utiliser cette devise ; aucun montant n’est converti automatiquement.\n- Supprimer toute l’intégration efface définitivement son registre et ses données propres. Un nouvel ajout crée un registre vierge dans la devise choisie.\n- La validation de ce formulaire efface aussi les fichiers de registre laissés par une ancienne version supprimée.",
         "data": {
           "currency": "Devise"
         }
@@ -12,12 +12,11 @@
     },
     "error": {
       "invalid_currency": "Choisissez un code de devise valide à trois lettres.",
-      "currency_mismatch": "Le registre conservé utilise une autre devise. Utilisez sa devise d’origine."
+      "cleanup_failed": "Impossible d’effacer l’ancien registre. Vérifiez l’accès aux fichiers et réessayez. Aucune nouvelle configuration n’a été créée."
     },
     "abort": {
       "single_instance_allowed": "Un seul registre Charge Tally est pris en charge.",
-      "already_configured": "Charge Tally est déjà configuré.",
-      "currency_unbound": "Le registre contient des données comptables sans devise associée. Leur intégrité doit être rétablie avant son ouverture."
+      "already_configured": "Charge Tally est déjà configuré."
     }
   },
   "config_subentries": {
@@ -196,9 +195,9 @@
     },
     "archive_action": {
       "options": {
-        "delete_point": "Supprimer définitivement toutes les données comptables du point de charge, y compris les enregistrements non terminés, révisions, mesures et historique des prix",
-        "delete_identity": "Supprimer l’identité ; les anciennes révisions gardent son nom d’origine pour l’audit",
-        "transfer_identity": "Transférer tous les enregistrements listés vers l’identité choisie sans modifier les montants, supprimer l’identité source et conserver son nom d’origine dans les anciennes révisions"
+        "delete_point": "Supprimer définitivement les points sélectionnés et leurs enregistrements, y compris les inachevés",
+        "delete_identity": "Supprimer définitivement les identités sélectionnées",
+        "transfer_identity": "Transférer les enregistrements et supprimer définitivement les identités sélectionnées"
       }
     },
     "archive_time": {
@@ -434,10 +433,10 @@
         }
       },
       "archive_select": {
-        "title": "Choisir un objet archivé",
-        "description": "Seuls les objets dont l’entrée de configuration a été supprimée sont disponibles. Désactiver une entrée ne l’archive pas.",
+        "title": "Choisir les objets archivés",
+        "description": "Sélectionnez un ou plusieurs objets dont la configuration a été supprimée. Une simple désactivation ne les archive pas.",
         "data": {
-          "object_id": "Objet archivé"
+          "object_id": "Objets archivés"
         }
       },
       "archive_empty": {
@@ -446,21 +445,21 @@
       },
       "archive_target": {
         "title": "Transférer les enregistrements",
-        "description": "Transférer les {records} enregistrements actuels de **{name}**, y compris ceux annulés, vers l’identité choisie. Les montants restent inchangés. Les anciennes révisions conservent le nom d’identité d’origine pour l’audit.",
+        "description": "Transférez les {records} enregistrements de **{name}**, y compris les invalidés, vers une même identité destinataire. Les montants restent inchangés. Les anciennes révisions conservent leurs noms d’identité d’origine.",
         "data": {
           "target_identity_id": "Identité destinataire"
         }
       },
       "archive_confirm": {
         "title": "Confirmer l’opération définitive",
-        "description": "- Objet : **{name}**\n- Opération : {operation}\n- Enregistrements (annulés inclus) : {records}\n- Enregistrements non terminés: {active}\n- Enregistrements annulés : {voided}\n- Révisions : {revisions}\n- Période (UTC) : {start} – {end}\n- Énergie : {energy} kWh\n- Coût connu : {cost} {currency}\n- Identité destinataire : {target}\n\nCette opération est définitive et irréversible dans l’interface. Le nettoyage concerne uniquement le registre Charge Tally ; l’historique Recorder, les statistiques natives et les sauvegardes Home Assistant sont exclus. La devise peut être modifiée uniquement si aucun point de charge (même archivé) ni aucune donnée comptable ne subsiste.",
+        "description": "- Objets ({objects}) : **{name}**\n- Opération : {operation}\n- Enregistrements (annulés inclus) : {records}\n- Enregistrements non terminés: {active}\n- Enregistrements annulés : {voided}\n- Révisions : {revisions}\n- Période (UTC) : {start} – {end}\n- Énergie : {energy} kWh\n- Coût connu : {cost} {currency}\n- Identité destinataire : {target}\n\nCette opération est définitive et irréversible dans l’interface. Le nettoyage concerne uniquement le registre Charge Tally ; l’historique Recorder, les statistiques natives et les sauvegardes Home Assistant sont exclus. La devise peut être modifiée uniquement si aucun point de charge (même archivé) ni aucune donnée comptable ne subsiste.\n\nTous les objets sélectionnés sont traités ensemble. Si un objet change ou si l’opération échoue, aucun objet sélectionné n’est modifié.",
         "data": {
           "confirm": "Je comprends les conséquences et confirme la suppression définitive"
         }
       },
       "archive_done": {
         "title": "Opération d’archivage terminée",
-        "description": "Opération terminée pour **{name}**. Enregistrements supprimés : {deleted}. Enregistrements transférés : {transferred}."
+        "description": "Terminé pour {objects} objets : **{name}**. Enregistrements supprimés : {deleted}. Enregistrements transférés : {transferred}."
       },
       "nfc": {
         "title": "Associations d’identité NFC",
@@ -472,7 +471,8 @@
       "save_failed": "Impossible d’enregistrer la devise. La devise précédente est conservée. Réessayez.",
       "confirm_required": "Confirmez d’abord que vous comprenez les conséquences.",
       "archive_target": "Choisissez une identité destinataire disponible.",
-      "archive_failed": "L’opération a échoué. Actualisez l’aperçu et réessayez."
+      "archive_failed": "L’opération a échoué. Actualisez l’aperçu et réessayez.",
+      "archive_selection_required": "Sélectionnez au moins un objet archivé."
     },
     "abort": {
       "config_changed": "La devise a changé pendant que ce formulaire était ouvert. Rouvrez Configurer.",

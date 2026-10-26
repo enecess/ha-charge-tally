@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Rejestr Charge Tally",
-        "description": "- Wszystkie punkty ładowania i wpisy używają jednej waluty.\n- Można ją zmienić w Konfiguruj → Ustawienia księgi, gdy nie ma punktów (także zarchiwizowanych) ani danych księgowych. Same tożsamości jej nie blokują.\n- Usunięcie punktu zachowuje historię i blokadę waluty. Usunięcie wszystkich punktów i ich danych przez Zarządzaj danymi archiwalnymi pozwala ponownie zmienić walutę.\n- Ceny dynamiczne muszą używać tej samej waluty; kwoty nie są automatycznie przeliczane.\n- Przy przywracaniu zachowanej księgi najpierw wybierz jej pierwotną walutę.",
+        "description": "- Wszystkie punkty ładowania i wpisy używają jednej waluty.\n- Można ją zmienić w Konfiguruj → Ustawienia księgi, gdy nie ma punktów (także zarchiwizowanych) ani danych księgowych. Same tożsamości jej nie blokują.\n- Usunięcie punktu zachowuje historię i blokadę waluty. Usunięcie wszystkich punktów i ich danych przez Zarządzaj danymi archiwalnymi pozwala ponownie zmienić walutę.\n- Ceny dynamiczne muszą używać tej samej waluty; kwoty nie są automatycznie przeliczane.\n- Usunięcie całej integracji trwale usuwa jej księgę i prywatne dane. Ponowne dodanie tworzy pustą księgę w wybranej walucie.\n- Zatwierdzenie tego formularza usuwa też pliki księgi pozostawione po usunięciu starszej wersji integracji.",
         "data": {
           "currency": "Waluta"
         }
@@ -12,12 +12,11 @@
     },
     "error": {
       "invalid_currency": "Wybierz prawidłowy trzyliterowy kod waluty.",
-      "currency_mismatch": "Zachowany rejestr używa innej waluty. Użyj jego pierwotnej waluty."
+      "cleanup_failed": "Nie można usunąć starej księgi. Sprawdź dostęp do plików i spróbuj ponownie. Nie utworzono nowej konfiguracji."
     },
     "abort": {
       "single_instance_allowed": "Obsługiwany jest tylko jeden rejestr Charge Tally.",
-      "already_configured": "Charge Tally jest już skonfigurowany.",
-      "currency_unbound": "Rejestr zawiera dane księgowe bez przypisanej waluty. Przed jego otwarciem należy przywrócić integralność danych."
+      "already_configured": "Charge Tally jest już skonfigurowany."
     }
   },
   "config_subentries": {
@@ -196,9 +195,9 @@
     },
     "archive_action": {
       "options": {
-        "delete_point": "Trwale usuń wszystkie dane księgowe punktu ładowania, w tym niezakończone rekordy, rewizje, próbki i historię cen",
-        "delete_identity": "Usuń tożsamość; stare rewizje zachowają jej pierwotną nazwę do audytu",
-        "transfer_identity": "Przenieś wszystkie wymienione wpisy do wybranej tożsamości bez zmiany kwot, usuń tożsamość źródłową i zachowaj jej pierwotną nazwę w starych rewizjach"
+        "delete_point": "Trwale usuń wybrane punkty i ich wpisy, w tym niezakończone",
+        "delete_identity": "Trwale usuń wybrane tożsamości",
+        "transfer_identity": "Przenieś wpisy i trwale usuń wybrane tożsamości"
       }
     },
     "archive_time": {
@@ -434,10 +433,10 @@
         }
       },
       "archive_select": {
-        "title": "Wybierz obiekt archiwalny",
-        "description": "Dostępne są tylko obiekty z usuniętym wpisem konfiguracji. Wyłączenie wpisu nie oznacza archiwizacji.",
+        "title": "Wybierz obiekty archiwalne",
+        "description": "Wybierz co najmniej jeden obiekt z usuniętą konfiguracją. Samo wyłączenie nie archiwizuje obiektu.",
         "data": {
-          "object_id": "Obiekt archiwalny"
+          "object_id": "Obiekty archiwalne"
         }
       },
       "archive_empty": {
@@ -446,21 +445,21 @@
       },
       "archive_target": {
         "title": "Przenieś wpisy tożsamości",
-        "description": "Przenieś wszystkie bieżące wpisy tożsamości **{name}** ({records}), w tym unieważnione, do wybranej tożsamości. Kwoty pozostaną bez zmian. Stare rewizje zachowają pierwotną nazwę tożsamości do audytu.",
+        "description": "Przenieś wszystkie {records} wpisów obiektów **{name}**, w tym unieważnione, do jednej tożsamości docelowej. Kwoty pozostają bez zmian. Stare rewizje zachowują oryginalne nazwy tożsamości.",
         "data": {
           "target_identity_id": "Tożsamość docelowa"
         }
       },
       "archive_confirm": {
         "title": "Potwierdź trwałą operację",
-        "description": "- Obiekt: **{name}**\n- Operacja: {operation}\n- Wpisy (w tym unieważnione): {records}\n- Niezakończone rekordy: {active}\n- Unieważnione wpisy: {voided}\n- Rewizje: {revisions}\n- Zakres czasu (UTC): {start} – {end}\n- Energia: {energy} kWh\n- Znany koszt: {cost} {currency}\n- Tożsamość docelowa: {target}\n\nOperacja jest trwała i nie można jej cofnąć w interfejsie. Czyszczenie dotyczy tylko księgi Charge Tally; historia Recorder, natywne statystyki i kopie zapasowe Home Assistant są wyłączone. Walutę można zmienić tylko wtedy, gdy nie ma punktów ładowania (także zarchiwizowanych) ani zachowanych danych księgowych.",
+        "description": "- Obiekty ({objects}): **{name}**\n- Operacja: {operation}\n- Wpisy (w tym unieważnione): {records}\n- Niezakończone rekordy: {active}\n- Unieważnione wpisy: {voided}\n- Rewizje: {revisions}\n- Zakres czasu (UTC): {start} – {end}\n- Energia: {energy} kWh\n- Znany koszt: {cost} {currency}\n- Tożsamość docelowa: {target}\n\nOperacja jest trwała i nie można jej cofnąć w interfejsie. Czyszczenie dotyczy tylko księgi Charge Tally; historia Recorder, natywne statystyki i kopie zapasowe Home Assistant są wyłączone. Walutę można zmienić tylko wtedy, gdy nie ma punktów ładowania (także zarchiwizowanych) ani zachowanych danych księgowych.\n\nWszystkie wybrane obiekty są przetwarzane razem. Jeśli obiekt się zmieni lub operacja nie powiedzie się, żaden wybrany obiekt nie zostanie zmieniony.",
         "data": {
           "confirm": "Rozumiem skutki i potwierdzam trwałe usunięcie"
         }
       },
       "archive_done": {
         "title": "Operacja archiwum zakończona",
-        "description": "Zakończono operację dla **{name}**. Usunięte wpisy: {deleted}. Przeniesione wpisy: {transferred}."
+        "description": "Zakończono dla {objects} obiektów: **{name}**. Usunięte wpisy: {deleted}. Przeniesione wpisy: {transferred}."
       },
       "nfc": {
         "title": "Powiązania tożsamości NFC",
@@ -472,7 +471,8 @@
       "save_failed": "Nie udało się zapisać waluty. Poprzednia waluta została zachowana. Spróbuj ponownie.",
       "confirm_required": "Najpierw potwierdź, że rozumiesz skutki.",
       "archive_target": "Wybierz dostępną tożsamość docelową.",
-      "archive_failed": "Operacja archiwum nie powiodła się. Odśwież podgląd i spróbuj ponownie."
+      "archive_failed": "Operacja archiwum nie powiodła się. Odśwież podgląd i spróbuj ponownie.",
+      "archive_selection_required": "Wybierz co najmniej jeden obiekt archiwalny."
     },
     "abort": {
       "config_changed": "Waluta zmieniła się, gdy formularz był otwarty. Otwórz ponownie Konfiguruj.",

@@ -97,8 +97,9 @@ Gib unter **Charge Tally-Abrechnungsbuch** die **Währung** ein, etwa EUR, USD o
 
 - Ohne Ladepunkte, einschließlich archivierter, und ohne gespeicherte Buchungsdaten ist sie änderbar. Identitäten allein sperren sie nicht.
 - Ein hinzugefügter Punkt sperrt sie bereits vor dem ersten Laden.
-- Konfiguration löschen bewahrt Historie; erst vollständiges Bereinigen aller Punkte und ihrer Daten ermöglicht Änderungen.
-- Es gibt keine Währungsumrechnung. Beim erneuten Hinzufügen der Integration wähle die ursprüngliche Währung des erhaltenen Buchs.
+- Das Löschen einzelner Punkt- oder Identitätskonfigurationen bewahrt die Historie; erst vollständiges Bereinigen aller Punkte und ihrer Daten ermöglicht Währungsänderungen.
+- Das Entfernen der gesamten Integration löscht ihr Buch und ihre eigenen Daten dauerhaft. Beim erneuten Hinzufügen entsteht ein neues Buch in der gewählten Währung.
+- Beim Absenden werden auch Buchdateien gelöscht, die nach dem Entfernen einer älteren Version zurückgeblieben sind.
 
 > Screenshot-Platzhalter 03: Buchanlage mit Währung und Hinweisen.
 
@@ -374,7 +375,7 @@ Alle Buchungsaktionen benötigen eine **Anfrage-ID**, Beenden und Neuzuordnen au
 ### Archivierten Ladepunkt dauerhaft bereinigen
 
 1. Öffne an der Hauptintegration **Konfigurieren → Archivierte Daten verwalten → Archivierte Ladepunkte**.
-2. Wähle unter **Archiviertes Objekt auswählen** einen Punkt mit gelöschter Konfiguration.
+2. Wähle unter **Archivierte Objekte auswählen** einen oder mehrere Punkte mit gelöschter Konfiguration.
 3. Prüfe unter **Dauerhaften Vorgang bestätigen** Objekt, Vorgang, Einträge einschließlich stornierter, Revisionen, UTC-Zeitraum, Energie und bekannte Kosten.
 4. Aktiviere **Ich verstehe die Auswirkungen und bestätige das dauerhafte Löschen** und bestätige. **Archivvorgang abgeschlossen** zeigt die Zahl gelöschter Einträge.
 
@@ -382,7 +383,9 @@ Dies löscht Einträge, zugehörige Revisionen, Messwerte und Preisverlauf des P
 
 ### Archivierte Identität dauerhaft entfernen
 
-Öffne **Konfigurieren → Archivierte Daten verwalten → Archivierte Identitäten** und wähle das Objekt. Mit vorhandenen Einträgen wähle zuerst unter **Identitätseinträge übertragen** eine **Empfängeridentität**: bestehende aktivierte Identität oder **Unassigned**. Ohne Einträge folgt direkt die Bestätigung.
+Öffne **Konfigurieren → Archivierte Daten verwalten → Archivierte Identitäten** und wähle ein oder mehrere Objekte. Hat mindestens eines Einträge, wähle unter **Identitätseinträge übertragen** dieselbe **Empfängeridentität** für alle: eine aktivierte Identität oder **Unassigned**. Ohne Einträge folgt direkt die Bestätigung.
+
+Alle ausgewählten Objekte werden gemeinsam verarbeitet. Bei Änderungen oder Fehlern bleibt die gesamte Auswahl unverändert.
 
 Alle Einträge einschließlich stornierter werden mit unveränderten Beträgen übertragen. Die ursprüngliche Identität wird entfernt, alte Revisionen behalten ihren Namen. Unassigned kann nicht gelöscht werden. Wird das Objekt verwendet oder ändern sich Daten während der Bestätigung, wird der Vorgang blockiert: Beende aktive Einträge oder öffne die Vorschau neu.
 
@@ -403,7 +406,7 @@ Für einen Neustart in anderer Währung sichere benötigte Daten, lösche nicht 
 3. Starte HA neu und aktualisiere das Dashboard im Browser oder in der App. Prüfe bei eigener Ressourcenverwaltung die Version der oben genannten Adresse.
 4. Prüfe Punkte, Einträge und Statistik; bearbeite nötige Helferreparaturen über den Reparaturablauf.
 
-Das Buch liegt im HA-Konfigurationsverzeichnis. Bei Home-Assistant-Sicherungen wird eine konsistente Kopie des Buchs vorbereitet. Entfernen der Integration oder ihrer Programmdateien leert das gespeicherte Buch nicht aktiv. Beim erneuten Hinzufügen gilt die ursprüngliche Währung. Stelle passende Konfiguration und Buch gemeinsam wieder her, statt verschiedene Zeitstände zu mischen.
+Das Buch liegt im HA-Konfigurationsverzeichnis. HA-Sicherungen erhalten eine konsistente Kopie. Das Entfernen der gesamten Integration löscht Buch, interne Sicherung und eigene Einstellungen dauerhaft; beim erneuten Hinzufügen entsteht ein neues Buch in der gewählten Währung. Neustart, Neuladen und Updates bewahren die Daten. Nur Programmdateien zu entfernen führt keine Bereinigung aus. HA-Historie, native Statistik, externe Sicherungen und Benutzerautomationen bleiben erhalten. Stelle passende Konfiguration und Buch gemeinsam wieder her.
 
 Lokale Markenbilder werden ab **Home Assistant 2026.3** unterstützt. Die Symbolanzeige älterer Versionen beeinflusst die Abrechnung nicht.
 

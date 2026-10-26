@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Charge Tally 账本",
-        "description": "- 所有充电点和记录共用同一币种。\n- 无充电点（含归档点）且无保留记账数据时，可在“配置 → 账本设置”修改；仅添加身份不会锁定。\n- 删除充电点配置仍会保留历史并锁定币种；通过“管理归档数据”彻底清理充电点及相关数据后，可再次修改。\n- 动态电价必须使用相同币种；金额不会自动换汇。\n- 恢复保留的账本时，请先选择其原币种。",
+        "description": "- 所有充电点和记录共用同一币种。\n- 无充电点（含归档点）且无保留记账数据时，可在“配置 → 账本设置”修改；仅添加身份不会锁定。\n- 删除充电点配置仍会保留历史并锁定币种；通过“管理归档数据”彻底清理充电点及相关数据后，可再次修改。\n- 动态电价必须使用相同币种；金额不会自动换汇。\n- 删除整个集成会永久清除账本及集成自有数据。重新添加时，将按所选币种创建全新账本。\n- 提交此表单时，也会清除旧版本删除集成后遗留的账本文件。",
         "data": {
           "currency": "币种"
         }
@@ -12,12 +12,11 @@
     },
     "error": {
       "invalid_currency": "请输入有效的三字母币种代码。",
-      "currency_mismatch": "保留账本使用其他币种，请使用账本原币种。"
+      "cleanup_failed": "无法清理旧账本，请检查文件访问权限后重试。尚未创建新配置。"
     },
     "abort": {
       "single_instance_allowed": "只支持一个 Charge Tally 账本主条目。",
-      "already_configured": "Charge Tally 已配置。",
-      "currency_unbound": "账本已有记账数据，但缺少币种绑定。请先修复数据完整性后再打开。"
+      "already_configured": "Charge Tally 已配置。"
     }
   },
   "config_subentries": {
@@ -196,9 +195,9 @@
     },
     "archive_action": {
       "options": {
-        "delete_point": "永久删除该充电点的全部账本数据，包括未结束记录、修订、采样和电价历史",
-        "delete_identity": "删除身份；旧修订保留原身份名称供审计",
-        "transfer_identity": "将所列全部记录转移至所选接收身份，金额不变；删除原身份，旧修订保留原身份名称"
+        "delete_point": "永久删除所选充电点及其记录（含未结束记录）",
+        "delete_identity": "永久删除所选身份",
+        "transfer_identity": "转移记录并永久删除所选身份"
       }
     },
     "archive_time": {
@@ -435,9 +434,9 @@
       },
       "archive_select": {
         "title": "选择归档对象",
-        "description": "仅列出已删除配置项的对象。停用配置项不等于归档。",
+        "description": "可选择一个或多个已删除配置的归档对象。仅停用配置不会成为可清理的归档对象。",
         "data": {
-          "object_id": "归档对象"
+          "object_id": "归档对象（可多选）"
         }
       },
       "archive_empty": {
@@ -446,21 +445,21 @@
       },
       "archive_target": {
         "title": "转移身份记录",
-        "description": "将 **{name}** 的全部 {records} 条当前记录（含作废记录）转移至所选接收身份，金额保持不变。旧修订保留原身份名称供审计。",
+        "description": "将 **{name}** 的全部 {records} 条记录（含作废记录）转移到同一个接收身份，金额保持不变。旧修订保留各自原身份名称供审计。",
         "data": {
           "target_identity_id": "接收身份"
         }
       },
       "archive_confirm": {
         "title": "确认永久操作",
-        "description": "- 对象：**{name}**\n- 操作：{operation}\n- 记录数（含作废）：{records}\n- 其中未结束：{active}\n- 作废记录数：{voided}\n- 修订数：{revisions}\n- 时间范围（UTC）：{start} – {end}\n- 电量：{energy} kWh\n- 已知费用：{cost} {currency}\n- 接收身份：{target}\n\n此操作为永久操作，无法在界面撤销。仅清理 Charge Tally 账本；Home Assistant recorder 历史、原生统计及备份不在清理范围。仅在无充电点（含归档点）且无保留记账数据时，才可再次修改币种。",
+        "description": "- 对象（共 {objects} 个）：**{name}**\n- 操作：{operation}\n- 记录数（含作废）：{records}\n- 其中未结束：{active}\n- 作废记录数：{voided}\n- 修订数：{revisions}\n- 时间范围（UTC）：{start} – {end}\n- 电量：{energy} kWh\n- 已知费用：{cost} {currency}\n- 接收身份：{target}\n\n此操作为永久操作，无法在界面撤销。仅清理 Charge Tally 账本；Home Assistant recorder 历史、原生统计及备份不在清理范围。仅在无充电点（含归档点）且无保留记账数据时，才可再次修改币种。\n\n所有选中对象作为一批处理。任一对象发生变化或操作失败时，整批都不会修改。",
         "data": {
           "confirm": "我已了解影响并确认永久删除"
         }
       },
       "archive_done": {
         "title": "归档操作完成",
-        "description": "已完成 **{name}** 的操作。删除记录：{deleted} 条；转移记录：{transferred} 条。"
+        "description": "已完成 {objects} 个对象：**{name}**。删除记录：{deleted} 条。转移记录：{transferred} 条。"
       },
       "nfc": {
         "title": "NFC 身份联动",
@@ -472,7 +471,8 @@
       "save_failed": "币种保存失败，已保留原币种，请重试。",
       "confirm_required": "请先确认已了解此操作的影响。",
       "archive_target": "请选择可用的接收身份。",
-      "archive_failed": "归档操作失败，请刷新预览后重试。"
+      "archive_failed": "归档操作失败，请刷新预览后重试。",
+      "archive_selection_required": "请至少选择一个归档对象。"
     },
     "abort": {
       "config_changed": "此窗口打开后，账本币种已被修改。请重新打开“配置”。",

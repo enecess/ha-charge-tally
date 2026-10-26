@@ -10,6 +10,75 @@ from custom_components.charge_tally.ledger import Ledger
 
 
 class ArchiveTests(unittest.TestCase):
+    def test_batch_points_delete_together_and_report_totals(self):
+        self.ledger.put_point(dict(id="second", name="Second", active=False))
+        self.record("first")
+        self.record("second-record", point="second")
+        preview = self.preview(id_=["oldpoint", "second"])
+        self.assertEqual(preview["object_count"], 2)
+        self.assertEqual(preview["record_count"], 2)
+        self.assertEqual(preview["revision_count"], 2)
+        self.assertEqual(preview["energy_kwh"], "5.0")
+        self.assertEqual(preview["known_cost"], "2.50")
+        result = self.delete(preview)
+        self.assertEqual(result["record_count"], 2)
+        self.assertIsNone(self.ledger.get_point("oldpoint"))
+        self.assertIsNone(self.ledger.get_point("second"))
+        self.assertEqual(self.ledger.list_records(include_void=True), [])
+        self.assertEqual(
+            self.ledger._db.execute("PRAGMA foreign_key_check").fetchall(), []
+        )
+
+    def test_batch_identities_preserve_shared_audit_and_count_revisions_once(self):
+        self.ledger.put_identity(dict(id="older", name="Older", active=False))
+        record = self.record()
+        record.update(identity_id="older", revision=2)
+        self.ledger.save_record(record, self.ledger.list_segments("r"))
+        self.record("other", point="live")
+        preview = self.preview("identity", ["older", "old"], "new")
+        self.assertEqual(preview["record_count"], 2)
+        self.assertEqual(preview["revision_count"], 3)
+        self.assertEqual(preview["known_cost"], "2.50")
+        result = self.delete(preview)
+        self.assertEqual(result["transferred_count"], 2)
+        self.assertEqual(self.ledger.get_record("r")["identity_id"], "new")
+        self.assertEqual(self.ledger.get_record("other")["identity_id"], "new")
+        revisions = self.ledger.list_revisions("r")
+        self.assertEqual(revisions[0]["record"]["identity_name"], "Old")
+        self.assertEqual(revisions[1]["record"]["identity_name"], "Older")
+        self.assertEqual(self.ledger.get_record("r")["known_cost"], "1.25")
+        self.assertIsNone(self.ledger.get_identity("old"))
+        self.assertIsNone(self.ledger.get_identity("older"))
+
+    def test_batch_failure_rolls_back_first_object(self):
+        self.ledger.put_point(dict(id="second", name="Second", active=False))
+        self.record()
+        self.record("second-record", point="second")
+        preview = self.preview(id_=["oldpoint", "second"])
+        with patch.object(
+            self.ledger, "_bump", side_effect=[None, RuntimeError("disk")]
+        ):
+            with self.assertRaisesRegex(RuntimeError, "disk"):
+                self.delete(preview)
+        self.assertIsNotNone(self.ledger.get_point("oldpoint"))
+        self.assertIsNotNone(self.ledger.get_point("second"))
+        self.assertEqual(len(self.ledger.list_records()), 2)
+
+    def test_batch_stale_second_object_keeps_first(self):
+        self.ledger.put_point(dict(id="second", name="Second", active=False))
+        preview = self.preview(id_=["oldpoint", "second"])
+        self.record(point="second")
+        with self.assertRaisesRegex(ValueError, "archive_stale"):
+            self.delete(preview)
+        self.assertIsNotNone(self.ledger.get_point("oldpoint"))
+        self.assertIsNotNone(self.ledger.get_point("second"))
+
+    def test_batch_selection_rejects_empty_duplicates_and_invalid_ids(self):
+        for ids in ([], ["oldpoint", "oldpoint"], ["missing"], [None], "", 1):
+            with self.subTest(ids=ids):
+                with self.assertRaisesRegex(ValueError, "archive_not_found"):
+                    self.preview(id_=ids)
+
     def setUp(self):
         self.ledger = Ledger(":memory:")
         self.addCleanup(self.ledger.close)

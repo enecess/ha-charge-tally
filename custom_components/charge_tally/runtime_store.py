@@ -8,6 +8,7 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from .accounting import Accounting, instant
+from .archive import archive_ids
 from .config_validation import BUILTIN_IDENTITY_NAME, validate_identity_name
 from .core.detection import Detector
 from .core.tariffs import DailySchedule
@@ -82,13 +83,14 @@ class RuntimeStore:
         return catalog
 
     def _archive_guard(self, kind, object_id, points):
+        ids = set(archive_ids(object_id))
         for point_id, state in self.states.items():
             detector = state.get("detector") or {}
             if (
                 kind == "identity"
                 and point_id in points
                 and detector.get("candidate")
-                and detector.get("identity_id") == object_id
+                and detector.get("identity_id") in ids
             ):
                 raise ValueError("archive_busy")
 
@@ -109,6 +111,7 @@ class RuntimeStore:
         from .archive import ArchiveManager
 
         self._archive_guard(kind, object_id, points)
+        ids = set(archive_ids(object_id))
         previous = deepcopy(self.states)
         transaction = self.ledger.transaction()
         transaction.__enter__()
@@ -118,17 +121,17 @@ class RuntimeStore:
                 kind, object_id, fingerprint, points, identities, target_identity_id
             )
             if kind == "point":
-                self.states.pop(object_id, None)
+                for id_ in ids:
+                    self.states.pop(id_, None)
             else:
                 for point_id, state in self.states.items():
-                    if state.get("selected_identity_id") == object_id:
+                    if state.get("selected_identity_id") in ids:
                         state["selected_identity_id"] = (
                             target_identity_id or "unassigned"
                         )
                     if (
                         point_id not in points
-                        and (state.get("detector") or {}).get("identity_id")
-                        == object_id
+                        and (state.get("detector") or {}).get("identity_id") in ids
                     ):
                         state["detector"] = None
             self.ledger.put_checkpoint("runtime", self.states)

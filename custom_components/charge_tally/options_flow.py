@@ -9,18 +9,24 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import selector
 from homeassistant.helpers.translation import async_get_translations
 
+from .archive import archive_ids
 from .const import DOMAIN
 
 
-def _objects(items):
+def _objects(items, *, multiple=False):
     return selector.SelectSelector(
         selector.SelectSelectorConfig(
             options=[
                 {"value": item["id"], "label": f"{item['name']} ({item['id'][:8]})"}
                 for item in items
-            ]
+            ],
+            multiple=multiple,
         )
     )
+
+
+def _archive_names(preview):
+    return ", ".join(f"{item['name']} ({item['id'][:8]})" for item in preview["items"])
 
 
 class LedgerOptionsFlow(OptionsFlow):
@@ -147,17 +153,22 @@ class LedgerOptionsFlow(OptionsFlow):
                 return await self.async_step_archive_empty()
             if user_input is not None:
                 object_id = user_input.get("object_id")
-                if object_id not in {item["id"] for item in items}:
-                    return self.async_abort(reason="archive_not_found")
-                self._archive_preview = await runtime.async_archive_preview(
-                    self._archive_kind, object_id
-                )
-                if (
-                    self._archive_kind == "identity"
-                    and self._archive_preview["record_count"]
+                if object_id == []:
+                    errors["base"] = "archive_selection_required"
+                elif not set(archive_ids(object_id)).issubset(
+                    {item["id"] for item in items}
                 ):
-                    return await self.async_step_archive_target()
-                return await self.async_step_archive_confirm()
+                    return self.async_abort(reason="archive_not_found")
+                else:
+                    self._archive_preview = await runtime.async_archive_preview(
+                        self._archive_kind, object_id
+                    )
+                    if (
+                        self._archive_kind == "identity"
+                        and self._archive_preview["record_count"]
+                    ):
+                        return await self.async_step_archive_target()
+                    return await self.async_step_archive_confirm()
         except ValueError as err:
             return self._archive_error(err)
         except (OSError, sqlite3.Error):
@@ -167,7 +178,7 @@ class LedgerOptionsFlow(OptionsFlow):
             step_id="archive_select",
             data_schema=vol.Schema(
                 {
-                    vol.Required("object_id"): _objects(items),
+                    vol.Required("object_id"): _objects(items, multiple=True),
                 }
             ),
             errors=errors,
@@ -210,7 +221,7 @@ class LedgerOptionsFlow(OptionsFlow):
                 }
             ),
             description_placeholders={
-                "name": self._archive_preview["name"],
+                "name": _archive_names(self._archive_preview),
                 "records": str(self._archive_preview["record_count"]),
             },
             errors=errors,
@@ -260,7 +271,8 @@ class LedgerOptionsFlow(OptionsFlow):
                 }
             ),
             description_placeholders={
-                "name": preview["name"],
+                "name": _archive_names(preview),
+                "objects": str(preview["object_count"]),
                 "records": str(preview["record_count"]),
                 "active": str(preview["active_count"]),
                 "voided": str(preview["void_count"]),
@@ -288,7 +300,8 @@ class LedgerOptionsFlow(OptionsFlow):
             step_id="archive_done",
             data_schema=vol.Schema({}),
             description_placeholders={
-                "name": self._archive_preview["name"],
+                "name": _archive_names(self._archive_preview),
+                "objects": str(result["object_count"]),
                 "deleted": str(
                     result["record_count"] if result["kind"] == "point" else 0
                 ),

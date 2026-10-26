@@ -6,6 +6,7 @@ from decimal import Decimal
 import pytest
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.util import dt as dt_util
+from test_archive_runtime import archived_points
 from test_currency_options import add_point, add_subentry, open_currency, setup_entry
 from test_runtime import POWER, setup_runtime, tick
 
@@ -56,6 +57,55 @@ async def archive(hass, entry, object_id):
     await hass.async_block_till_done()
 
 
+async def test_multi_select_points_confirms_and_deletes_all(hass, tmp_path):
+    entry, ids = await archived_points(hass, tmp_path)
+    result = await archive_flow(hass, entry, "point")
+    assert result["data_schema"]({"object_id": ids}) == {"object_id": ids}
+    empty = await choose(hass, result, {"object_id": []})
+    assert empty["errors"] == {"base": "archive_selection_required"}
+    assert len(entry.runtime_data.snapshot["archived_points"]) == 2
+    result = await choose(hass, empty, {"object_id": ids})
+    assert result["step_id"] == "archive_confirm"
+    assert result["description_placeholders"]["objects"] == "2"
+    assert all(id_[:8] in result["description_placeholders"]["name"] for id_ in ids)
+    result = await choose(hass, result, {"confirm": True})
+    assert result["step_id"] == "archive_done"
+    assert result["description_placeholders"]["objects"] == "2"
+    assert entry.runtime_data.snapshot["archived_points"] == []
+
+
+async def test_multi_select_identities_uses_one_target_and_removes_empty_identity(
+    hass, tmp_path
+):
+    entry = await setup_entry(hass, tmp_path)
+    await add_point(hass, entry)
+    for name in ("Old car", "Unused car"):
+        await add_subentry(hass, entry, "identity", {"name": name, "enabled": True})
+    await hass.async_block_till_done()
+    ids = [
+        sub.subentry_id
+        for sub in entry.subentries.values()
+        if sub.subentry_type == "identity"
+    ]
+    saved = await record(hass, entry, ids[0])
+    for id_ in ids:
+        await archive(hass, entry, id_)
+    result = await archive_flow(hass, entry, "identity")
+    result = await choose(hass, result, {"object_id": ids})
+    assert result["step_id"] == "archive_target"
+    assert result["description_placeholders"]["records"] == "1"
+    result = await choose(hass, result, {"target_identity_id": "unassigned"})
+    assert result["description_placeholders"]["objects"] == "2"
+    result = await choose(hass, result, {"confirm": True})
+    assert result["description_placeholders"]["transferred"] == "1"
+    assert all(
+        item["id"] not in ids for item in entry.runtime_data.snapshot["identities"]
+    )
+    after = await entry.runtime_data.async_query("record", {"record_id": saved["id"]})
+    assert after["record"]["identity_id"] == "unassigned"
+    assert after["record"]["known_cost"] == "12.34"
+
+
 @pytest.mark.parametrize("source", ["automatic", "manual"])
 async def test_removed_active_point_confirm_cleans_ledger_and_runtime(
     hass, tmp_path, freezer, source
@@ -93,7 +143,7 @@ async def test_removed_active_point_confirm_cleans_ledger_and_runtime(
     assert saved["status"] == "active"
     assert saved["end"] is None
     result = await archive_flow(hass, entry, "point")
-    result = await choose(hass, result, {"object_id": "point"})
+    result = await choose(hass, result, {"object_id": ["point"]})
     assert result["step_id"] == "archive_confirm"
     details = result["description_placeholders"]
     assert details["records"] == "1"
@@ -150,7 +200,7 @@ async def test_archived_point_requires_confirmation_and_disappears_after_reload(
     await archive(hass, entry, point_id)
     result = await archive_flow(hass, entry, "point")
     assert result["step_id"] == "archive_select"
-    result = await choose(hass, result, {"object_id": point_id})
+    result = await choose(hass, result, {"object_id": [point_id]})
     assert result["step_id"] == "archive_confirm"
     details = result["description_placeholders"]
     assert details["records"] == "1"
@@ -195,7 +245,7 @@ async def test_archived_identity_transfers_records_without_repricing(hass, tmp_p
     before = await entry.runtime_data.async_query("record", {"record_id": saved["id"]})
     await archive(hass, entry, source_id)
     result = await archive_flow(hass, entry, "identity")
-    result = await choose(hass, result, {"object_id": source_id})
+    result = await choose(hass, result, {"object_id": [source_id]})
     assert result["step_id"] == "archive_target"
     result = await choose(hass, result, {"target_identity_id": "unassigned"})
     assert result["step_id"] == "archive_confirm"
@@ -219,7 +269,7 @@ async def test_delete_unused_identity_keeps_unused_currency_editable(hass, tmp_p
     source_id = next(iter(entry.subentries))
     await archive(hass, entry, source_id)
     result = await archive_flow(hass, entry, "identity")
-    result = await choose(hass, result, {"object_id": source_id})
+    result = await choose(hass, result, {"object_id": [source_id]})
     assert result["step_id"] == "archive_confirm"
     result = await choose(hass, result, {"confirm": True})
     assert result["step_id"] == "archive_done"
@@ -232,7 +282,7 @@ async def test_archive_confirmation_rejects_changed_record(hass, tmp_path):
     saved = await record(hass, entry)
     await archive(hass, entry, saved["point_id"])
     result = await archive_flow(hass, entry, "point")
-    result = await choose(hass, result, {"object_id": saved["point_id"]})
+    result = await choose(hass, result, {"object_id": [saved["point_id"]]})
     await entry.runtime_data.async_command(
         "void", {"record_id": saved["id"], "expected_revision": saved["revision"]}
     )
