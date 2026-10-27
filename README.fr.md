@@ -93,7 +93,7 @@ La carte est fournie avec l’intégration ; aucune installation séparée de ca
 
 ### 1. Créer le registre
 
-Dans **Registre Charge Tally**, renseignez la **Devise**, par exemple EUR, CNY ou USD. Une instance de Home Assistant utilise un seul registre Charge Tally ; tous les points et enregistrements partagent sa devise.
+Dans **Registre Charge Tally**, sélectionnez la **Devise** parmi toutes celles prises en charge par Home Assistant. La liste affiche le nom localisé et le code ISO, par exemple yuan renminbi chinois(CNY), et trie les devises par nom dans la langue de l’interface. À la première configuration, la devise des paramètres du foyer de Home Assistant est présélectionnée. Une instance de Home Assistant utilise un seul registre Charge Tally ; tous les points et enregistrements partagent sa devise.
 
 - La devise peut être modifiée tant qu’il ne reste aucun point, même archivé, ni aucune donnée comptable. Les identités seules ne la verrouillent pas.
 - L’ajout d’un point verrouille la devise, même avant la première recharge.
@@ -395,7 +395,7 @@ Le nettoyage concerne uniquement le registre Charge Tally : **il n’efface ni l
 
 ### Modifier la devise
 
-Sur l’intégration principale, ouvrez **Configurer → Paramètres du registre**. Le formulaire de modification n’apparaît que lorsqu’il ne reste aucun point, même archivé, ni aucune donnée comptable. Sinon, **Devise du registre verrouillée** explique la situation. Les identités seules ne verrouillent pas la devise.
+Sur l’intégration principale, ouvrez **Configurer → Paramètres du registre**. La liste conserve la devise actuelle du registre comme sélection, même si la devise système de Home Assistant change. Le formulaire de modification n’apparaît que lorsqu’il ne reste aucun point, même archivé, ni aucune donnée comptable. Sinon, **Devise du registre verrouillée** explique la situation. Les identités seules ne verrouillent pas la devise.
 
 Pour repartir avec une autre devise, effectuez les sauvegardes nécessaires, supprimez la configuration des points inutilisés, nettoyez leurs données dans les archives, puis rouvrez les paramètres du registre. Ce processus permet de choisir une nouvelle devise après nettoyage ; il ne convertit pas les anciens montants.
 

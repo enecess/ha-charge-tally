@@ -42,6 +42,34 @@ class TranslationTests(unittest.TestCase):
                             "Translation changes template placeholders",
                         )
 
+    def test_currency_labels_have_localized_names_and_iso_suffixes(self):
+        canonical = json.loads(
+            (INTEGRATION / "strings.json").read_text(encoding="utf-8")
+        )
+        self.assertIn("currency", canonical["selector"])
+        codes = set(canonical["selector"]["currency"]["options"])
+        self.assertTrue({"CNY", "JPY", "HKD", "TWD", "SGD"}.issubset(codes))
+        for language in LANGUAGES:
+            translated = json.loads(
+                (INTEGRATION / "translations" / f"{language}.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            labels = translated["selector"]["currency"]["options"]
+            self.assertEqual(set(labels), codes)
+            for code, label in labels.items():
+                with self.subTest(language=language, code=code):
+                    self.assertRegex(code, r"^[A-Z]{3}$")
+                    self.assertTrue(label.endswith(f"({code})"))
+                    name = label[:-5]
+                    self.assertTrue(name.strip())
+                    self.assertNotEqual(name, code)
+                    self.assertEqual(name, name.rstrip())
+            if language == "zh-Hans":
+                self.assertEqual(labels["CNY"], "人民币(CNY)")
+            if language == "en":
+                self.assertEqual(translated, canonical)
+
 
 if __name__ == "__main__":
     unittest.main()

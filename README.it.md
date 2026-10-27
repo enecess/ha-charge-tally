@@ -93,7 +93,7 @@ La scheda è inclusa nell’integrazione: non serve installare separatamente un 
 
 ### 1. Creare il registro
 
-In **Registro contabile Charge Tally**, inserisci la **Valuta**, per esempio CNY, EUR o USD. Ogni istanza HA usa un solo registro, con una valuta comune a tutti i punti e alle registrazioni.
+In **Registro contabile Charge Tally**, seleziona la **Valuta** tra tutte quelle supportate da Home Assistant. L’elenco mostra il nome localizzato con il codice ISO, per esempio yuan cinese(CNY), e ordina le valute per nome nella lingua dell’interfaccia. Alla prima configurazione viene preselezionata la valuta delle impostazioni della casa di Home Assistant. Ogni istanza HA usa un solo registro, con una valuta comune a tutti i punti e alle registrazioni.
 
 - La valuta è modificabile quando non restano punti, anche archiviati, né dati contabili. Le sole identità non la bloccano.
 - Aggiungere un punto la blocca, anche prima della prima ricarica.
@@ -395,7 +395,7 @@ La pulizia riguarda solo il registro: **non cancella lo storico Recorder, le sta
 
 ### Cambiare valuta
 
-Apri **Configura → Impostazioni del registro** nell’integrazione principale. La valuta è modificabile solo senza punti, anche archiviati, né dati contabili. Altrimenti **Valuta del registro contabile bloccata** spiega il limite. Le sole identità non la bloccano.
+Apri **Configura → Impostazioni del registro** nell’integrazione principale. L’elenco mantiene selezionata la valuta attuale del registro, anche se cambia la valuta di sistema di Home Assistant. La valuta è modificabile solo senza punti, anche archiviati, né dati contabili. Altrimenti **Valuta del registro contabile bloccata** spiega il limite. Le sole identità non la bloccano.
 
 Per ricominciare con una valuta diversa, esegui un backup, elimina le configurazioni dei punti non più necessari e puliscine i dati dalla gestione archivi, poi riapri le impostazioni. La nuova valuta si sceglie dopo la pulizia; gli importi storici non vengono convertiti.
 

@@ -6,8 +6,11 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
-from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.data_entry_flow import FlowResultType, InvalidData
+from homeassistant.generated.currencies import ACTIVE_CURRENCIES
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import selector
+from homeassistant.helpers.data_entry_flow import FlowManagerIndexView
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -82,7 +85,7 @@ async def test_options_change_unused_currency_and_reload_identity_units(hass, tm
     assert result["step_id"] == "currency"
     assert result["data_schema"]({}) == {"currency": "CNY"}
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"currency": " usd "}
+        result["flow_id"], {"currency": "USD"}
     )
     assert result["type"] == FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
@@ -103,10 +106,10 @@ async def test_options_change_unused_currency_and_reload_identity_units(hass, tm
 async def test_options_reject_invalid_currency_without_changes(hass, tmp_path):
     entry = await setup_entry(hass, tmp_path)
     result = await open_currency(hass, entry)
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"currency": "invalid"}
-    )
-    assert result["errors"] == {"base": "invalid_currency"}
+    with pytest.raises(InvalidData):
+        await hass.config_entries.options.async_configure(
+            result["flow_id"], {"currency": "invalid"}
+        )
     assert entry.data["currency"] == "CNY"
     assert (
         await hass.async_add_executor_job(retained_currency, entry.runtime_data.path)
@@ -362,3 +365,83 @@ async def test_currency_change_rolls_back_if_point_added_during_write(
     assert runtime._store.currency == "CNY"
     assert await hass.async_add_executor_job(retained_currency, runtime.path) == "CNY"
     hass.config_entries.async_remove_subentry(entry, point.subentry_id)
+
+
+async def test_currency_options_preserve_ledger_default_after_system_change(
+    hass, tmp_path
+):
+    entry = await setup_entry(hass, tmp_path)
+    runtime = entry.runtime_data
+    hass.config.currency = "USD"
+    result = await open_currency(hass, entry)
+    schema = result["data_schema"]
+    field = schema.schema["currency"]
+    assert isinstance(field, selector.SelectSelector)
+    assert set(field.config["options"]) == ACTIVE_CURRENCIES
+    assert field.config["mode"] == "dropdown"
+    assert field.config["sort"] is True
+    assert field.config["translation_key"] == "currency"
+    assert field.config["multiple"] is False
+    assert field.config["custom_value"] is False
+    assert schema({}) == {"currency": "CNY"}
+    serialized = FlowManagerIndexView(hass.config_entries.options)._prepare_result_json(
+        result
+    )["data_schema"]
+    assert serialized[0]["default"] == "CNY"
+    assert serialized[0]["selector"]["select"] == field.config
+    assert entry.data == {"currency": "CNY"}
+    assert entry.runtime_data is runtime
+    assert await hass.async_add_executor_job(retained_currency, runtime.path) == "CNY"
+
+
+async def test_currency_options_keep_retired_ledger_currency_on_unchanged_submit(
+    hass, tmp_path
+):
+    ACTIVE_CURRENCIES.remove("CNY")
+    try:
+        entry = await setup_entry(hass, tmp_path)
+        hass.config_entries.async_update_entry(entry, options={"future_option": True})
+        await hass.async_block_till_done()
+        runtime = entry.runtime_data
+        hass.config.currency = "USD"
+        result = await open_currency(hass, entry)
+        schema = result["data_schema"]
+        field = schema.schema["currency"]
+        assert schema({}) == {"currency": "CNY"}
+        saved = await hass.config_entries.options.async_configure(
+            result["flow_id"], {"currency": "CNY"}
+        )
+        await hass.async_block_till_done()
+        assert saved["type"] == FlowResultType.CREATE_ENTRY
+        assert isinstance(field, selector.SelectSelector)
+        assert set(field.config["options"]) == ACTIVE_CURRENCIES | {"CNY"}
+        assert field.config["custom_value"] is False
+        assert entry.data == {"currency": "CNY"}
+        assert entry.options == {"future_option": True}
+        assert entry.runtime_data is runtime
+        assert runtime.snapshot["currency"] == "CNY"
+        assert (
+            await hass.async_add_executor_job(retained_currency, runtime.path) == "CNY"
+        )
+    finally:
+        ACTIVE_CURRENCIES.add("CNY")
+
+
+async def test_currency_options_reject_other_retired_code(hass, tmp_path):
+    entry = await setup_entry(hass, tmp_path)
+    result = await open_currency(hass, entry)
+    ACTIVE_CURRENCIES.remove("USD")
+    try:
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], {"currency": "USD"}
+        )
+        assert result["errors"] == {"base": "invalid_currency"}
+        assert entry.data["currency"] == "CNY"
+        assert (
+            await hass.async_add_executor_job(
+                retained_currency, entry.runtime_data.path
+            )
+            == "CNY"
+        )
+    finally:
+        ACTIVE_CURRENCIES.add("USD")

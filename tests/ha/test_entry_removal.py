@@ -5,7 +5,7 @@ import threading
 from pathlib import Path
 
 import pytest
-from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.data_entry_flow import FlowResultType, InvalidData
 from test_runtime import setup_runtime
 
 from custom_components.charge_tally.runtime_store import RuntimeStore
@@ -83,10 +83,10 @@ async def test_orphan_ledger_is_reset_only_after_valid_submission(
     flow = await new_flow(hass)
     assert flow["type"] == FlowResultType.FORM
     assert path.read_bytes() == before
-    flow = await submit(hass, flow, "invalid")
-    assert flow["errors"] == {"base": "invalid_currency"}
+    with pytest.raises(InvalidData):
+        await submit(hass, flow, "invalid")
     assert path.read_bytes() == before
-    result = await submit(hass, flow, " usd ")
+    result = await submit(hass, flow, "USD")
     assert result["type"] == FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
     assert result["result"].runtime_data.snapshot["currency"] == "USD"

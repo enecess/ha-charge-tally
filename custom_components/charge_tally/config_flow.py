@@ -22,6 +22,7 @@ from .config_validation import (
 )
 from .const import DOMAIN, INPUT_MODES, NAME, PERIODS, RESTRICTED_POINT_FIELDS
 from .core.units import decimal_value, price_per_kwh
+from .currency import currency_selector
 from .options_flow import LedgerOptionsFlow
 
 _NEXT_SUBENTRY_FLOW = getattr(
@@ -93,7 +94,7 @@ class ChargeTallyConfigFlow(ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required(
                         "currency", default=self.hass.config.currency
-                    ): selector.TextSelector(),
+                    ): currency_selector(),
                 }
             ),
             errors=errors,

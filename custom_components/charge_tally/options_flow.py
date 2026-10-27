@@ -11,6 +11,7 @@ from homeassistant.helpers.translation import async_get_translations
 
 from .archive import archive_ids
 from .const import DOMAIN
+from .currency import currency_selector
 
 
 def _objects(items, *, multiple=False):
@@ -79,7 +80,9 @@ class LedgerOptionsFlow(OptionsFlow):
                 self._original_currency = entry.data["currency"]
             if user_input is not None:
                 try:
-                    currency = cv.currency(user_input["currency"].strip().upper())
+                    currency = user_input["currency"].strip().upper()
+                    if currency != self._original_currency:
+                        currency = cv.currency(currency)
                 except (vol.Invalid, KeyError, AttributeError):
                     errors["base"] = "invalid_currency"
                 else:
@@ -101,7 +104,7 @@ class LedgerOptionsFlow(OptionsFlow):
                 {
                     vol.Required(
                         "currency", default=entry.data["currency"]
-                    ): selector.TextSelector(),
+                    ): currency_selector(entry.data["currency"]),
                 }
             ),
             description_placeholders={"currency": entry.data["currency"]},

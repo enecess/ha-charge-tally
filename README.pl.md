@@ -93,7 +93,7 @@ Karta jest dołączona do integracji i nie wymaga osobnego pobierania w HACS. Je
 
 ### 1. Utwórz księgę
 
-W oknie **Rejestr Charge Tally** podaj **Waluta**, na przykład PLN, EUR lub USD. Każda instalacja HA ma jedną księgę; wszystkie punkty i wpisy używają tej samej waluty.
+W oknie **Rejestr Charge Tally** wybierz **Waluta** spośród wszystkich walut obsługiwanych przez Home Assistant. Lista pokazuje lokalną nazwę i kod ISO, na przykład juan chiński(CNY), i jest sortowana według nazw w języku interfejsu. Podczas pierwszej konfiguracji domyślnie wybrana jest waluta z ustawień gospodarstwa domowego Home Assistant. Każda instalacja HA ma jedną księgę; wszystkie punkty i wpisy używają tej samej waluty.
 
 - Walutę można zmienić bez punktów, również archiwalnych, i bez zachowanych danych księgowych. Same tożsamości jej nie blokują.
 - Dodanie punktu blokuje walutę nawet przed pierwszym ładowaniem.
@@ -395,7 +395,7 @@ Czyszczenie dotyczy tylko Charge Tally i **nie usuwa natywnej historii HA, staty
 
 ### Zmiana waluty
 
-Przy głównej integracji otwórz **Konfiguruj → Ustawienia księgi**. Formularz zmiany pojawia się tylko bez punktów, również archiwalnych, i bez zachowanych danych księgowych. W przeciwnym razie **Waluta rejestru zablokowana** wyjaśnia przyczynę. Same tożsamości nie blokują waluty.
+Przy głównej integracji otwórz **Konfiguruj → Ustawienia księgi**. Lista zachowuje bieżącą walutę księgi jako wybraną, nawet gdy zmieni się waluta systemowa Home Assistant. Formularz zmiany pojawia się tylko bez punktów, również archiwalnych, i bez zachowanych danych księgowych. W przeciwnym razie **Waluta rejestru zablokowana** wyjaśnia przyczynę. Same tożsamości nie blokują waluty.
 
 Aby zacząć od nowa w innej walucie, wykonaj potrzebną kopię, usuń nieużywane konfiguracje punktów, wyczyść ich dane archiwalne i ponownie otwórz ustawienia. To nowy wybór waluty po wyczyszczeniu, nie przeliczenie historycznych kwot.
 

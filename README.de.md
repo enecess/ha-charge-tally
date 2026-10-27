@@ -93,7 +93,7 @@ Die Karte wird mitgeliefert und braucht keine separate HACS-Installation. Fehlt 
 
 ### 1. Abrechnungsbuch erstellen
 
-Gib unter **Charge Tally-Abrechnungsbuch** die **Währung** ein, etwa EUR, USD oder CNY. Pro HA-Instanz gibt es ein Buch mit gemeinsamer Währung für alle Punkte und Einträge.
+Wähle unter **Charge Tally-Abrechnungsbuch** die **Währung** aus allen von Home Assistant unterstützten Währungen. Die Liste zeigt lokalisierte Namen mit ISO-Code, etwa Renminbi Yuan(CNY), und wird nach Namen in der Oberflächensprache sortiert. Bei der ersten Einrichtung ist die Währung aus den Haushaltseinstellungen von Home Assistant vorausgewählt. Pro HA-Instanz gibt es ein Buch mit gemeinsamer Währung für alle Punkte und Einträge.
 
 - Ohne Ladepunkte, einschließlich archivierter, und ohne gespeicherte Buchungsdaten ist sie änderbar. Identitäten allein sperren sie nicht.
 - Ein hinzugefügter Punkt sperrt sie bereits vor dem ersten Laden.
@@ -395,7 +395,7 @@ Die Bereinigung betrifft nur Charge Tally und **löscht weder native HA-Historie
 
 ### Währung ändern
 
-Öffne **Konfigurieren → Bucheinstellungen** an der Hauptintegration. Nur ohne Ladepunkte, einschließlich archivierter, und ohne gespeicherte Buchungsdaten erscheint das Änderungsformular. Sonst zeigt **Währung gesperrt** die Gründe. Identitäten allein sperren nicht.
+Öffne **Konfigurieren → Bucheinstellungen** an der Hauptintegration. Die Liste behält die aktuelle Buchwährung als Auswahl bei, auch wenn sich die Systemwährung von Home Assistant ändert. Nur ohne Ladepunkte, einschließlich archivierter, und ohne gespeicherte Buchungsdaten erscheint das Änderungsformular. Sonst zeigt **Währung gesperrt** die Gründe. Identitäten allein sperren nicht.
 
 Für einen Neustart in anderer Währung sichere benötigte Daten, lösche nicht mehr verwendete Punktkonfigurationen, bereinige ihre Archivdaten und öffne die Bucheinstellungen erneut. Das ist eine neue Währungswahl nach Bereinigung, keine Umrechnung alter Beträge.
 

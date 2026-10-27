@@ -88,6 +88,7 @@ async def test_multi_select_identities_uses_one_target_and_removes_empty_identit
         if sub.subentry_type == "identity"
     ]
     saved = await record(hass, entry, ids[0])
+    before = await entry.runtime_data.async_query("record", {"record_id": saved["id"]})
     for id_ in ids:
         await archive(hass, entry, id_)
     result = await archive_flow(hass, entry, "identity")
@@ -103,7 +104,8 @@ async def test_multi_select_identities_uses_one_target_and_removes_empty_identit
     )
     after = await entry.runtime_data.async_query("record", {"record_id": saved["id"]})
     assert after["record"]["identity_id"] == "unassigned"
-    assert after["record"]["known_cost"] == "12.34"
+    assert Decimal(after["record"]["known_cost"]) == Decimal("12.34")
+    assert after["record"]["known_cost"] == before["record"]["known_cost"]
 
 
 @pytest.mark.parametrize("source", ["automatic", "manual"])

@@ -6,7 +6,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.config_entries import ConfigFlow
-from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.data_entry_flow import FlowResultType, InvalidData
+from homeassistant.generated.currencies import ACTIVE_CURRENCIES
+from homeassistant.helpers import selector
+from homeassistant.helpers.data_entry_flow import FlowManagerIndexView
+from homeassistant.helpers.translation import async_get_translations
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 DOMAIN = "charge_tally"
@@ -117,10 +121,10 @@ async def test_single_entry_currency_and_point_onboarding(hass, tmp_path):
     )
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "user"
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"currency": "NOT_A_CURRENCY"}
-    )
-    assert result["errors"] == {"base": "invalid_currency"}
+    with pytest.raises(InvalidData):
+        await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"currency": "NOT_A_CURRENCY"}
+        )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"currency": "CNY"}
     )
@@ -580,3 +584,70 @@ async def test_new_currency_flow_replaces_orphan_ledger_binding(hass, tmp_path):
     )
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["data"]["currency"] == "USD"
+
+
+@pytest.mark.parametrize("system_currency", ["JPY", "HKD", "TWD", "SGD"])
+async def test_setup_currency_dropdown_uses_all_ha_currencies_and_system_default(
+    hass, system_currency
+):
+    hass.config.currency = system_currency
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "user"}
+    )
+    schema = result["data_schema"]
+    field = schema.schema["currency"]
+    assert isinstance(field, selector.SelectSelector)
+    assert set(field.config["options"]) == ACTIVE_CURRENCIES
+    assert field.config["mode"] == "dropdown"
+    assert field.config["sort"] is True
+    assert field.config["translation_key"] == "currency"
+    assert field.config["multiple"] is False
+    assert field.config["custom_value"] is False
+    assert schema({}) == {"currency": system_currency}
+    serialized = FlowManagerIndexView(hass.config_entries.flow)._prepare_result_json(
+        result
+    )["data_schema"]
+    assert serialized[0]["default"] == system_currency
+    assert serialized[0]["selector"]["select"] == field.config
+    saved = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"currency": system_currency}
+    )
+    assert saved["type"] == FlowResultType.CREATE_ENTRY
+    assert saved["data"] == {"currency": system_currency}
+
+
+async def test_currency_dropdown_retains_new_ha_code_without_translation(hass):
+    ACTIVE_CURRENCIES.add("ZZZ")
+    try:
+        translations = await async_get_translations(hass, "en", "selector", {DOMAIN})
+        assert f"component.{DOMAIN}.selector.currency.options.ZZZ" not in translations
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": "user"}
+        )
+        field = result["data_schema"].schema["currency"]
+        assert isinstance(field, selector.SelectSelector)
+        assert "ZZZ" in field.config["options"]
+        assert field("ZZZ") == "ZZZ"
+        saved = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"currency": "ZZZ"}
+        )
+        assert saved["type"] == FlowResultType.CREATE_ENTRY
+        assert saved["data"] == {"currency": "ZZZ"}
+    finally:
+        ACTIVE_CURRENCIES.remove("ZZZ")
+
+
+@pytest.mark.parametrize("language", ["en", "zh-Hans", "de", "fr", "pl", "it"])
+async def test_currency_labels_cover_all_supported_codes(hass, language):
+    translations = await async_get_translations(hass, language, "selector", {DOMAIN})
+    for code in ACTIVE_CURRENCIES:
+        label = translations.get(
+            f"component.{DOMAIN}.selector.currency.options.{code}", ""
+        )
+        assert label.endswith(f"({code})"), (language, code, label)
+        assert label[: -len(code) - 2].strip(), (language, code, label)
+    if language == "zh-Hans":
+        assert (
+            translations[f"component.{DOMAIN}.selector.currency.options.CNY"]
+            == "人民币(CNY)"
+        )
