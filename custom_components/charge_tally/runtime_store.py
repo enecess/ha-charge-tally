@@ -7,6 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
+from . import reports
 from .accounting import Accounting, instant
 from .archive import archive_ids
 from .config_validation import BUILTIN_IDENTITY_NAME, validate_identity_name
@@ -36,6 +37,19 @@ class ScopedLedger:
 
     def list_segments(self, record_id):
         return self.ledger.list_segments(record_id)
+
+    def get_point(self, point_id):
+        if point_id not in self.point_ids:
+            return None
+        return self.ledger.get_point(point_id)
+
+    def get_identity(self, identity_id):
+        if not self.point_ids:
+            return None
+        return self.ledger.get_identity(identity_id)
+
+    def data_version(self):
+        return self.ledger.data_version()
 
 
 class RuntimeStore:
@@ -848,7 +862,7 @@ class RuntimeStore:
             },
         }
 
-    def calendar_label(self, data):
+    def calendar_label(self, data, *, now=None):
         if "calendar_period" not in data:
             return None
         if (
@@ -859,24 +873,77 @@ class RuntimeStore:
             raise ValueError("Invalid calendar query")
         if data["calendar_period"] == "total":
             return None
-        today = datetime.now(UTC).astimezone(ZoneInfo(self.timezone)).date().isoformat()
+        today = (
+            (now if now is not None else datetime.now(UTC))
+            .astimezone(ZoneInfo(self.timezone))
+            .date()
+            .isoformat()
+        )
         return today[
             : {"daily": 10, "monthly": 7, "yearly": 4}[data["calendar_period"]]
         ]
 
-    def scoped_summary(self, point_ids, data):
+    def scoped_summary(
+        self,
+        point_ids,
+        data,
+        *,
+        include_records=False,
+        now=None,
+        max_records=None,
+        max_segments=None,
+    ):
         return summarize(
             ScopedLedger(self.ledger, point_ids),
             instant(data["start"]) if data.get("start") else None,
             instant(data["end"]) if data.get("end") else None,
             identity_id=data.get("identity_id"),
             point_id=data.get("point_id"),
-            calendar=self.calendar_label(data),
+            calendar=self.calendar_label(data, now=now),
             bucket_period=data.get("bucket_period", "auto"),
             timezone=self.timezone,
+            include_records=include_records,
+            max_records=max_records,
+            max_segments=max_segments,
         )
 
     def query(self, command, data, point_ids):
+        if command == "report":
+            with self.ledger.transaction():
+                generated_at = datetime.now(UTC)
+                allowed = (
+                    [p["id"] for p in self.ledger.list_points()]
+                    if point_ids is None
+                    else point_ids
+                )
+                summary = self.scoped_summary(
+                    allowed,
+                    data,
+                    include_records=True,
+                    now=generated_at,
+                    max_records=reports.MAX_REPORT_RECORDS,
+                    max_segments=reports.MAX_REPORT_SEGMENTS,
+                )
+                scope = {
+                    "calendar_period": data.get("calendar_period"),
+                    "calendar": self.calendar_label(data, now=generated_at),
+                    "start": instant(data["start"]).isoformat()
+                    if data.get("start")
+                    else None,
+                    "end": instant(data["end"]).isoformat()
+                    if data.get("end")
+                    else None,
+                    "point_id": data.get("point_id"),
+                    "identity_id": data.get("identity_id"),
+                }
+                return reports.build_report(
+                    ScopedLedger(self.ledger, allowed),
+                    summary,
+                    scope=scope,
+                    currency=self.currency,
+                    timezone=self.timezone,
+                    generated_at=generated_at,
+                )
         allowed = (
             [p["id"] for p in self.ledger.list_points()]
             if point_ids is None

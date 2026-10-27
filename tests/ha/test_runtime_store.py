@@ -551,3 +551,292 @@ def test_custom_auto_uses_runtime_calendar_dates(tmp_path):
     assert result["matched_count"] == 0
     assert result["buckets"] == []
     store.ledger.close()
+
+
+def save_report_record(
+    store,
+    *,
+    point_id="p",
+    identity_id="i",
+    start=None,
+    end=None,
+    energy="1",
+    cost="2",
+    timezone="UTC",
+    request="save",
+):
+    start = start or datetime(2026, 1, 1, tzinfo=UTC)
+    end = end or start + timedelta(minutes=1)
+    preview = store.accounting.preview(
+        {
+            "point_id": point_id,
+            "identity_id": identity_id,
+            "start": start,
+            "end": end,
+            "timezone": timezone,
+            "energy_kwh": energy,
+            "cost": cost,
+        }
+    )
+    return store.accounting.commit_preview(preview["token"], request)
+
+
+def test_report_snapshot_uses_one_calendar_instant(tmp_path, monkeypatch):
+    first = datetime(2026, 1, 1, 23, 59, 59, tzinfo=UTC)
+    instants = iter([first, first + timedelta(seconds=2)])
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            fixed = next(instants)
+            return fixed.astimezone(tz) if tz else fixed.replace(tzinfo=None)
+
+    store, _ = configured(tmp_path, first)
+    save_report_record(store, start=first - timedelta(minutes=1), end=first)
+    before = list(store.ledger._db.iterdump())
+    monkeypatch.setattr("custom_components.charge_tally.runtime_store.datetime", Clock)
+    report = store.query("report", {"calendar_period": "daily"}, ["p"])
+    assert report["generated_at"] == first.isoformat()
+    assert report["scope"]["calendar"] == "2026-01-01"
+    assert report["scope"]["calendar_period"] == "daily"
+    assert report["summary"]["matched_count"] == 1
+    assert Decimal(report["summary"]["known_cost"]) == 2
+    assert list(store.ledger._db.iterdump()) == before
+    assert report["data_version"] == store.ledger.data_version()
+    store.ledger.close()
+
+
+def test_report_respects_authorized_points(tmp_path):
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    store, point = configured(tmp_path, at)
+    store.apply(
+        "configure",
+        {"p": point, "secret": {**point, "name": "Secret Point"}},
+        {"i": {"name": "Car"}, "secret-i": {"name": "Secret Car"}},
+        at,
+        "UTC",
+    )
+    save_report_record(store)
+    save_report_record(
+        store,
+        point_id="secret",
+        identity_id="secret-i",
+        energy="99",
+        cost="999",
+        request="secret",
+    )
+    sql = []
+    store.ledger._db.set_trace_callback(sql.append)
+    report = store.query("report", {"point_id": "p", "identity_id": "i"}, ["p"])
+    store.ledger._db.set_trace_callback(None)
+    assert report["summary"] == store.query(
+        "summary", {"point_id": "p", "identity_id": "i"}, ["p"]
+    )
+    assert len(report["rows"]) == 1
+    assert report["rows"][0]["point_name"] == "Point"
+    assert report["rows"][0]["identity_name"] == "Car"
+    assert report["scope"]["point_name"] == "Point"
+    assert report["scope"]["identity_name"] == "Car"
+    assert "Secret" not in str(report)
+    assert Decimal(report["summary"]["known_cost"]) == 2
+    assert sum(statement == "BEGIN IMMEDIATE" for statement in sql) == 1
+    assert sql[-1] == "COMMIT"
+    # Names, version and all raw evidence must be selected before commit.
+    first_read = next(i for i, line in enumerate(sql) if line.startswith("SELECT"))
+    assert sql.index("BEGIN IMMEDIATE") < first_read
+    hidden = store.query("report", {"point_id": "secret"}, ["p"])
+    assert hidden["rows"] == []
+    assert hidden["scope"]["point_name"] is None
+    assert "Secret Point" not in str(hidden)
+    assert store.query("report", {}, [])["rows"] == []
+    empty = store.query("report", {"identity_id": "secret-i"}, [])
+    assert empty["scope"]["identity_name"] is None
+    assert "Secret Car" not in str(empty)
+    visible_identity = store.query("report", {"identity_id": "secret-i"}, ["p"])
+    assert visible_identity["rows"] == []
+    assert visible_identity["scope"]["identity_name"] == "Secret Car"
+    assert store.query("report", {}, None)["summary"]["matched_count"] == 2
+    store.ledger.close()
+
+
+@pytest.mark.parametrize(
+    "start,end,zone,label,energy,expected",
+    [
+        (
+            "2025-12-31T23:00:00+08:00",
+            "2026-01-01T02:00:00+08:00",
+            "Asia/Shanghai",
+            "2026",
+            "3",
+            "2",
+        ),
+        (
+            "2025-11-02T00:00:00-04:00",
+            "2025-11-03T00:00:00-05:00",
+            "America/New_York",
+            "2025-11-02",
+            "25",
+            "25",
+        ),
+        (
+            "2026-03-08T00:00:00-05:00",
+            "2026-03-09T00:00:00-04:00",
+            "America/New_York",
+            "2026-03-08",
+            "23",
+            "23",
+        ),
+        (
+            "2026-04-05T00:00:00+11:00",
+            "2026-04-06T00:00:00+10:30",
+            "Australia/Lord_Howe",
+            "2026-04-05",
+            "49",
+            "49",
+        ),
+    ],
+)
+def test_report_timezone_contract(
+    tmp_path, monkeypatch, start, end, zone, label, energy, expected
+):
+    now = datetime.fromisoformat(start)
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now.astimezone(tz) if tz else now.replace(tzinfo=None)
+
+    store, _ = configured(tmp_path, now)
+    save_report_record(
+        store,
+        start=start,
+        end=end,
+        timezone=zone,
+        energy=energy,
+        cost=str(-Decimal(energy)),
+    )
+    # Calendar labels follow the runtime clock, each row uses its own timezone.
+    store.timezone = zone
+    monkeypatch.setattr("custom_components.charge_tally.runtime_store.datetime", Clock)
+    period = {4: "yearly", 7: "monthly", 10: "daily"}[len(label)]
+    if len(label) == 4:
+        now = datetime(2026, 1, 1, tzinfo=UTC)
+    data = {"calendar_period": period}
+    report = store.query("report", data, ["p"])
+    assert report["scope"]["calendar"] == label
+    assert report["summary"] == store.query("summary", data, ["p"])
+    assert Decimal(report["rows"][0]["energy_kwh"]) == Decimal(expected)
+    assert Decimal(report["rows"][0]["known_cost"]) == -Decimal(expected)
+    assert report["rows"][0]["record"]["timezone"] == zone
+    store.ledger.close()
+
+
+def test_report_all_rows_and_clipped_quality(tmp_path):
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    store, _ = configured(tmp_path, at)
+    for i in range(101):
+        save_report_record(
+            store,
+            start=at + timedelta(minutes=i),
+            end=at + timedelta(minutes=i, seconds=30),
+            request=str(i),
+        )
+    report = store.query("report", {"offset": 100, "limit": 1}, ["p"])
+    assert len(report["rows"]) == report["summary"]["matched_count"] == 101
+    assert Decimal(report["summary"]["known_cost"]) == 202
+    assert "offset" not in report["scope"]
+    assert "limit" not in report["scope"]
+    record = store.accounting.start("p", "i", at + timedelta(days=1), "active")
+    left = at + timedelta(days=1)
+    store.accounting.add_interval(
+        "p", left, left + timedelta(seconds=10), Decimal(1), [(left, Decimal(2))]
+    )
+    store.accounting.end(record["id"], left + timedelta(seconds=20), "end")
+    clipped = store.query(
+        "report",
+        {"start": left.isoformat(), "end": (left + timedelta(seconds=10)).isoformat()},
+        ["p"],
+    )
+    assert clipped["rows"][0]["cost_complete"]
+    assert clipped["summary"]["cost_complete"]
+    assert "missing_energy" not in clipped["rows"][0]["quality"]
+    assert clipped["scope"]["start"] == left.isoformat()
+    assert clipped["scope"]["end"] == (left + timedelta(seconds=10)).isoformat()
+    store.ledger.close()
+
+
+def test_report_limits_fail_without_partial_output(tmp_path, monkeypatch):
+    from custom_components.charge_tally import reports
+
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    store, _ = configured(tmp_path, at)
+    for i in range(2):
+        save_report_record(
+            store,
+            start=at + timedelta(minutes=i),
+            end=at + timedelta(minutes=i, seconds=30),
+            request=str(i),
+        )
+    expected = store.query("summary", {}, ["p"])
+    for rows, segments in [(1, 10), (10, 1)]:
+        monkeypatch.setattr(reports, "MAX_REPORT_RECORDS", rows)
+        monkeypatch.setattr(reports, "MAX_REPORT_SEGMENTS", segments)
+        with pytest.raises(ValueError, match="^export_too_large$"):
+            store.query("report", {"max_records": 99999, "max_segments": 99999}, ["p"])
+        assert store.query("summary", {}, ["p"]) == expected
+        assert not store.ledger._db.in_transaction
+    monkeypatch.setattr(reports, "MAX_REPORT_RECORDS", 2)
+    monkeypatch.setattr(reports, "MAX_REPORT_SEGMENTS", 2)
+    assert len(store.query("report", {}, ["p"])["rows"]) == 2
+    store.ledger.close()
+
+
+def test_report_timezone_contract_mixed_records_keep_distinct_instants(
+    tmp_path, monkeypatch
+):
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now.astimezone(tz) if tz else now.replace(tzinfo=None)
+
+    store, point = configured(tmp_path, now)
+    store.apply(
+        "configure",
+        {"p": point, "other": {**point, "name": "Other"}},
+        {"i": {"name": "Car"}},
+        now,
+        "UTC",
+    )
+    save_report_record(
+        store,
+        start="2025-12-31T23:00:00Z",
+        end="2026-01-01T01:00:00Z",
+        energy="2",
+        cost="4",
+    )
+    save_report_record(
+        store,
+        point_id="other",
+        start="2025-12-31T23:00:00+08:00",
+        end="2026-01-01T01:00:00+08:00",
+        timezone="Asia/Shanghai",
+        energy="4",
+        cost="8",
+        request="other",
+    )
+    monkeypatch.setattr("custom_components.charge_tally.runtime_store.datetime", Clock)
+    data = {"calendar_period": "daily", "identity_id": "i"}
+    report = store.query("report", data, ["p", "other"])
+    assert report["summary"] == store.query("summary", data, ["p", "other"])
+    assert Decimal(report["summary"]["energy_kwh"]) == 3
+    assert Decimal(report["summary"]["known_cost"]) == 6
+    rows = {row["record"]["point_id"]: row for row in report["rows"]}
+    assert rows["p"]["range_start"] == "2026-01-01T00:00:00+00:00"
+    assert rows["other"]["range_start"] == "2025-12-31T16:00:00+00:00"
+    assert Decimal(rows["p"]["energy_kwh"]) == 1
+    assert Decimal(rows["other"]["energy_kwh"]) == 2
+    assert rows["other"]["record"]["timezone"] == "Asia/Shanghai"
+    assert len(report["summary"]["buckets"]) == 2
+    store.ledger.close()

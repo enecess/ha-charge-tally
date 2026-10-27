@@ -371,3 +371,72 @@ class QueryTests(unittest.TestCase):
         self.assertEqual(Decimal(unknown["known_cost"]), 0)
         self.assertFalse(unknown["has_known_cost"])
         self.assertFalse(unknown["cost_complete"])
+
+    def test_record_contributions_preserve_original_global_decimal_order(self):
+        # Regrouping fees by record would lose the final unit through cancellation.
+        for index, fees in enumerate([["1e40"], ["-1e40", "1"]]):
+            left = T + timedelta(hours=index)
+            record = self.app.start(
+                "home", "personal", left, str(index), timezone="UTC"
+            )
+            parts = [
+                dict(
+                    start=(left + timedelta(seconds=i)).isoformat(),
+                    end=(left + timedelta(seconds=i + 1)).isoformat(),
+                    energy_kwh="1",
+                    cost=fee,
+                    quality=[],
+                )
+                for i, fee in enumerate(fees)
+            ]
+            self.ledger.save_record(record, parts, audit=False)
+            # Close without recalculating the deliberately extreme raw-segment fixture.
+            record = {
+                **record,
+                "end": (left + timedelta(seconds=len(fees))).isoformat(),
+                "status": "completed",
+            }
+            self.ledger.save_record(record, parts, audit=False)
+        default = summarize(self.ledger, None, None, bucket_period="hour")
+        projected = summarize(
+            self.ledger, None, None, bucket_period="hour", include_records=True
+        )
+        rows = projected.pop("records")
+        self.assertEqual(projected, default)
+        self.assertEqual(Decimal(projected["known_cost"]), 1)
+        self.assertEqual(Decimal(projected["energy_kwh"]), 3)
+        with localcontext() as ctx:
+            ctx.prec = 36
+            self.assertEqual(sum(Decimal(row["known_cost"]) for row in rows), 0)
+            self.assertEqual(
+                sum(Decimal(b["known_cost"]) for b in projected["buckets"]), 1
+            )
+
+    def test_record_projection_limits_do_not_change_regular_summary(self):
+        record = self.app.start("home", "personal", T, "start", timezone="UTC")
+        parts = [
+            dict(
+                start=(T + timedelta(seconds=i)).isoformat(),
+                end=(T + timedelta(seconds=i + 1)).isoformat(),
+                energy_kwh="1",
+                cost="2",
+                quality=[],
+            )
+            for i in range(2)
+        ]
+        self.ledger.save_record(record, parts, audit=False)
+        expected = summarize(self.ledger, None, None)
+        self.assertEqual(
+            summarize(self.ledger, None, None, max_records=0, max_segments=0), expected
+        )
+        for limits in ({"max_records": 0}, {"max_segments": 1}):
+            with (
+                self.subTest(limits=limits),
+                self.assertRaisesRegex(ValueError, "^export_too_large$"),
+            ):
+                summarize(self.ledger, None, None, include_records=True, **limits)
+        complete = summarize(
+            self.ledger, None, None, include_records=True, max_records=1, max_segments=2
+        )
+        self.assertEqual(len(complete.pop("records")), 1)
+        self.assertEqual(complete, expected)

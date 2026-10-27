@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from .accounting import instant
 from .core.buckets import bucket_windows, choose_bucket_period
 from .core.tariffs import elapsed
+from .record_views import record_view
 
 
 def calendar_bounds(label, timezone):
@@ -38,6 +39,9 @@ def summarize(
     calendar=None,
     bucket_period="auto",
     timezone="UTC",
+    include_records=False,
+    max_records=None,
+    max_segments=None,
 ):
     if calendar is not None and (start is not None or end is not None):
         raise ValueError("Calendar and absolute range are mutually exclusive")
@@ -65,6 +69,7 @@ def summarize(
     )
     energy, cost, quality, buckets = Decimal(0), Decimal(0), set(), {}
     hourly_windows = {}
+    contributions, segment_count = [], 0
 
     def windows_for(a, b, record_timezone):
         if period != "hour":
@@ -118,10 +123,16 @@ def summarize(
             if (end and begins >= end) or (start and finishes and finishes <= start):
                 continue
             result["matched_count"] += 1
+            if include_records and max_records is not None:
+                if result["matched_count"] > max_records:
+                    raise ValueError("export_too_large")
+            row_energy, row_cost, row_quality = Decimal(0), Decimal(0), set()
+            row_complete, row_has_energy, row_has_cost = True, False, False
             active = record["status"] == "active"
             if active:
                 result["active_count"] += 1
                 quality.add("provisional")
+                row_quality.add("provisional")
             elif (start is None or begins >= start) and (end is None or begins < end):
                 result["completed_count"] += 1
             for span in record.get("quality_spans", []):
@@ -135,6 +146,8 @@ def summarize(
                     continue
                 quality.update(span["quality"])
                 result["cost_complete"] = False
+                row_quality.update(span["quality"])
+                row_complete = False
                 for window in windows_for(a, b, record["timezone"]):
                     item = bucket(window)
                     item["cost_complete"] = False
@@ -142,7 +155,12 @@ def summarize(
                     if active:
                         item["quality"].add("provisional")
             # Raw ledger segments preserve the actual sample distribution.
-            for part in ledger.list_segments(record["id"]):
+            parts = ledger.list_segments(record["id"])
+            if include_records and max_segments is not None:
+                segment_count += len(parts)
+                if segment_count > max_segments:
+                    raise ValueError("export_too_large")
+            for part in parts:
                 left, right = instant(part["start"]), instant(part["end"])
                 a, b = (
                     max(left, start) if start else left,
@@ -170,6 +188,14 @@ def summarize(
                 cost += fee if fee is not None else Decimal(0)
                 result["has_energy_data"] = True
                 result["has_known_cost"] |= fee is not None
+                if include_records:
+                    # Row totals never feed back into the ordered global sums.
+                    row_energy += amount
+                    row_cost += fee if fee is not None else Decimal(0)
+                    row_quality.update(marks)
+                    row_complete &= fee is not None
+                    row_has_energy = True
+                    row_has_cost |= fee is not None
                 allocated_energy, allocated_cost = Decimal(0), Decimal(0)
                 for index, window in enumerate(windows):
                     item = bucket(window)
@@ -189,6 +215,23 @@ def summarize(
                     item["has_known_cost"] |= fee is not None
                     item["cost_complete"] &= fee is not None
                     item["quality"].update(marks)
+            if include_records:
+                range_end = min(finishes, end) if finishes and end else finishes or end
+                contributions.append(
+                    dict(
+                        record=record_view(record),
+                        range_start=(
+                            max(begins, start) if start else begins
+                        ).isoformat(),
+                        range_end=range_end.isoformat() if range_end else None,
+                        energy_kwh=str(row_energy),
+                        known_cost=str(row_cost),
+                        cost_complete=row_complete,
+                        quality=sorted(row_quality),
+                        has_energy_data=row_has_energy,
+                        has_known_cost=row_has_cost,
+                    )
+                )
     ordered = sorted(
         buckets.values(), key=lambda item: (item.get("start", item["key"]), item["key"])
     )
@@ -236,4 +279,6 @@ def summarize(
             for item in ordered
         ],
     )
+    if include_records:
+        result["records"] = contributions
     return result
