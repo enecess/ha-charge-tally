@@ -1,18 +1,19 @@
-import {CardView} from './card-view.js?v=0.1.2-7';
-import {newRequestId} from './request-id.js?v=0.1.2-7';
-import {tr} from './card-i18n.js?v=0.1.2-7';
-import {styles} from './card-styles.js?v=0.1.2-7';
-import {Latest,Subscription,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.2-7';
-import {el} from './card-ui.js?v=0.1.2-7';
-import {RecordDialog} from './card-dialog.js?v=0.1.2-7';
-import './card-editor.js?v=0.1.2-7';
+import {exportRequest,fetchReport} from './card-export.js?v=0.1.2-8';
+import {CardView} from './card-view.js?v=0.1.2-8';
+import {newRequestId} from './request-id.js?v=0.1.2-8';
+import {tr} from './card-i18n.js?v=0.1.2-8';
+import {styles} from './card-styles.js?v=0.1.2-8';
+import {Latest,Subscription,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.2-8';
+import {el} from './card-ui.js?v=0.1.2-8';
+import {RecordDialog} from './card-dialog.js?v=0.1.2-8';
+import './card-editor.js?v=0.1.2-8';
 
 export class ChargeTallyCard extends HTMLElement {
   static getConfigElement(){return document.createElement('charge-tally-card-editor');}
   static getStubConfig(){return {type:'custom:charge-tally-card',show_records:true,show_chart:true};}
   constructor(){
     super();this.attachShadow({mode:'open'});this.body=el('ha-card');this.shadowRoot.append(el('style',styles),this.body);
-    this.config={};this.filters={};this.period='daily';this.offset=0;this.latest=new Latest();this.actions=new Latest();this.dialogEpoch=0;this.pendingLive=null;this.expanded={controls:true,statistics:false,records:false};this.summaryDirty=true;this.recordsDirty=true;this.queryVersion=0;this.pendingSelections=new Map();
+    this.exportBusy=false;this.exportController=null;this.exportError=null;this.config={};this.filters={};this.period='daily';this.offset=0;this.latest=new Latest();this.actions=new Latest();this.dialogEpoch=0;this.pendingLive=null;this.expanded={controls:true,statistics:false,records:false};this.summaryDirty=true;this.recordsDirty=true;this.queryVersion=0;this.pendingSelections=new Map();
     this.subscription=new Subscription(snapshot=>this.onSnapshot(snapshot),error=>{this.error=error;this.render();});
   }
   setConfig(config){
@@ -32,13 +33,13 @@ export class ChargeTallyCard extends HTMLElement {
   }
   getCardSize(){return this.config.show_records===false?6:10;}
   connectedCallback(){if(!this.view)this.render();if(this._hass)this.subscription.connect(this._hass.connection);}
-  disconnectedCallback(){this.dialogEpoch++;this.subscription.disconnect();this.latest.invalidate();this.actions.invalidate();this.dialog?.close();this.view?.dispose();this.body.replaceChildren();this.view=null;}
+  disconnectedCallback(){this.cancelExport();this.dialogEpoch++;this.subscription.disconnect();this.latest.invalidate();this.actions.invalidate();this.dialog?.close();this.view?.dispose();this.body.replaceChildren();this.view=null;}
   t(key){return tr(key,this.language||'en');}
   onSnapshot(snapshot){
     this.snapshotVersion=(this.snapshotVersion||0)+1;
     if(!this.snapshot)this.error=null;this.snapshot=snapshot;this.summaryDirty=true;this.recordsDirty=true;
     // Keep loaded content during background refresh so the page does not collapse.
-    if(!snapshot){this.latest.invalidate();this.queryVersion++;this.pendingSelections.clear();this.summary=null;this.page=null;this.dialogEpoch++;this.actions.invalidate();this.busy=false;this.notice=null;this.dialog?.close();}
+    if(!snapshot){this.cancelExport();this.latest.invalidate();this.queryVersion++;this.pendingSelections.clear();this.summary=null;this.page=null;this.dialogEpoch++;this.actions.invalidate();this.busy=false;this.notice=null;this.dialog?.close();}
     this.render();if(snapshot)this.refresh();
   }
   call(request){if(!this.snapshot||this._hass.connection.connected===false)throw Object.assign(new Error('unavailable'),{code:'unavailable'});return this._hass.callWS(request);}
@@ -86,6 +87,24 @@ export class ChargeTallyCard extends HTMLElement {
   range(){
     if(this.period==='custom')return this.appliedRange;
     return {calendar_period:this.period};
+  }
+  canExport(){
+    if(!this.snapshot||this._hass?.connection?.connected===false||!this.isConnected)return false;
+    try{exportRequest(this.filters,this.range(),this.language);return true;}catch{return false;}
+  }
+  cancelExport(){this.exportController?.abort();this.exportController=null;this.exportBusy=false;this.exportError=null;}
+  async exportPdf(){
+    if(this.exportBusy||!this.canExport())return;
+    const payload=exportRequest(this.filters,this.range(),this.language||'en'),controller=new AbortController();
+    this.exportController=controller;this.exportBusy=true;this.exportError=null;this.render();
+    try{
+      const {blob,filename}=await fetchReport(this._hass,payload,controller.signal);
+      if(this.exportController!==controller||controller.signal.aborted||!this.isConnected||!this.snapshot||this._hass?.connection?.connected===false)return;
+      const url=URL.createObjectURL(blob),link=el('a',null,{href:url,download:filename});
+      try{link.hidden=true;document.body.append(link);link.click();}
+      finally{link.remove();URL.revokeObjectURL(url);}
+    }catch(error){if(this.exportController===controller&&!controller.signal.aborted)this.exportError=error;}
+    finally{if(this.exportController===controller){this.exportController=null;this.exportBusy=false;this.render();}}
   }
   refresh(newLiveIntent=false){
     if(newLiveIntent){this.pendingLive=null;this.error=null;}

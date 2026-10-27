@@ -1,6 +1,6 @@
-import {SelectControl} from './card-controls.js?v=0.1.2-7';
-import {tr} from './card-i18n.js?v=0.1.2-7';
-import {styles} from './nfc-styles.js?v=0.1.2-7';
+import {SelectControl} from './card-controls.js?v=0.1.2-8';
+import {tr} from './card-i18n.js?v=0.1.2-8';
+import {styles} from './nfc-styles.js?v=0.1.2-8';
 
 const node=(tag,className)=>{const el=document.createElement(tag);if(className)el.className=className;return el;};
 const text=(tag,key,className)=>{const el=node(tag,className);el.dataset.i18n=key;return el;};

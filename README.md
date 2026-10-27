@@ -214,7 +214,7 @@ If necessary, open **Resources** from the **Settings → Dashboards** menu. Enab
 
 | Field | Value |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-7` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-8` |
 | Resource type | **JavaScript module** |
 
 Update an existing entry for that path rather than duplicating it. If you manage resources in YAML, register this URL and module type there; do not install a second card copy. See the [Home Assistant dashboard documentation](https://www.home-assistant.io/dashboards/dashboards/).
@@ -252,6 +252,12 @@ Each current point shows its name, status, **Power**, **Current price** and **De
 In **Record statistics → Statistics period**, choose **Today / This month / This year / All time / Custom range**. For custom dates, enter **Start** and **End (exclusive)**, then **Apply range**. To view September 1 in full, choose September 1 as start and September 2 as end.
 
 The summary shows **Energy**, **Cost**, **Active / completed** and quality notices. **Refresh** fetches current results. Charts group values by the selected range; **Chart metric** switches **Energy / Cost**. Expand **Details** below the chart for values by bucket.
+
+**Export PDF** downloads a searchable A4 report in the card’s language, using the point, identity and statistics range applied when you click. Unapplied date drafts do not change it. All matching readable records are included, even when the records panel is hidden or on another page. Choose **All** identities for a combined report; later filter changes and live updates do not change an export already in progress.
+
+Rows show complete record times and only their energy and cost contribution within the selected period. Active records are provisional; incomplete costs show the known subtotal and quality notes, and unknown values are not zero. The completed count means records that started in the period and have ended. Totals use unrounded values; displayed energy has up to 3 decimals and cost 2, so rounded rows can differ from the total in the last digit.
+
+Wait while the PDF is generated; another export can be retried after it finishes. If the report is too large, shorten the period or filter by point or identity. A font error identifies the field, record row when available and Unicode codepoints: edit those characters in the name or note, then retry. A disconnect or integration unload cancels the download.
 
 > Screenshot placeholder 10: Statistics, custom dates, Chart metric and expanded grouped Details.
 

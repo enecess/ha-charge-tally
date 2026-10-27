@@ -53,9 +53,9 @@ async def test_resource_registration_is_idempotent_and_serves_only_www(
                 re.MULTILINE,
             )
         )
-    assert urlsplit(frontend.CARD_URL).query == "v=0.1.2-7"
+    assert urlsplit(frontend.CARD_URL).query == "v=0.1.2-8"
     paths = {urlsplit(url).path for url in seen}
-    for module in ("card-controls", "card-view", "card-chart"):
+    for module in ("card-controls", "card-view", "card-chart", "card-export"):
         assert f"/charge_tally/{module}.js" in paths
     assert "/charge_tally/card-i18n.js" in paths
     for module in ("nfc-panel", "nfc-api", "nfc-view", "nfc-styles"):

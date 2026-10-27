@@ -205,5 +205,17 @@ export default {
   "nfcErrorDisconnected": "Połączenie przerwane. Połącz się ponownie i dokończ operację z tą samą automatyzacją.",
   "nfcErrorRequired": "Wybierz znacznik, punkt i urządzenie lub domyślną tożsamość.",
   "nfcErrorFailed": "Nie udało się ukończyć operacji. Odśwież i sprawdź zapisany stan przed ponowną próbą.",
-  "nfcManagePoints": "Zarządzaj punktami ładowania"
+  "nfcManagePoints": "Zarządzaj punktami ładowania",
+  "exportPdf": "Eksportuj PDF",
+  "exportingPdf": "Eksportowanie PDF…",
+  "exportReportText": "Tekst raportu",
+  "exportGlyphRow": "Wiersz {row}, {field}",
+  "exportGlyphDetails": "Nieobsługiwane znaki w {location}: {codepoints}. Zmień ten tekst i spróbuj ponownie.",
+  "export.error.invalid_request": "Nieprawidłowy zakres eksportu. Zastosuj prawidłowy zakres i spróbuj ponownie.",
+  "export.error.forbidden": "Odmowa dostępu do eksportu. Sprawdź uprawnienia i zaloguj się ponownie.",
+  "export.error.export_unavailable": "Eksport jest niedostępny. Połącz się ponownie lub przeładuj integrację i spróbuj ponownie.",
+  "export.error.export_busy": "Trwa generowanie innego pliku PDF. Poczekaj i spróbuj ponownie.",
+  "export.error.export_too_large": "Raport jest zbyt duży. Wybierz krótszy okres lub filtruj według punktu albo tożsamości.",
+  "export.error.export_missing_glyph": "Czcionka PDF nie obsługuje niektórych znaków. Zmień je w nazwach lub notatkach i spróbuj ponownie.",
+  "export.error.export_failed": "Eksport PDF nie powiódł się. Sprawdź połączenie i spróbuj ponownie."
 };

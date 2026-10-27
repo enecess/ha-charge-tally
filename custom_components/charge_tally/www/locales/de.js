@@ -205,5 +205,17 @@ export default {
   "nfcErrorDisconnected": "Verbindung unterbrochen. Verbinden Sie sich erneut und setzen Sie den Vorgang mit derselben Automation fort.",
   "nfcErrorRequired": "Wählen Sie Tag und Ladepunkt sowie eine Gerätezuordnung oder Standardidentität.",
   "nfcErrorFailed": "Der Vorgang konnte nicht abgeschlossen werden. Prüfen Sie nach dem Aktualisieren den gespeicherten Zustand.",
-  "nfcManagePoints": "Ladepunkte verwalten"
+  "nfcManagePoints": "Ladepunkte verwalten",
+  "exportPdf": "PDF exportieren",
+  "exportingPdf": "PDF wird exportiert…",
+  "exportReportText": "Berichtstext",
+  "exportGlyphRow": "Zeile {row}, {field}",
+  "exportGlyphDetails": "Nicht unterstützte Zeichen in {location}: {codepoints}. Ändern Sie diesen Text und versuchen Sie es erneut.",
+  "export.error.invalid_request": "Der Exportzeitraum ist ungültig. Übernehmen Sie einen gültigen Zeitraum und versuchen Sie es erneut.",
+  "export.error.forbidden": "Der Export wurde verweigert. Prüfen Sie Ihre Berechtigungen und melden Sie sich erneut an.",
+  "export.error.export_unavailable": "Der Export ist nicht verfügbar. Verbinden Sie sich erneut oder laden Sie die Integration neu.",
+  "export.error.export_busy": "Ein anderes PDF wird erstellt. Warten Sie und versuchen Sie es erneut.",
+  "export.error.export_too_large": "Der Bericht ist zu groß. Wählen Sie einen kürzeren Zeitraum oder filtern Sie nach Ladepunkt oder Identität.",
+  "export.error.export_missing_glyph": "Die PDF-Schrift unterstützt einige Zeichen nicht. Ändern Sie diese Zeichen in Namen oder Notizen und versuchen Sie es erneut.",
+  "export.error.export_failed": "Der PDF-Export ist fehlgeschlagen. Prüfen Sie die Verbindung und versuchen Sie es erneut."
 };

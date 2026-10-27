@@ -205,5 +205,17 @@ export default {
   "nfcErrorDisconnected": "Connection interrupted. Reconnect and complete the pending operation; it will reuse the same automation.",
   "nfcErrorRequired": "Choose a tag and charging point, and add a device binding or a default identity.",
   "nfcErrorFailed": "The operation could not be completed. Refresh to check its saved status before retrying.",
-  "nfcManagePoints": "Manage charging points"
+  "nfcManagePoints": "Manage charging points",
+  "exportPdf": "Export PDF",
+  "exportingPdf": "Exporting PDF…",
+  "exportReportText": "Report text",
+  "exportGlyphRow": "Row {row}, {field}",
+  "exportGlyphDetails": "Unsupported characters in {location}: {codepoints}. Change this text and try again.",
+  "export.error.invalid_request": "The export range is invalid. Apply a valid range and try again.",
+  "export.error.forbidden": "Export access was denied. Check your permissions and sign in again.",
+  "export.error.export_unavailable": "Export is unavailable. Reconnect or reload the integration, then try again.",
+  "export.error.export_busy": "Another PDF is being generated. Wait and try again.",
+  "export.error.export_too_large": "The report is too large. Select a shorter period or filter by point or identity.",
+  "export.error.export_missing_glyph": "The PDF font cannot display some characters. Change unsupported characters in names or notes and try again.",
+  "export.error.export_failed": "PDF export failed. Check the connection and try again."
 };

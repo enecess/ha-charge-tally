@@ -330,6 +330,8 @@ async def test_power_only_runtime_uses_native_integral_then_utility_meter(
     await hass.async_block_till_done()
     await tick(hass, freezer, 60)
     point = (await runtime.async_snapshot())["points"][0]
+    # Drain published source-state callbacks before checking the native meter.
+    await hass.async_block_till_done()
     assert abs(Decimal(point["normalized_energy_kwh"]) - Decimal(".016667")) < Decimal(
         ".000002"
     )

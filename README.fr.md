@@ -214,7 +214,7 @@ Si un enregistrement manuel reste nécessaire, ouvrez **Ressources** dans le men
 
 | Champ | Valeur |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-7` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-8` |
 | Type de ressource | **Module JavaScript** |
 
 Si une ressource utilise déjà ce chemin, mettez-la à jour au lieu de la dupliquer. Si vous gérez les ressources en YAML, déclarez cette même adresse comme module dans votre configuration ; n’installez pas une seconde copie de la carte. Consultez la [documentation des tableaux de bord Home Assistant](https://www.home-assistant.io/dashboards/dashboards/) pour la gestion des ressources.
@@ -252,6 +252,12 @@ Chaque point actuel affiche son nom, son état, la **Puissance**, le **Prix actu
 Dans **Statistiques des enregistrements → Période des statistiques**, choisissez **Aujourd’hui / Ce mois-ci / Cette année / Toute la période / Période personnalisée**. Pour une période personnalisée, renseignez **Début** et **Fin (exclue)**, puis cliquez sur **Appliquer la période**. Pour consulter toute la journée du 1er septembre, choisissez le 1er septembre comme début et le 2 septembre comme fin.
 
 Le récapitulatif affiche **Énergie**, **Coût**, le nombre **Actifs / terminés** et les indications de qualité. **Actualiser** récupère les derniers résultats. Le graphique est regroupé selon la plage choisie ; **Mesure du graphique** permet de choisir **Énergie** ou **Coût**. Développez **Détails** sous le graphique pour consulter les valeurs par intervalle dans un tableau.
+
+**Exporter en PDF** télécharge un rapport A4 avec texte consultable dans la langue de la carte, selon le point, l’identité et la période appliqués au clic. Les dates modifiées mais non appliquées ne comptent pas. Tous les enregistrements correspondants et accessibles sont inclus, même si la liste est masquée ou affiche une autre page. Sélectionnez **Tous** pour réunir les identités. Les changements de filtre et mises à jour ultérieurs ne modifient pas l’exportation en cours.
+
+Chaque ligne indique les horaires complets de l’enregistrement et sa contribution en énergie et en coût dans la période choisie. Les enregistrements en cours sont provisoires ; les coûts incomplets indiquent le sous-total connu et les remarques de qualité. Une valeur inconnue n’est pas nulle. Le nombre terminé concerne les enregistrements commencés dans la période et déjà terminés. Les totaux utilisent les valeurs non arrondies ; l’énergie affiche jusqu’à 3 décimales et le coût 2. La somme des lignes arrondies peut donc différer du total au dernier chiffre.
+
+Patientez pendant la génération ; une autre exportation pourra être lancée ensuite. Si le rapport est trop volumineux, réduisez la période ou filtrez par point ou identité. Une erreur de police indique le champ, la ligne si disponible et les points de code Unicode : modifiez ces caractères dans le nom ou la note, puis réessayez. Une déconnexion ou le déchargement de l’intégration annule le téléchargement.
 
 > Emplacement de capture 10 : statistiques, dates personnalisées, mesure du graphique et tableau regroupé développé.
 

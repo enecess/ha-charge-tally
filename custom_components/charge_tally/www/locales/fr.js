@@ -205,5 +205,17 @@ export default {
   "nfcErrorDisconnected": "Connexion interrompue. Reconnectez-vous et terminez l’opération avec la même automatisation.",
   "nfcErrorRequired": "Choisissez un tag et un point, puis un appareil ou une identité par défaut.",
   "nfcErrorFailed": "L’opération n’a pas abouti. Actualisez pour vérifier l’état enregistré avant de réessayer.",
-  "nfcManagePoints": "Gérer les points de recharge"
+  "nfcManagePoints": "Gérer les points de recharge",
+  "exportPdf": "Exporter en PDF",
+  "exportingPdf": "Exportation du PDF…",
+  "exportReportText": "Texte du rapport",
+  "exportGlyphRow": "Ligne {row}, {field}",
+  "exportGlyphDetails": "Caractères non pris en charge dans {location} : {codepoints}. Modifiez ce texte et réessayez.",
+  "export.error.invalid_request": "La période d’exportation est invalide. Appliquez une période valide et réessayez.",
+  "export.error.forbidden": "L’exportation a été refusée. Vérifiez vos autorisations et reconnectez-vous.",
+  "export.error.export_unavailable": "L’exportation est indisponible. Reconnectez-vous ou rechargez l’intégration, puis réessayez.",
+  "export.error.export_busy": "Un autre PDF est en cours de génération. Patientez et réessayez.",
+  "export.error.export_too_large": "Le rapport est trop volumineux. Réduisez la période ou filtrez par point ou identité.",
+  "export.error.export_missing_glyph": "La police du PDF ne prend pas en charge certains caractères. Modifiez-les dans les noms ou notes et réessayez.",
+  "export.error.export_failed": "L’exportation PDF a échoué. Vérifiez la connexion et réessayez."
 };

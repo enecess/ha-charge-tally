@@ -1,7 +1,8 @@
-import {ChartView} from './card-chart.js?v=0.1.2-7';
-import {SelectControl} from './card-controls.js?v=0.1.2-7';
-import {el,button,field,input,summaryView,quality,dateText} from './card-ui.js?v=0.1.2-7';
-import {formatDecimal,formatCost,errorMessage} from './card-state.js?v=0.1.2-7';
+import {exportErrorMessage} from './card-export.js?v=0.1.2-8';
+import {ChartView} from './card-chart.js?v=0.1.2-8';
+import {SelectControl} from './card-controls.js?v=0.1.2-8';
+import {el,button,field,input,summaryView,quality,dateText} from './card-ui.js?v=0.1.2-8';
+import {formatDecimal,formatCost,errorMessage} from './card-state.js?v=0.1.2-8';
 
 const text=(node,value)=>{if(node.textContent!==String(value))node.textContent=value;};
 const label=(control,value)=>text(control.label.firstChild,value);
@@ -19,7 +20,8 @@ export class CardView {
     this.pointFilter=this.select(value=>card.setFilter('point_id',value));this.identityFilter=this.select(value=>card.setFilter('identity_id',value));const filters=el('div',null,{class:'grid'});filters.append(this.pointFilter.label,this.identityFilter.label);this.live=el('div');this.sections.controls.body.append(filters,this.live);
     this.period=this.select(value=>card.setPeriod(value));this.refresh=button('',()=>{card.summaryDirty=true;card.recordsDirty=true;card.refresh(true);});
     this.from=input('date');this.to=input('date');this.from.addEventListener('input',()=>{card.rangeStart=this.from.value;});this.to.addEventListener('input',()=>{card.rangeEnd=this.to.value;});this.fromLabel=field('',this.from);this.toLabel=field('',this.to);this.range=el('div',null,{class:'stack'});const dates=el('div',null,{class:'grid'});dates.append(this.fromLabel,this.toLabel);this.rangeHint=el('small');this.apply=button('',()=>card.applyRange());this.range.append(dates,this.rangeHint,this.apply);
-    this.scope=el('small');this.summary=el('div');this.chartView=new ChartView({onMetricChange:value=>{card.chartMetric=value;this.updateChart();}});this.chart=this.chartView.node;this.metric=this.chartView.metric;this.sections.statistics.body.append(this.refresh,this.period.label,this.range,this.scope,this.summary,this.chart);
+    this.export=button('',()=>card.exportPdf());this.export.setAttribute('data-export-pdf','');this.exportError=el('p',null,{class:'alert',role:'alert'});this.statisticsActions=el('div',null,{class:'row'});this.statisticsActions.append(this.refresh,this.export);
+    this.scope=el('small');this.summary=el('div');this.chartView=new ChartView({onMetricChange:value=>{card.chartMetric=value;this.updateChart();}});this.chart=this.chartView.node;this.metric=this.chartView.metric;this.sections.statistics.body.append(this.statisticsActions,this.exportError,this.period.label,this.range,this.scope,this.summary,this.chart);
     this.add=button('',()=>card.openDialog('create'));this.historyHint=el('small');this.loading=el('p',null,{role:'status'});this.list=el('ul',null,{class:'records'});this.noRecords=el('p');this.pager=el('div',null,{class:'row spread'});this.previous=button('',()=>card.setOffset(Math.max(0,card.offset-25)));this.next=button('',()=>card.setOffset(card.offset+25));this.pageText=el('small');this.pager.append(this.previous,this.pageText,this.next);this.sections.records.body.append(this.add,this.historyHint,this.loading,this.list,this.noRecords,this.pager);
   }
   select(onChange){const control=selector(onChange);this.selects.push(control);return control;}
@@ -35,6 +37,7 @@ export class CardView {
     const ids=new Set();for(const point of s?.points||[]){if(c.filters.point_id&&c.filters.point_id!==point.id)continue;ids.add(point.id);let view=this.points.get(point.id);if(!view){view=this.createPoint(point.id);this.points.set(point.id,view);this.live.append(view.node);}this.updatePoint(view,point,online);}
     for(const [id,view]of this.points)if(!ids.has(id)){view.select.dispose();view.node.remove();this.points.delete(id);}
     this.period.update({options:['daily','monthly','yearly','total','custom'].map(id=>({id,name:t(id)})),value:c.period,disabled:!online});label(this.period,t('period'));text(this.refresh,t('refresh'));this.refresh.disabled=!online;this.range.hidden=c.period!=='custom';text(this.fromLabel.firstChild,t('from'));text(this.toLabel.firstChild,t('to'));text(this.rangeHint,`${s?.timezone||''} · ${t('rangeHint')}`);text(this.apply,t('apply'));this.apply.disabled=!online;this.from.disabled=!online;this.to.disabled=!online;text(this.scope,t('scope'));
+    text(this.export,t(c.exportBusy?'exportingPdf':'exportPdf'));this.export.disabled=!!c.exportBusy||!c.canExport();this.exportError.hidden=!c.exportError;text(this.exportError,c.exportError?exportErrorMessage(c.exportError,c.language):'');
     if(c.summary&&s)this.summary.replaceChildren(summaryView(c.summary,s.currency,c.language),el('p',`${t('count')}: ${c.summary.active_count??'—'} / ${c.summary.completed_count??'—'}`,{class:'muted'}),...(c.summary.quality?.length?[el('p',quality(c.summary.quality,c.language),{class:'quality'})]:[]));else text(this.summary,t(online?'loading':'offline'));
     this.updateChart();this.updateRecords(online);
   }

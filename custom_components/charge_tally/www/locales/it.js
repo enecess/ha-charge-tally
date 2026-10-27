@@ -205,5 +205,17 @@ export default {
   "nfcErrorDisconnected": "Connessione interrotta. Riconnettiti e completa l’operazione riutilizzando la stessa automazione.",
   "nfcErrorRequired": "Scegli un tag, un punto e un dispositivo o un’identità predefinita.",
   "nfcErrorFailed": "Impossibile completare l’operazione. Aggiorna e controlla lo stato salvato prima di riprovare.",
-  "nfcManagePoints": "Gestisci punti di ricarica"
+  "nfcManagePoints": "Gestisci punti di ricarica",
+  "exportPdf": "Esporta PDF",
+  "exportingPdf": "Esportazione PDF…",
+  "exportReportText": "Testo del rapporto",
+  "exportGlyphRow": "Riga {row}, {field}",
+  "exportGlyphDetails": "Caratteri non supportati in {location}: {codepoints}. Modifica questo testo e riprova.",
+  "export.error.invalid_request": "L’intervallo di esportazione non è valido. Applica un intervallo valido e riprova.",
+  "export.error.forbidden": "Accesso all’esportazione negato. Controlla le autorizzazioni e accedi di nuovo.",
+  "export.error.export_unavailable": "Esportazione non disponibile. Riconnettiti o ricarica l’integrazione e riprova.",
+  "export.error.export_busy": "È in corso la generazione di un altro PDF. Attendi e riprova.",
+  "export.error.export_too_large": "Il rapporto è troppo grande. Seleziona un periodo più breve o filtra per punto o identità.",
+  "export.error.export_missing_glyph": "Il carattere PDF non supporta alcuni caratteri. Modificali nei nomi o nelle note e riprova.",
+  "export.error.export_failed": "Esportazione PDF non riuscita. Controlla la connessione e riprova."
 };

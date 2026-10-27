@@ -205,5 +205,17 @@ export default {
   "nfcErrorDisconnected": "连接中断。重连后继续待完成操作，将复用同一条自动化。",
   "nfcErrorRequired": "请选择标签和充电点，并添加设备映射或默认身份。",
   "nfcErrorFailed": "操作未能完成。请刷新核对已保存状态后再重试。",
-  "nfcManagePoints": "管理充电点"
+  "nfcManagePoints": "管理充电点",
+  "exportPdf": "导出 PDF",
+  "exportingPdf": "正在导出 PDF…",
+  "exportReportText": "报表文本",
+  "exportGlyphRow": "第 {row} 条，{field}",
+  "exportGlyphDetails": "{location}含有字体不支持的字符：{codepoints}。请修改这些文字后重试。",
+  "export.error.invalid_request": "导出范围无效。请应用有效范围后重试。",
+  "export.error.forbidden": "无权导出。请检查权限并重新登录。",
+  "export.error.export_unavailable": "暂时无法导出。请重新连接或重载集成后重试。",
+  "export.error.export_busy": "正在生成另一份 PDF，请稍后重试。",
+  "export.error.export_too_large": "报表过大。请缩短统计期间，或按充电点、身份筛选。",
+  "export.error.export_missing_glyph": "PDF 字体不支持部分字符。请修改名称或备注中的不支持字符后重试。",
+  "export.error.export_failed": "PDF 导出失败。请检查连接后重试。"
 };

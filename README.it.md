@@ -214,7 +214,7 @@ Se serve intervenire, apri **Risorse** dal menu di **Impostazioni → Dashboard*
 
 | Campo | Valore |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-7` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-8` |
 | Tipo di risorsa | **Modulo JavaScript** |
 
 Se esiste già lo stesso percorso, aggiornalo senza duplicarlo. Se gestisci le risorse in YAML, registra lì lo stesso URL e tipo modulo; non installare una seconda copia. Vedi la [documentazione delle dashboard di Home Assistant](https://www.home-assistant.io/dashboards/dashboards/).
@@ -252,6 +252,12 @@ Ogni punto corrente mostra nome, stato, **Potenza**, **Prezzo attuale** e stato 
 In **Statistiche delle registrazioni → Periodo delle statistiche**, scegli **Oggi / Questo mese / Quest’anno / Dall’inizio / Intervallo personalizzato**. Per date personalizzate, indica **Inizio** e **Fine (esclusa)**, poi **Applica intervallo**. Per tutto il 1° settembre, per esempio, imposta inizio al 1° e fine al 2 settembre.
 
 Il riepilogo mostra **Energia**, **Costo**, **Attive / completate** e qualità. **Aggiorna** carica i risultati più recenti. Il grafico raggruppa secondo l’intervallo scelto; **Misura del grafico** alterna **Energia / Costo**. Espandi **Dettagli** sotto il grafico per la tabella per intervalli.
+
+**Esporta PDF** scarica un rapporto A4 con testo ricercabile nella lingua della scheda, usando punto, identità e periodo applicati al momento del clic. Le bozze di date non applicate non lo modificano. Include tutte le registrazioni corrispondenti e leggibili, anche con l’elenco nascosto o su un’altra pagina. Seleziona **Tutti** per le identità per un rapporto combinato. Le modifiche successive ai filtri e gli aggiornamenti non cambiano l’esportazione in corso.
+
+Le righe mostrano gli orari completi della registrazione e solo il contributo di energia e costo nel periodo selezionato. Le registrazioni attive sono provvisorie; i costi incompleti mostrano il subtotale noto e le note sulla qualità. I valori sconosciuti non sono zero. Il conteggio completato riguarda le registrazioni iniziate nel periodo e già terminate. I totali usano valori non arrotondati; l’energia mostra fino a 3 decimali e il costo 2. La somma delle righe arrotondate può quindi differire dal totale nell’ultima cifra.
+
+Attendi la generazione del PDF; un’altra esportazione può essere riprovata al termine. Se il rapporto è troppo grande, riduci il periodo o filtra per punto o identità. Un errore del carattere indica il campo, la riga quando disponibile e i punti di codice Unicode: modifica quei caratteri nel nome o nella nota e riprova. La disconnessione o lo scaricamento dell’integrazione annulla il download.
 
 > Segnaposto immagine 10: Statistiche, date personalizzate, Misura del grafico e Dettagli raggruppati espansi.
 

@@ -28,11 +28,14 @@ export async function createCardFixture(t,config={},{insecure=false}={}){
   await page.waitForFunction(()=>customElements.get('charge-tally-card'));
   await page.evaluate(config=>{
     const snapshot={generation:1,points:[{id:'p',name:'Garage',status:'idle',recording_state:'idle',detection_state:'waiting',candidate_identity_id:null,detection_enabled:true,active:true,available:true,selected_identity_id:'i',identity_entity_id:'select.garage',power_w:'0',current_price:'.5',quality:[]}],archived_points:[],identities:[{id:'i',name:'Family',active:true},{id:'j',name:'Guest',active:true}],timezone:'UTC',currency:'CNY'};
-    const pending=[],listeners=new Map();
+    const pending=[],exports=[],urls={created:[],revoked:[]},listeners=new Map();
+    const createURL=URL.createObjectURL.bind(URL),revokeURL=URL.revokeObjectURL.bind(URL);
+    URL.createObjectURL=blob=>{const url=createURL(blob);urls.created.push(url);return url;};
+    URL.revokeObjectURL=url=>{urls.revoked.push(url);revokeURL(url);};
     const connection={connected:true,addEventListener:(k,f)=>listeners.set(k,f),removeEventListener:k=>listeners.delete(k),subscribeMessage:async callback=>{queueMicrotask(()=>callback(snapshot));return ()=>{};}};
     const card=document.createElement('charge-tally-card');card.setConfig(config);
-    const hass={language:'en',connection,states:{'select.garage':{state:'Family'}},callWS:request=>new Promise((resolve,reject)=>pending.push({request,resolve,reject}))};
-    window.fixture={card,snapshot,pending,listeners,hass};card.hass=hass;document.body.append(card);
+    const hass={fetchWithAuth:(url,options)=>new Promise((resolve,reject)=>exports.push({url,options,payload:JSON.parse(options.body),resolve,reject})),language:'en',connection,states:{'select.garage':{state:'Family'}},callWS:request=>new Promise((resolve,reject)=>pending.push({request,resolve,reject}))};
+    window.fixture={card,snapshot,pending,exports,urls,listeners,hass};card.hass=hass;document.body.append(card);
   },config);
   return {page};
 }

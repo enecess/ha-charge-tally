@@ -214,7 +214,7 @@ Falls nötig, öffne im Menü unter **Einstellungen → Dashboards** die **Resso
 
 | Feld | Inhalt |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-7` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-8` |
 | Ressourcentyp | **JavaScript-Modul** |
 
 Aktualisiere vorhandene Ressourcen mit demselben Pfad, statt sie doppelt anzulegen. Bei YAML-Ressourcenverwaltung trage dieselbe Adresse als Modul ein. Installiere keine zweite Karte. Siehe [HA-Dashboard-Dokumentation](https://www.home-assistant.io/dashboards/dashboards/).
@@ -252,6 +252,12 @@ Jeder aktuelle Punkt zeigt Name, Status, **Leistung**, **Aktueller Preis** und *
 Wähle unter **Eintragsstatistik → Statistikzeitraum** zwischen **Heute / Dieser Monat / Dieses Jahr / Gesamter Zeitraum / Benutzerdefinierter Zeitraum**. Für eigene Daten fülle **Beginn** und **Ende (ausschließlich)** aus und wähle **Zeitraum anwenden**. Für den ganzen 1. September gilt Beginn 1. September, Ende 2. September.
 
 Die Zusammenfassung zeigt **Energie**, **Kosten**, **Aktiv / abgeschlossen** und Qualität. **Aktualisieren** lädt neue Ergebnisse. **Diagrammkennzahl** wechselt zwischen **Energie** und **Kosten** im nach Zeitraum gruppierten Diagramm. **Details** darunter öffnet die Tabelle mit Werten je Zeitabschnitt.
+
+**PDF exportieren** lädt einen durchsuchbaren A4-Bericht in der Sprache der Karte herunter. Es gelten Ladepunkt, Identität und Statistikzeitraum beim Klicken; noch nicht übernommene Datumsentwürfe zählen nicht. Alle passenden lesbaren Einträge sind enthalten, auch bei ausgeblendeter Eintragsliste oder einer anderen Listenseite. **Alle** Identitäten erstellt einen gemeinsamen Bericht. Spätere Filteränderungen und Live-Aktualisierungen ändern den laufenden Export nicht.
+
+Die Zeilen zeigen die vollständigen Eintragszeiten und nur den Energie- und Kostenanteil im gewählten Zeitraum. Laufende Einträge sind vorläufig; unvollständige Kosten erscheinen als bekannte Teilsumme mit Qualitätshinweisen. Unbekannte Werte sind keine Nullwerte. Abgeschlossene Einträge sind solche, die im Zeitraum begonnen haben und beendet sind. Summen basieren auf ungerundeten Werten; Energie wird mit bis zu 3, Kosten mit 2 Nachkommastellen angezeigt. Gerundete Zeilen können daher in der letzten Stelle von der Summe abweichen.
+
+Warten Sie auf die PDF-Erstellung; danach kann ein weiterer Export versucht werden. Bei zu großen Berichten den Zeitraum verkürzen oder nach Ladepunkt oder Identität filtern. Schriftfehler nennen Feld, gegebenenfalls Eintragszeile und Unicode-Codepunkte. Ändern Sie diese Zeichen im Namen oder in der Notiz und versuchen Sie es erneut. Verbindungsabbruch oder Entladen der Integration beendet den Download.
 
 > Screenshot-Platzhalter 10: Statistik, Datumsbereich, Diagrammkennzahl und aufgeklappte Werte je Zeitabschnitt.
 
