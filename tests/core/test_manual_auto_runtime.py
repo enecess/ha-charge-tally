@@ -1,8 +1,10 @@
 import unittest
+from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from custom_components.charge_tally.runtime_store import RuntimeStore
 
@@ -88,18 +90,160 @@ class ManualAutomaticTests(unittest.TestCase):
         self.power(50, "0")
         self.assertEqual(self.store.active("p")["id"], record["id"])
 
-    def test_snapshot_candidate_and_active_identity_remain_locked(self):
+    def test_pending_identity_selection_updates_candidate_without_resetting_start(self):
+        self.store.apply(
+            "configure",
+            {"p": self.point, "control": self.point},
+            {"a": {"name": "Alice"}, "b": {"name": "Bob"}},
+            self.at,
+            "UTC",
+        )
+        self.store.apply("energy", "control", self.at, Decimal(100))
+        for point_id in ("p", "control"):
+            self.command("select_identity", 0, point_id=point_id, identity_id="a")
+            self.store.apply(
+                "observe",
+                point_id,
+                "power",
+                {
+                    "at": self.at.isoformat(),
+                    "value": "100",
+                    "unit": "W",
+                },
+            )
+            self.store.apply(
+                "energy", point_id, self.at + timedelta(seconds=1), Decimal("100.01")
+            )
+        before = deepcopy(self.store.states)
+        result = self.command("select_identity", 1, point_id="p", identity_id="b")
+        self.assertEqual(result, {"point_id": "p", "identity_id": "b"})
+        point = self.store.snapshot()["points"][0]
+        self.assertEqual(point["selected_identity_id"], "b")
+        self.assertEqual(point["candidate_identity_id"], "b")
+        expected = deepcopy(before)
+        expected["p"]["selected_identity_id"] = "b"
+        expected["p"]["detector"]["identity_id"] = "b"
+        self.assertEqual(self.store.states, expected)
+        for point_id in ("p", "control"):
+            self.store.apply(
+                "energy", point_id, self.at + timedelta(seconds=5), Decimal("100.05")
+            )
+            self.store.apply(
+                "observe",
+                point_id,
+                "power",
+                {
+                    "at": (self.at + timedelta(seconds=5)).isoformat(),
+                    "value": "100",
+                    "unit": "W",
+                },
+            )
+        record, control = self.store.active("p"), self.store.active("control")
+        self.assertEqual(record["identity_id"], "b")
+        self.assertEqual(control["identity_id"], "a")
+        self.assertEqual(record["start"], self.at.isoformat())
+        for key in ("start", "energy_kwh", "known_cost", "cost_complete", "quality"):
+            self.assertEqual(record[key], control[key], key)
+        self.assertEqual(Decimal(record["energy_kwh"]), Decimal(".05"))
+        self.assertEqual(Decimal(record["known_cost"]), Decimal(".05"))
+        self.assertIsNone(self.store.snapshot()["points"][0]["candidate_identity_id"])
+
+    def test_pending_candidate_uses_last_selection_including_unassigned(self):
+        self.power(0, "100")
+        for identity_id in ("b", "a", "unassigned"):
+            self.command("select_identity", 1, point_id="p", identity_id=identity_id)
+            point = self.store.snapshot()["points"][0]
+            self.assertEqual(point["selected_identity_id"], identity_id)
+            self.assertEqual(point["candidate_identity_id"], identity_id)
+        self.power(5, "100")
+        self.assertEqual(self.store.active("p")["identity_id"], "unassigned")
+        self.assertEqual(self.store.active("p")["start"], self.at.isoformat())
+
+    def test_low_power_cancels_candidate_but_keeps_latest_identity(self):
         self.command("select_identity", 0, point_id="p", identity_id="a")
         self.power(0, "100")
         self.command("select_identity", 1, point_id="p", identity_id="b")
+        self.assertEqual(
+            self.store.snapshot()["points"][0]["candidate_identity_id"], "b"
+        )
+        self.power(2, "0")
         point = self.store.snapshot()["points"][0]
-        self.assertEqual(point["candidate_identity_id"], "a")
-        self.assertEqual(point["detection_state"], "pending_start")
-        self.power(5, "100")
-        point = self.store.snapshot()["points"][0]
-        self.assertEqual(point["active_record"]["identity_id"], "a")
         self.assertIsNone(point["candidate_identity_id"])
-        self.assertEqual(point["recording_state"], "automatic")
+        self.assertEqual(point["selected_identity_id"], "b")
+        self.power(3, "100")
+        self.power(5, "100")
+        self.assertIsNone(self.store.active("p"))
+        self.power(8, "100")
+        self.assertEqual(self.store.active("p")["identity_id"], "b")
+        self.assertEqual(
+            self.store.active("p")["start"],
+            (self.at + timedelta(seconds=3)).isoformat(),
+        )
+
+    def test_selection_before_confirmation_at_same_time_updates_this_record(self):
+        self.command("select_identity", 0, point_id="p", identity_id="a")
+        self.power(0, "100")
+        self.command("select_identity", 5, point_id="p", identity_id="b")
+        self.power(5, "100")
+        self.assertEqual(self.store.active("p")["identity_id"], "b")
+        self.assertEqual(self.store.active("p")["start"], self.at.isoformat())
+
+    def test_selection_and_confirmation_use_committed_order(self):
+        self.command("select_identity", 0, point_id="p", identity_id="a")
+        self.power(0, "100")
+        self.power(5, "100")
+        before = deepcopy(self.store.states["p"]["detector"])
+        self.command("select_identity", 5, point_id="p", identity_id="b")
+        self.assertEqual(self.store.active("p")["identity_id"], "a")
+        self.assertEqual(self.store.states["p"]["detector"], before)
+        self.power(10, "0")
+        before = deepcopy(self.store.states["p"]["detector"])
+        self.command("select_identity", 11, point_id="p", identity_id="unassigned")
+        self.assertEqual(self.store.active("p")["identity_id"], "a")
+        self.assertEqual(self.store.states["p"]["detector"], before)
+
+    def test_manual_record_keeps_identity_after_selection(self):
+        self.command("select_identity", 0, point_id="p", identity_id="a")
+        record = self.start()
+        before = deepcopy(self.store.states["p"].get("detector"))
+        self.command("select_identity", 2, point_id="p", identity_id="b")
+        self.assertEqual(self.store.active("p")["id"], record["id"])
+        self.assertEqual(self.store.active("p")["identity_id"], "a")
+        self.assertEqual(self.store.states["p"].get("detector"), before)
+
+    def test_invalid_identity_leaves_selection_and_candidate_unchanged(self):
+        self.command("select_identity", 0, point_id="p", identity_id="a")
+        self.power(0, "100")
+        self.store.ledger.put_identity({"id": "b", "name": "Bob", "active": False})
+        before = deepcopy(self.store.states)
+        checkpoint = self.store.ledger.get_checkpoint("runtime")
+        for identity_id in ("b", "missing"):
+            with self.subTest(identity_id=identity_id), self.assertRaises(ValueError):
+                self.command(
+                    "select_identity", 1, point_id="p", identity_id=identity_id
+                )
+            self.assertEqual(self.store.states, before)
+            self.assertEqual(self.store.ledger.get_checkpoint("runtime"), checkpoint)
+
+    def test_pending_selection_checkpoint_failure_rolls_back_both_identities(self):
+        self.command("select_identity", 0, point_id="p", identity_id="a")
+        self.power(0, "100")
+        before = deepcopy(self.store.states)
+        checkpoint = self.store.ledger.get_checkpoint("runtime")
+        put = self.store.ledger.put_checkpoint
+
+        def fail(key, value):
+            put(key, value)
+            raise OSError("checkpoint failed")
+
+        with patch.object(self.store.ledger, "put_checkpoint", side_effect=fail):
+            with self.assertRaisesRegex(OSError, "checkpoint failed"):
+                self.command("select_identity", 1, point_id="p", identity_id="b")
+        self.assertEqual(self.store.states, before)
+        self.assertEqual(self.store.ledger.get_checkpoint("runtime"), checkpoint)
+        self.command("select_identity", 1, point_id="p", identity_id="b")
+        self.assertEqual(self.store.states["p"]["selected_identity_id"], "b")
+        self.assertEqual(self.store.states["p"]["detector"]["identity_id"], "b")
 
     def assert_blocked_after_end(self, record, seconds=20, source_available=True):
         self.store.apply(

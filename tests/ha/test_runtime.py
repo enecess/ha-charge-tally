@@ -189,7 +189,7 @@ async def test_runtime_normalizes_shared_interval_and_reloads_without_duplicate(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_timer_confirms_unchanged_power_and_locks_candidate_identity(
+async def test_timer_confirms_unchanged_power_with_latest_candidate_identity(
     hass, tmp_path, freezer
 ):
     entry, runtime = await setup_runtime(
@@ -208,15 +208,26 @@ async def test_timer_confirms_unchanged_power_and_locks_candidate_identity(
     )
     hass.states.async_set("sensor.power", "1000", POWER)
     await hass.async_block_till_done()
-    assert (await runtime.async_snapshot())["points"][0]["status"] == "pending_start"
+    candidate = (await runtime.async_snapshot())["points"][0]
+    assert candidate["status"] == "pending_start"
+    assert candidate["candidate_identity_id"] == "car"
     assert not await runtime.async_config_guard("point", {}, {})
-    await runtime.async_command(
-        "select_identity", {"point_id": "point", "identity_id": "unassigned"}
+    await tick(hass, freezer, 10)
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {"entity_id": candidate["identity_entity_id"], "option": "Unassigned"},
+        blocking=True,
     )
-    await tick(hass, freezer, 31)
+    selected = (await runtime.async_snapshot())["points"][0]
+    assert selected["selected_identity_id"] == "unassigned"
+    assert selected["candidate_identity_id"] == "unassigned"
+    assert selected["candidate"] == candidate["candidate"]
+    await tick(hass, freezer, 21)
     point = (await runtime.async_snapshot())["points"][0]
     assert point["status"] == "charging"
-    assert point["active_record"]["identity_id"] == "car"
+    assert point["active_record"]["identity_id"] == "unassigned"
+    assert point["active_record"]["start"] == candidate["candidate"]
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

@@ -681,7 +681,11 @@ class RuntimeStore:
             identity = self.ledger.get_identity(data["identity_id"])
             if not identity or not identity.get("active", True):
                 raise ValueError("An active identity is required")
-            self.states[data["point_id"]]["selected_identity_id"] = data["identity_id"]
+            state = self.states[data["point_id"]]
+            state["selected_identity_id"] = data["identity_id"]
+            detector = state.get("detector")
+            if detector and detector["state"] == "pending_start":
+                detector["identity_id"] = data["identity_id"]
             return {"point_id": data["point_id"], "identity_id": data["identity_id"]}
         if command == "set_detection":
             point = self.points[data["point_id"]]

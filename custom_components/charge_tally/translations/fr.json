@@ -470,7 +470,7 @@
     },
     "select_identity": {
       "name": "Choisir l’identité d’enregistrement",
-      "description": "Scannez un tag pour choisir l’identité du prochain enregistrement. Les enregistrements en cours et les candidats automatiques verrouillés conservent leur identité.",
+      "description": "Scannez un tag pour choisir une identité. Avant la fin de la confirmation du début, ce choix s’applique à cette recharge sans modifier l’heure de début ni la progression. Les enregistrements existants conservent leur identité.",
       "fields": {
         "point_id": {
           "name": "Point de recharge",
@@ -626,7 +626,7 @@
       },
       "nfc": {
         "title": "Associations d’identité NFC",
-        "description": "[Associations d’identité NFC]({url})\n\nScannez un tag pour choisir l’identité du prochain enregistrement. Les enregistrements en cours et les candidats automatiques verrouillés conservent leur identité."
+        "description": "[Associations d’identité NFC]({url})\n\nScannez un tag pour choisir une identité. Avant la fin de la confirmation du début, ce choix s’applique à cette recharge sans modifier l’heure de début ni la progression. Les enregistrements existants conservent leur identité."
       }
     },
     "error": {

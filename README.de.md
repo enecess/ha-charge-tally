@@ -130,7 +130,7 @@ Mit **Automatische Ladeerkennung** folgt **Automatische Erkennung**:
 - **Endschwelle (W)**: Unterhalb beginnt die Endbestätigung; muss niedriger als die Startschwelle sein.
 - **Enddauer (Sekunden)**: Danach endet der Eintrag; Standard 300 Sekunden.
 
-Passe die Schwellen an Standby- und Ladeleistung an. Nach Bestätigung gilt rückwirkend der Beginn der erfüllten Bedingung. Kürzere Pausen bleiben im selben Eintrag. Wähle die Identität vor dem Leistungsanstieg, da sie bereits zu Beginn der Bestätigung festgehalten wird.
+Passe die Schwellen an Standby- und Ladeleistung an. Nach Bestätigung gilt rückwirkend der Beginn der erfüllten Bedingung. Kürzere Pausen bleiben im selben Eintrag. Bis zum Abschluss der Startbestätigung kannst du die Identität für diese Ladung ändern; Startzeit und Bestätigungsfortschritt bleiben erhalten.
 
 Auch ohne Erkennung funktionieren **Erfassung manuell starten** und **Erfassung beenden**.
 
@@ -231,13 +231,13 @@ Neben dem Titel steht **Verbunden** oder **Verbindung getrennt · aktuelle Momen
 
 Der Bereich zeigt Erfassung, **Leistung** und **Erkennung** getrennt. **Keine Erfassung**, **Manuelle Erfassung läuft** und **Automatische Erfassung läuft** beschreiben den Eintrag; ein aktiver Eintrag bedeutet nicht, dass der Lader gerade Strom bezieht. Die Erkennung zeigt separat Warten, Bestätigung, Pause während manueller Erfassung, fehlende Daten oder Warten auf Leistungsabfall.
 
-Während der Startbestätigung zeigt **Festgelegte Identität für den automatischen Eintrag** die beim Beginn der Bestätigung gespeicherte Zuordnung. **Identität für nächsten / manuellen Eintrag** gilt für den nächsten automatischen Eintrag oder einen sofortigen manuellen Start. Sie ändert weder die festgelegte Kandidatenidentität noch den aktiven Eintrag.
+Während der Startbestätigung zeigt **Identität für diese ausstehende Ladung** die aktuelle Kandidatenidentität. **Identität für ausstehenden / manuellen Eintrag** ändert diese ausstehende Ladung oder einen sofortigen manuellen Start. Startzeit und Bestätigungsfortschritt bleiben erhalten; bestehende Einträge behalten ihre Identität.
 
 Jeder aktuelle Punkt zeigt Name, Status, **Leistung**, **Aktueller Preis** und **Erkennung**. Fehlende Leistung oder Preise können leer sein. **Erkennung** ist hier eine Anzeige; ändere Einstellungen in der Punktkonfiguration oder über den nativen Schalter **Ladeerkennung**.
 
 | Anzeige | Bedeutung |
 | --- | --- |
-| **Ausgewählte Identität** | Ohne aktiven Eintrag: Identität der nächsten Ladung |
+| **Ausgewählte Identität** | Ohne aktiven Eintrag: Identität der ausstehenden oder nächsten Ladung |
 | **Dieser Eintrag** | Bereits zugeordnete Identität des aktiven Eintrags |
 | **Identität für den nächsten Eintrag** | Nächste Zuordnung vorbereiten, ohne den laufenden Eintrag zu ändern |
 | **Erfassung läuft · Bisherige Summe** | Energie, Kosten, Beginn, Dauer und Qualität des laufenden Eintrags |
@@ -275,7 +275,7 @@ Die Knöpfe erfassen Zeitpunkte und schalten den Lader nicht. Ein manuell gestar
 
 ### Laden automatisch erkennen
 
-Bei eingerichteter und aktivierter Erkennung ist die Folge **Laden wird bestätigt → Automatischer Eintrag wird erfasst → Ende wird bestätigt → Warten auf automatische Erkennung** möglich. Entfällt während der Bestätigung die Leistungsbedingung, wird die ausstehende Bestätigung verworfen. Die automatische Bestätigung verwendet die festgelegte Kandidatenidentität, auch nach einer Änderung der Auswahl. Mit **Erfassung manuell beenden** kannst du einen automatischen Eintrag vorzeitig beenden; während der Endbestätigung heißt der Knopf **Erfassung jetzt beenden**.
+Bei eingerichteter und aktivierter Erkennung ist die Folge **Laden wird bestätigt → Automatischer Eintrag wird erfasst → Ende wird bestätigt → Warten auf automatische Erkennung** möglich. Entfällt während der Bestätigung die Leistungsbedingung, wird die ausstehende Bestätigung verworfen. Die automatische Bestätigung verwendet die letzte vor Abschluss erfolgreich ausgewählte Identität, einschließlich **Unassigned**. Mit **Erfassung manuell beenden** kannst du einen automatischen Eintrag vorzeitig beenden; während der Endbestätigung heißt der Knopf **Erfassung jetzt beenden**.
 
 Nach ausdrücklichem Beenden wartet die Erkennung normalerweise auf Leistung unter der Endschwelle. Sie kann sofort fortfahren, wenn die letzte gültige niedrige Leistungsmessung nicht nach dem Endbefehl liegt, nicht älter als die unter **Maximales Zuordnungsintervall (Sekunden)** eingestellte Gültigkeitsdauer ist und weder fehlende Daten noch ein Neustart sie ungültig gemacht haben. Hohe, fehlende, zukünftige oder veraltete Messwerte lösen die Sperre nicht. Nach `unknown` oder nicht verfügbarer Leistung ist eine neue gültige Messung unter der Endschwelle nötig. Während der Sperre bleibt manuelles Starten möglich.
 
@@ -437,7 +437,7 @@ Brauchst du Hilfe? [Erstelle ein Issue](https://github.com/enecess/ha-charge-tal
 
 Administratoren öffnen **Einstellungen → Geräte & Dienste → Charge Tally → Konfigurieren → NFC-Identitätsverknüpfungen**. Registriere zuerst einen Tag in HA und wähle Tag, Ladepunkt sowie Geräte und Identitäten. Mehrere Gerätezuordnungen oder nur eine Standardidentität sind möglich. Je Tag/Ladepunkt-Paar entsteht eine verwaltete Automation; ein gemeinsamer Tag kann mehrere Punkte unabhängig steuern.
 
-Gerätespezifische Zuordnungen haben Vorrang, andere Geräte verwenden den optionalen Standard. Ohne Standard geschieht nichts. Laufende Aufzeichnungen und gesperrte automatische Kandidaten behalten ihre Identität. Umbenennungen einer Identität bleiben gültig. Gelöschte Tags, Geräte oder Punkte und deaktivierte Identitäten sperren die ganze Verknüpfung bis zur Korrektur; es gibt keinen stillen Rückfall auf eine andere Identität.
+Gerätespezifische Zuordnungen haben Vorrang, andere Geräte verwenden den optionalen Standard. Ohne Standard geschieht nichts. Scannen wählt eine Identität aus. Vor Abschluss der Startbestätigung gilt sie für diese Ladung; Startzeit und Bestätigungsfortschritt bleiben erhalten. Bestehende Einträge behalten ihre Identität. Umbenennungen einer Identität bleiben gültig. Gelöschte Tags, Geräte oder Punkte und deaktivierte Identitäten sperren die ganze Verknüpfung bis zur Korrektur; es gibt keinen stillen Rückfall auf eine andere Identität.
 
 Die Automation ist als von Charge Tally verwaltet gekennzeichnet. Bearbeite Zuordnungen in der Integration; HA bietet Ablaufverfolgung und Pausieren. Speichern behält die Pause bei. Eine native Änderung der HA-Entitäts-ID kann die Automation wieder einschalten; prüfe danach den Schalter. Externe Änderungen erfordern eine ausdrückliche Wiederherstellung, gelöschte Automationen eine Neuerstellung. Ausstehende Vorgänge nach Verbindungsabbrüchen verwenden dieselbe Automation.
 

@@ -130,7 +130,7 @@ After enabling **Automatic charging detection**, configure **Automatic detection
 - **End threshold (W)**: Power below this value starts end confirmation; it must be lower than the start threshold.
 - **End duration (seconds)**: The record ends after this condition holds; default: 300 seconds.
 
-Choose thresholds matching actual standby and charging power. Confirmed boundaries are backdated to when the condition first became true. A pause shorter than the end duration remains in the same record. Select the identity before power rises: ownership is remembered when start confirmation begins.
+Choose thresholds matching actual standby and charging power. Confirmed boundaries are backdated to when the condition first became true. A pause shorter than the end duration remains in the same record. You can select an identity before start confirmation completes; it applies to this charge without changing its start time or confirmation progress.
 
 Detection is optional; you can use **Start recording manually** and **End recording** instead.
 
@@ -231,13 +231,13 @@ The title shows **Connected** or **Disconnected · waiting for a fresh snapshot*
 
 The panel separates recording state from **Power** and **Detection**. **Not recording**, **Manual recording in progress** and **Automatic recording in progress** describe the ledger; an active record does not imply that the charger is drawing power. Detection separately reports waiting, confirmation, a manual-record pause, unavailable data or waiting for power to fall.
 
-During start confirmation, **Locked identity for automatic record** shows the identity captured when confirmation began. **Next / manual record identity** changes the next automatic record or an immediate manual start, without changing that locked identity or an active record.
+During start confirmation, **Identity for this pending charge** shows the current candidate identity. **Pending / manual record identity** changes this pending charge or an immediate manual start. The start time and confirmation progress stay the same; existing records keep their identity.
 
 Each current point shows its name, status, **Power**, **Current price** and **Detection** state. Unavailable measurements may be blank. Detection here is only a status: change it in point configuration or with the native **Detection** switch.
 
 | Content | Meaning |
 | --- | --- |
-| **Selected identity** | Select the next charge’s ownership when no record is active |
+| **Selected identity** | Select ownership for the pending charge or the next charge when no record is active |
 | **This record** | Identity assigned to the active record |
 | **Next record identity** | Prepare the next identity without changing the current record |
 | **Recording · Current total** | Active energy, cost, start, elapsed time and quality notices |
@@ -275,7 +275,7 @@ These buttons only record boundaries; they do not control the charger. A manuall
 
 ### Detect charging automatically
 
-With detection configured and enabled, detection can progress through **Confirming charging → Tracking an automatic record → Confirming end → Waiting for automatic detection**. If the power condition fails during confirmation, the pending start or end is canceled. Automatic confirmation uses the locked candidate identity even if the selector changes. You can end an automatic record early with **End recording manually**, or **End recording now** during end confirmation.
+With detection configured and enabled, detection can progress through **Confirming charging → Tracking an automatic record → Confirming end → Waiting for automatic detection**. If the power condition fails during confirmation, the pending start or end is canceled. Automatic confirmation uses the last successfully selected identity before confirmation completes, including **Unassigned**. You can end an automatic record early with **End recording manually**, or **End recording now** during end confirmation.
 
 After an explicit end, detection normally waits for power to fall below the end threshold. It can resume immediately only if the latest valid low-power observation is no later than the end command, its age does not exceed the duration set by **Maximum allocation interval (seconds)**, and neither unavailable data nor a restart has invalidated it. High, missing, future or stale readings do not release the block. After `unknown` or unavailable power, a subsequent valid low-power observation is required. While blocked, manual recording remains available.
 
@@ -437,7 +437,7 @@ Need help? [Open an issue](https://github.com/enecess/ha-charge-tally/issues) wi
 
 Administrators can open **Settings → Devices & services → Charge Tally → Configure → NFC identity links**. Register a tag in HA first, then choose the tag, charging point, scanning devices and identities. Add multiple device bindings or only a default identity. Each tag/point pair has one managed automation. A shared tag can act on several points independently.
 
-Device bindings take priority; other devices use the optional default. Without a default, no action occurs. Scanning selects the identity for a later recording, preserving current records and locked automatic candidates. Identity renames preserve bindings. A deleted tag, device or point, or a disabled identity, blocks the whole link until repaired; it never silently falls back to another identity.
+Device bindings take priority; other devices use the optional default. Without a default, no action occurs. Scanning selects a recording identity. Before start confirmation completes, it applies to this charge without changing its start time or confirmation progress; existing records keep their identity. Identity renames preserve bindings. A deleted tag, device or point, or a disabled identity, blocks the whole link until repaired; it never silently falls back to another identity.
 
 Automations are marked **Charge Tally managed** and explain where to edit them. Edit mappings in the integration; use HA for traces and pausing. Saving preserves the paused state. HA's native entity ID rename can itself re-enable an automation, so check its switch afterward. External edits require explicit **Restore integration configuration**; deleted automations require **Recreate automation**. After a lost connection, **Complete pending operation** reuses the same automation.
 

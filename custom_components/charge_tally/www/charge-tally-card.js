@@ -74,8 +74,10 @@ export class ChargeTallyCard extends HTMLElement {
       this.pendingSelections.delete(pointId);
       const current=this.snapshot?.points.find(p=>p.id===pointId);
       const readIsCurrent=pending.readVersion===this.snapshotVersion;
-      if(this.canSelect(current)&&this.snapshot.identities.some(i=>i.id===identityId&&i.active!==false)&&(current.selected_identity_id===identityId||readIsCurrent&&snapshot?.points.find(p=>p.id===pointId)?.selected_identity_id===identityId)){
-        this.snapshot={...this.snapshot,points:this.snapshot.points.map(p=>p.id===pointId?{...p,selected_identity_id:identityId}:p)};
+      const confirmed=current?.selected_identity_id===identityId?current:readIsCurrent?snapshot?.points.find(p=>p.id===pointId):null;
+      if(this.canSelect(current)&&this.snapshot.identities.some(i=>i.id===identityId&&i.active!==false)&&confirmed?.selected_identity_id===identityId){
+        // Use the authoritative point, including any completed confirmation.
+        this.snapshot={...this.snapshot,points:this.snapshot.points.map(p=>p.id===pointId?{...p,...confirmed}:p)};
         this.notice=this.t('saved');
       }else this.error={code:'selectionUnconfirmed'};
       this.render();

@@ -96,10 +96,17 @@ async def test_none_interrupts_candidate_and_restart_does_not_count_downtime(
     )
     hass.states.async_set("sensor.power", "1000", POWER)
     await hass.async_block_till_done()
+    await runtime.async_select_identity("point", "car")
+    assert (await runtime.async_snapshot())["points"][0][
+        "candidate_identity_id"
+    ] == "car"
     await tick(hass, freezer, 20)
     hass.states.async_set("sensor.power", "unavailable", POWER)
     await hass.async_block_till_done()
     await tick(hass, freezer, 20)
+    cancelled = (await runtime.async_snapshot())["points"][0]
+    assert cancelled["candidate_identity_id"] is None
+    assert cancelled["selected_identity_id"] == "car"
     assert not (await runtime.async_snapshot())["records"]
     hass.states.async_set("sensor.power", "1000", POWER)
     await hass.async_block_till_done()
@@ -109,8 +116,15 @@ async def test_none_interrupts_candidate_and_restart_does_not_count_downtime(
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert not (await entry.runtime_data.async_snapshot())["records"]
-    await tick(hass, freezer, 31)
-    assert len((await entry.runtime_data.async_snapshot())["records"]) == 1
+    assert (await entry.runtime_data.async_snapshot())["points"][0][
+        "selected_identity_id"
+    ] == "car"
+    await tick(hass, freezer, 20)
+    assert not (await entry.runtime_data.async_snapshot())["records"]
+    await tick(hass, freezer, 11)
+    confirmed = await entry.runtime_data.async_snapshot()
+    assert len(confirmed["records"]) == 1
+    assert confirmed["records"][0]["identity_id"] == "car"
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

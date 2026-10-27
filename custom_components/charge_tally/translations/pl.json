@@ -470,7 +470,7 @@
     },
     "select_identity": {
       "name": "Wybierz tożsamość zapisu",
-      "description": "Zeskanuj znacznik, aby wybrać tożsamość następnego zapisu. Bieżące zapisy i zablokowani kandydaci automatyczni zachowują swoją tożsamość.",
+      "description": "Zeskanuj znacznik, aby wybrać tożsamość. Przed końcem potwierdzania rozpoczęcia wybór dotyczy tego ładowania bez zmiany czasu rozpoczęcia ani postępu. Istniejące wpisy zachowują tożsamość.",
       "fields": {
         "point_id": {
           "name": "Punkt ładowania",
@@ -626,7 +626,7 @@
       },
       "nfc": {
         "title": "Powiązania tożsamości NFC",
-        "description": "[Powiązania tożsamości NFC]({url})\n\nZeskanuj znacznik, aby wybrać tożsamość następnego zapisu. Bieżące zapisy i zablokowani kandydaci automatyczni zachowują swoją tożsamość."
+        "description": "[Powiązania tożsamości NFC]({url})\n\nZeskanuj znacznik, aby wybrać tożsamość. Przed końcem potwierdzania rozpoczęcia wybór dotyczy tego ładowania bez zmiany czasu rozpoczęcia ani postępu. Istniejące wpisy zachowują tożsamość."
       }
     },
     "error": {

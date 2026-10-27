@@ -470,7 +470,7 @@
     },
     "select_identity": {
       "name": "Aufzeichnungsidentität auswählen",
-      "description": "Ein Tag scannt die Identität für die nächste Aufzeichnung ein. Laufende Aufzeichnungen und gesperrte automatische Kandidaten behalten ihre Identität.",
+      "description": "Scannen Sie einen Tag, um eine Identität auszuwählen. Vor Abschluss der Startbestätigung gilt die Auswahl für diese Ladung; Startzeit und Bestätigungsfortschritt bleiben erhalten. Bestehende Einträge behalten ihre Identität.",
       "fields": {
         "point_id": {
           "name": "Ladepunkt",
@@ -626,7 +626,7 @@
       },
       "nfc": {
         "title": "NFC-Identitätsverknüpfungen",
-        "description": "[NFC-Identitätsverknüpfungen]({url})\n\nEin Tag scannt die Identität für die nächste Aufzeichnung ein. Laufende Aufzeichnungen und gesperrte automatische Kandidaten behalten ihre Identität."
+        "description": "[NFC-Identitätsverknüpfungen]({url})\n\nScannen Sie einen Tag, um eine Identität auszuwählen. Vor Abschluss der Startbestätigung gilt die Auswahl für diese Ladung; Startzeit und Bestätigungsfortschritt bleiben erhalten. Bestehende Einträge behalten ihre Identität."
       }
     },
     "error": {

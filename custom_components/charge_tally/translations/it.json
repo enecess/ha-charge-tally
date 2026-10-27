@@ -470,7 +470,7 @@
     },
     "select_identity": {
       "name": "Scegli identità di registrazione",
-      "description": "Scansiona un tag per scegliere l’identità della prossima registrazione. Le registrazioni in corso e i candidati automatici bloccati mantengono la loro identità.",
+      "description": "Scansiona un tag per scegliere un’identità. Prima della fine della conferma dell’avvio, la scelta vale per questa ricarica senza cambiare l’ora di inizio o l’avanzamento. Le registrazioni esistenti mantengono la propria identità.",
       "fields": {
         "point_id": {
           "name": "Punto di ricarica",
@@ -626,7 +626,7 @@
       },
       "nfc": {
         "title": "Collegamenti identità NFC",
-        "description": "[Collegamenti identità NFC]({url})\n\nScansiona un tag per scegliere l’identità della prossima registrazione. Le registrazioni in corso e i candidati automatici bloccati mantengono la loro identità."
+        "description": "[Collegamenti identità NFC]({url})\n\nScansiona un tag per scegliere un’identità. Prima della fine della conferma dell’avvio, la scelta vale per questa ricarica senza cambiare l’ora di inizio o l’avanzamento. Le registrazioni esistenti mantengono la propria identità."
       }
     },
     "error": {

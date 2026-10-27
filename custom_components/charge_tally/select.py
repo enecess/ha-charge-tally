@@ -1,4 +1,4 @@
-"""Per-point next-record identity selection."""
+"""Per-point pending and future record identity selection."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ async def async_setup_entry(
 
 
 class IdentitySelect(TallyEntity, SelectEntity):
-    """Choose the identity used when a point starts its next record."""
+    """Choose the identity for a pending start or a future record."""
 
     def __init__(self, runtime: Runtime, sub: ConfigSubentry) -> None:
         super().__init__(

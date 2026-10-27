@@ -267,7 +267,7 @@ test('total chart refresh uses the unified query with identity filter', () => {
   assert.deepEqual(requests,[{type:'charge_tally/query',identity_id:'i',calendar_period:'total'}]);
 });
 
-test('manual start explicitly uses selected identity rather than locked automatic candidate',()=>{
+test('manual start explicitly uses selected identity from the latest snapshot',()=>{
   const point={id:'p',identity_entity_id:'select.p',available:true,selected_identity_id:'j',candidate_identity_id:'i',recording_state:'idle',detection_state:'pending_start'};
   assert.deepEqual(liveRequest('start',point,'op').service_data,{point_id:'p',identity_id:'j',request_id:'op'});
 });
@@ -286,4 +286,30 @@ test('unconfirmed manual start retains original identity while a changed selecti
   assert.equal(sent[2].service_data.identity_id,'j');
   assert.notEqual(sent[2].service_data.request_id,sent[0].service_data.request_id);
   assert.equal(original.service_data.identity_id,'i');
+});
+
+for(const order of ['stream','read','stale-read','confirmed-read'])test(`identity confirmation preserves authoritative candidate (${order})`,async()=>{
+  const pending=[];
+  const card=controller(request=>new Promise(resolve=>pending.push({request,resolve})));
+  const point={id:'p',identity_entity_id:'select.p',available:true,selected_identity_id:'i',candidate_identity_id:'i',candidate:'2026-01-01T00:00:00Z',recording_state:'idle',detection_state:'pending_start',active_record:null};
+  const snapshot={...card.snapshot,points:[point],identities:[{id:'i',name:'Family'},{id:'j',name:'Guest'}]};
+  card.onSnapshot(snapshot);
+  card.selectIdentity('p','j');
+  const selected={...point,selected_identity_id:'j',candidate_identity_id:'j'};
+  const confirmed={...selected,candidate_identity_id:null,candidate:null,recording_state:'automatic',detection_state:'charging',active_record:{id:'r',identity_id:'i'}};
+  if(order==='stream')card.onSnapshot({...snapshot,points:[selected]});
+  pending[0].resolve({});await tick();
+  if(order!=='stream'){
+    assert.equal(pending[1].request.type,'charge_tally/snapshot');
+    if(order==='stale-read')card.onSnapshot({...snapshot,points:[confirmed]});
+    pending[1].resolve({...snapshot,points:[order==='confirmed-read'?confirmed:selected]});await tick();
+  }
+  const expected=['stale-read','confirmed-read'].includes(order)?confirmed:selected;
+  assert.deepEqual(card.snapshot.points[0],expected);
+  assert.equal(card.pendingSelections.size,0);
+  assert.equal(card.error,null);
+  if(order==='read'){
+    card.onSnapshot({...snapshot,points:[confirmed]});
+    assert.deepEqual(card.snapshot.points[0],confirmed);
+  }
 });

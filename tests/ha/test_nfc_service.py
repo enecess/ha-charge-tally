@@ -8,7 +8,7 @@ from homeassistant.auth.permissions import PolicyPermissions
 from homeassistant.core import Context
 from homeassistant.exceptions import ServiceValidationError, Unauthorized
 from test_nfc_manager import create_rule, setup_manager
-from test_runtime import setup_runtime
+from test_runtime import POWER, setup_runtime
 
 
 async def call_select(hass, data, context=None):
@@ -67,7 +67,21 @@ async def test_identity_action_keeps_active_record_and_checks_permissions(
 async def test_queued_action_rechecks_guard_after_backup_gate(
     hass, tmp_path, hass_read_only_user, monkeypatch, change
 ):
-    entry, runtime, manager, draft = await setup_manager(hass, tmp_path)
+    entry, runtime, manager, draft = await setup_manager(
+        hass,
+        tmp_path,
+        detection={
+            "enabled": True,
+            "start_w": 100,
+            "end_w": 10,
+            "start_seconds": 60,
+            "end_seconds": 60,
+        },
+    )
+    hass.states.async_set("sensor.power", "1000", POWER)
+    await hass.async_block_till_done()
+    before = (await runtime.async_snapshot())["points"][0]
+    assert before["candidate_identity_id"] == "unassigned"
     runtime.nfc = manager
     rule = await create_rule(manager, draft)
     anchor = (await runtime.async_snapshot())["points"][0]["identity_entity_id"]
@@ -116,7 +130,8 @@ async def test_queued_action_rechecks_guard_after_backup_gate(
         Unauthorized if change == "permission" else ServiceValidationError
     ):
         await task
-    assert (await runtime.async_snapshot())["points"][0][
-        "selected_identity_id"
-    ] == "unassigned"
+    after = (await runtime.async_snapshot())["points"][0]
+    assert after["selected_identity_id"] == "unassigned"
+    assert after["candidate_identity_id"] == "unassigned"
+    assert after["candidate"] == before["candidate"]
     await hass.config_entries.async_unload(entry.entry_id)

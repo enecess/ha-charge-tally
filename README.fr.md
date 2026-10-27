@@ -130,7 +130,7 @@ Après avoir activé **Détection automatique de la recharge**, renseignez **Dé
 - **Seuil d’arrêt (W)** : une puissance strictement inférieure lance la confirmation de la fin ; ce seuil doit être inférieur au seuil de démarrage.
 - **Durée de confirmation de l’arrêt (secondes)** : la condition doit persister avant la fin de l’enregistrement ; 300 secondes par défaut.
 
-Adaptez les seuils aux puissances réelles de veille et de recharge du chargeur. Après confirmation, l’heure retenue revient au début de la condition. Une pause plus courte que la durée de confirmation de l’arrêt reste dans le même enregistrement. Choisissez l’identité avant la montée en puissance : l’attribution est mémorisée dès le début de la confirmation.
+Adaptez les seuils aux puissances réelles de veille et de recharge du chargeur. Après confirmation, l’heure retenue revient au début de la condition. Une pause plus courte que la durée de confirmation de l’arrêt reste dans le même enregistrement. Vous pouvez choisir l’identité de cette recharge jusqu’à la fin de la confirmation du début, sans modifier l’heure de début ni la progression.
 
 La comptabilisation fonctionne aussi sans détection ; utilisez alors **Démarrer la comptabilisation manuellement** et **Terminer la comptabilisation**.
 
@@ -231,13 +231,13 @@ Si une ressource utilise déjà ce chemin, mettez-la à jour au lieu de la dupli
 
 Le panneau distingue la comptabilisation de la **Puissance** et de la **Détection**. **Aucune comptabilisation en cours**, **Comptabilisation manuelle en cours** et **Comptabilisation automatique en cours** décrivent le registre ; un enregistrement actif ne signifie pas que le chargeur consomme du courant. La détection indique séparément l’attente, la confirmation, la suspension pendant un enregistrement manuel, les données indisponibles ou l’attente d’une baisse de puissance.
 
-Pendant la confirmation du début, **Identité fixée pour l’enregistrement automatique** indique l’identité mémorisée au début de la confirmation. **Identité du prochain enregistrement / enregistrement manuel** sert au prochain enregistrement automatique ou à un démarrage manuel immédiat, sans modifier l’identité fixée ni celle de l’enregistrement actif.
+Pendant la confirmation du début, **Identité de cette recharge en attente** indique l’identité actuelle du candidat. **Identité de l’enregistrement en attente / manuel** modifie cette recharge en attente ou un démarrage manuel immédiat. L’heure de début et la progression restent inchangées ; les enregistrements existants conservent leur identité.
 
 Chaque point actuel affiche son nom, son état, la **Puissance**, le **Prix actuel** et l’état de **Détection**. La puissance ou le prix peuvent être vides lorsqu’ils ne sont pas disponibles. **Détection** est un indicateur ; modifiez la détection dans la configuration du point ou avec l’interrupteur natif **Détection de la recharge**.
 
 | Élément affiché | Signification |
 | --- | --- |
-| **Identité sélectionnée** | En l’absence d’enregistrement actif, choisir l’identité de la prochaine recharge |
+| **Identité sélectionnée** | Sans enregistrement actif, choisir l’identité de la recharge en attente ou de la prochaine recharge |
 | **Cet enregistrement** | Identité déjà attribuée à l’enregistrement actif |
 | **Identité du prochain enregistrement** | Préparer l’identité suivante pendant une recharge, sans modifier l’attribution actuelle |
 | **Comptabilisation en cours · Total actuel** | Énergie, coût, début, durée et indications de qualité de la recharge en cours |
@@ -275,7 +275,7 @@ Ces boutons enregistrent les horaires sans commander le chargeur. Un enregistrem
 
 ### Détecter automatiquement les recharges
 
-Une fois configurée et activée, la détection peut suivre **Confirmation de la recharge → Suivi d’un enregistrement automatique → Confirmation de la fin → En attente de détection automatique**. Si la condition de puissance cesse pendant la confirmation, celle-ci est annulée. La confirmation automatique conserve l’identité fixée du candidat, même si la sélection change. **Terminer la comptabilisation manuellement** permet de terminer un enregistrement automatique plus tôt ; pendant la confirmation de fin, utilisez **Terminer la comptabilisation maintenant**.
+Une fois configurée et activée, la détection peut suivre **Confirmation de la recharge → Suivi d’un enregistrement automatique → Confirmation de la fin → En attente de détection automatique**. Si la condition de puissance cesse pendant la confirmation, celle-ci est annulée. La confirmation automatique utilise la dernière identité sélectionnée avec succès avant sa fin, y compris **Unassigned**. **Terminer la comptabilisation manuellement** permet de terminer un enregistrement automatique plus tôt ; pendant la confirmation de fin, utilisez **Terminer la comptabilisation maintenant**.
 
 Après une fin explicite, la détection attend normalement une puissance inférieure au seuil de fin. Elle peut reprendre immédiatement uniquement si la dernière mesure valide de faible puissance ne dépasse pas l’heure de la commande de fin, n’est pas plus ancienne que la durée de validité définie par **Intervalle maximal de répartition (secondes)** et n’a pas été invalidée par des données indisponibles ou un redémarrage. Une mesure élevée, absente, future ou trop ancienne ne lève pas le blocage. Après une puissance `unknown` ou indisponible, une nouvelle mesure valide sous le seuil est nécessaire. Le démarrage manuel reste possible pendant le blocage.
 
@@ -437,7 +437,7 @@ Besoin d’aide ? [Ouvrez un ticket](https://github.com/enecess/ha-charge-tally/
 
 Les administrateurs ouvrent **Paramètres → Appareils et services → Charge Tally → Configurer → Associations d’identité NFC**. Enregistrez un tag dans HA, puis choisissez tag, point, appareils de lecture et identités. Plusieurs appareils ou une identité par défaut seule sont possibles. Chaque paire tag/point possède une automatisation gérée ; un tag partagé peut agir sur plusieurs points indépendamment.
 
-Les associations propres à un appareil sont prioritaires. Les autres utilisent l’identité par défaut facultative ; sans elle, aucune action. Les enregistrements en cours et candidats automatiques verrouillés restent inchangés. Renommer une identité conserve l’association. Une référence supprimée ou une identité désactivée bloque toute l’association jusqu’à correction, sans repli silencieux sur une autre identité.
+Les associations propres à un appareil sont prioritaires. Les autres utilisent l’identité par défaut facultative ; sans elle, aucune action. Le scan choisit une identité. Avant la fin de la confirmation du début, ce choix s’applique à cette recharge sans modifier l’heure de début ni la progression. Les enregistrements existants conservent leur identité. Renommer une identité conserve l’association. Une référence supprimée ou une identité désactivée bloque toute l’association jusqu’à correction, sans repli silencieux sur une autre identité.
 
 L’automatisation indique qu’elle est gérée par Charge Tally. Modifiez les associations dans l’intégration ; utilisez HA pour les traces et la pause. L’enregistrement conserve la pause. Le renommage natif de l’identifiant d’entité HA peut réactiver l’automatisation : vérifiez ensuite son interrupteur. Une modification externe demande une restauration explicite ; une suppression demande de recréer l’automatisation. Après une coupure réseau, terminez l’opération en attente pour réutiliser la même automatisation.
 

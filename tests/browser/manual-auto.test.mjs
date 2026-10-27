@@ -52,16 +52,21 @@ test('authoritative accounting and detection states remain separate from instant
   }
 });
 
-test('pending automatic identity stays locked while immediate manual start uses selected identity',async t=>{
+test('pending identity follows a confirmed selection while preserving progress and manual start',async t=>{
   const {page}=await createCardFixture(t);
   await page.evaluate(()=>{
-    const c=fixture.card;c.onSnapshot({...fixture.snapshot,generation:2,points:[{...fixture.snapshot.points[0],recording_state:'idle',detection_state:'pending_start',candidate_identity_id:'i',selected_identity_id:'j'}]});
-    c.view.points.get('p').select.node.focus();window.originalSelect=c.shadowRoot.activeElement;
+    const c=fixture.card;c.onSnapshot({...fixture.snapshot,generation:2,points:[{...fixture.snapshot.points[0],recording_state:'idle',detection_state:'pending_start',candidate_identity_id:'i',selected_identity_id:'i',candidate:'2026-01-01T00:00:00Z'}]});
   });
+  await page.locator('[data-point-id] select').selectOption('j');
+  await page.evaluate(()=>fixture.pending.shift().resolve({}));
+  await page.waitForFunction(()=>fixture.pending[0]?.request.type==='charge_tally/snapshot');
+  await page.evaluate(()=>{const c=fixture.card;fixture.pending.shift().resolve({...c.snapshot,points:[{...c.snapshot.points[0],selected_identity_id:'j',candidate_identity_id:'j'}]});});
+  await page.waitForFunction(()=>fixture.card.pendingSelections.size===0);
   const result=await page.evaluate(()=>{
-    const c=fixture.card,v=c.view.points.get('p');return {candidate:v.candidate?.textContent,hint:v.hint?.textContent,expectedHint:c.t('candidateHint'),label:v.select.label.firstChild.textContent,expectedLabel:c.t('nextManualIdentity')};
+    const c=fixture.card,v=c.view.points.get('p');v.select.node.focus();window.originalSelect=c.shadowRoot.activeElement;
+    return {candidate:v.candidate?.textContent,hint:v.hint?.textContent,expectedHint:c.t('candidateHint'),label:v.select.label.firstChild.textContent,expectedLabel:c.t('nextManualIdentity'),start:c.snapshot.points[0].candidate};
   });
-  assert.match(result.candidate,/Family/);assert.equal(result.hint,result.expectedHint);assert.equal(result.label,result.expectedLabel);
+  assert.match(result.candidate,/Guest/);assert.equal(result.hint,result.expectedHint);assert.equal(result.label,result.expectedLabel);assert.equal(result.start,'2026-01-01T00:00:00Z');
   await page.evaluate(()=>{const c=fixture.card;c.onSnapshot({...c.snapshot,generation:3,points:[{...c.snapshot.points[0],power_w:'5000'}]});});
   assert.equal(await page.evaluate(()=>fixture.card.shadowRoot.activeElement===originalSelect),true);
   await page.locator('[data-point-id] button.primary').click();

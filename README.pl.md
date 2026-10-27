@@ -130,7 +130,7 @@ Po włączeniu **Automatyczne wykrywanie ładowania** otwiera się **Automatyczn
 - **Próg zakończenia (W)**: spadek poniżej rozpoczyna potwierdzanie końca; musi być niższy od progu rozpoczęcia.
 - **Czas potwierdzenia zakończenia (sekundy)**: po ciągłym spełnieniu warunku wpis się kończy; domyślnie 300 sekund.
 
-Dostosuj progi do rzeczywistej mocy czuwania i ładowania. Po potwierdzeniu czas wpisu jest cofany do początku spełnienia warunku. Krótsze przerwy pozostają częścią tego samego wpisu. Wybierz tożsamość przed wzrostem mocy, ponieważ zapamiętywana jest już przy rozpoczęciu potwierdzania.
+Dostosuj progi do rzeczywistej mocy czuwania i ładowania. Po potwierdzeniu czas wpisu jest cofany do początku spełnienia warunku. Krótsze przerwy pozostają częścią tego samego wpisu. Tożsamość tego ładowania można wybrać do końca potwierdzania rozpoczęcia, bez zmiany czasu rozpoczęcia ani postępu potwierdzania.
 
 Bez wykrywania nadal działają **Rozpocznij rejestrowanie ręcznie** i **Zakończ rejestrowanie**.
 
@@ -231,13 +231,13 @@ Obok tytułu widnieje **Połączono** albo **Rozłączono · oczekiwanie na aktu
 
 Panel pokazuje oddzielnie stan rejestrowania, **Moc** i **Wykrywanie**. **Brak rejestrowania**, **Rejestrowanie ręczne w toku** i **Rejestrowanie automatyczne w toku** opisują wpis; aktywny wpis nie oznacza, że ładowarka pobiera prąd. Wykrywanie osobno sygnalizuje oczekiwanie, potwierdzanie, wstrzymanie na czas ręcznego wpisu, brak danych lub oczekiwanie na spadek mocy.
 
-Podczas potwierdzania rozpoczęcia **Ustalona tożsamość wpisu automatycznego** pokazuje przypisanie zapamiętane na początku potwierdzania. **Tożsamość następnego / ręcznego wpisu** służy do kolejnego wpisu automatycznego lub natychmiastowego rozpoczęcia ręcznego; nie zmienia ustalonej tożsamości kandydata ani aktywnego wpisu.
+Podczas potwierdzania rozpoczęcia **Tożsamość tego oczekującego ładowania** pokazuje aktualną tożsamość kandydata. **Tożsamość oczekującego / ręcznego wpisu** zmienia to oczekujące ładowanie lub natychmiastowe rozpoczęcie ręczne. Czas rozpoczęcia i postęp pozostają bez zmian; istniejące wpisy zachowują tożsamość.
 
 Każdy bieżący punkt pokazuje nazwę, stan, **Moc**, **Bieżąca cena** i **Wykrywanie**. Niedostępna moc lub cena może być pusta. **Wykrywanie** na karcie jest wskaźnikiem; zmieniaj je przez konfigurację punktu lub natywny przełącznik **Wykrywanie ładowania**.
 
 | Element | Znaczenie |
 | --- | --- |
-| **Wybrana tożsamość** | Bez aktywnego wpisu: przypisanie następnego ładowania |
+| **Wybrana tożsamość** | Bez aktywnego wpisu: przypisanie oczekującego lub następnego ładowania |
 | **Ten wpis** | Tożsamość już przypisana do aktywnego wpisu |
 | **Tożsamość następnego wpisu** | Przygotowanie kolejnego przypisania bez zmiany bieżącego |
 | **Rejestrowanie w toku · Bieżąca suma** | Energia, koszt, początek, czas trwania i jakość bieżącego wpisu |
@@ -275,7 +275,7 @@ Przyciski rejestrują czas i nie sterują ładowarką. Ręcznie rozpoczęty wpis
 
 ### Automatyczne wykrywanie ładowania
 
-Po skonfigurowaniu i włączeniu wykrywania możliwa jest sekwencja **Potwierdzanie ładowania → Śledzenie wpisu automatycznego → Potwierdzanie zakończenia → Oczekiwanie na automatyczne wykrycie**. Gdy warunek mocy przestaje być spełniony, trwające potwierdzanie jest anulowane. Potwierdzenie automatyczne używa ustalonej tożsamości kandydata, nawet po zmianie wyboru. Wpis automatyczny można zakończyć wcześniej przez **Zakończ rejestrowanie ręcznie**, a podczas potwierdzania zakończenia przez **Zakończ rejestrowanie teraz**.
+Po skonfigurowaniu i włączeniu wykrywania możliwa jest sekwencja **Potwierdzanie ładowania → Śledzenie wpisu automatycznego → Potwierdzanie zakończenia → Oczekiwanie na automatyczne wykrycie**. Gdy warunek mocy przestaje być spełniony, trwające potwierdzanie jest anulowane. Automatyczne potwierdzenie używa ostatniej tożsamości wybranej pomyślnie przed jego końcem, w tym **Unassigned**. Wpis automatyczny można zakończyć wcześniej przez **Zakończ rejestrowanie ręcznie**, a podczas potwierdzania zakończenia przez **Zakończ rejestrowanie teraz**.
 
 Po jawnym zakończeniu wykrywanie zwykle czeka na moc poniżej progu zakończenia. Może wznowić się od razu tylko wtedy, gdy ostatni prawidłowy odczyt niskiej mocy nie jest późniejszy od polecenia zakończenia, jego wiek nie przekracza czasu ważności ustawionego w **Maksymalny interwał przypisywania (sekundy)** i nie został unieważniony przez niedostępność danych lub ponowne uruchomienie. Wysokie, brakujące, przyszłe lub nieaktualne odczyty nie usuwają blokady. Po stanie mocy `unknown` lub niedostępności potrzebny jest kolejny prawidłowy odczyt poniżej progu. Podczas blokady nadal można rozpocząć wpis ręcznie.
 
@@ -437,7 +437,7 @@ Potrzebujesz pomocy? [Zgłoś problem](https://github.com/enecess/ha-charge-tall
 
 Administrator otwiera **Ustawienia → Urządzenia i usługi → Charge Tally → Konfiguruj → Powiązania tożsamości NFC**. Najpierw zarejestruj znacznik w HA, a potem wybierz znacznik, punkt, urządzenia skanujące i tożsamości. Można dodać kilka urządzeń lub samą tożsamość domyślną. Każda para znacznik/punkt ma jedną zarządzaną automatyzację. Wspólny znacznik może działać na kilku punktach niezależnie.
 
-Powiązanie urządzenia ma pierwszeństwo; pozostałe urządzenia korzystają z opcjonalnej tożsamości domyślnej. Bez niej nie ma działania. Bieżące zapisy i zablokowani kandydaci automatyczni zachowują tożsamość. Zmiana nazwy tożsamości nie usuwa powiązania. Usunięty znacznik, urządzenie lub punkt oraz wyłączona tożsamość blokują całe powiązanie do czasu naprawy, bez przejścia na inną tożsamość.
+Powiązanie urządzenia ma pierwszeństwo; pozostałe urządzenia korzystają z opcjonalnej tożsamości domyślnej. Bez niej nie ma działania. Skanowanie wybiera tożsamość. Przed końcem potwierdzania rozpoczęcia wybór dotyczy tego ładowania bez zmiany czasu rozpoczęcia ani postępu. Istniejące wpisy zachowują tożsamość. Zmiana nazwy tożsamości nie usuwa powiązania. Usunięty znacznik, urządzenie lub punkt oraz wyłączona tożsamość blokują całe powiązanie do czasu naprawy, bez przejścia na inną tożsamość.
 
 Nazwa i opis automatyzacji wskazują zarządzanie przez Charge Tally. Edytuj powiązania w integracji, a śledzenie i wstrzymywanie wykonuj w HA. Zapis zachowuje wstrzymanie. Natywna zmiana ID encji w HA może włączyć automatyzację, więc sprawdź potem jej przełącznik. Zmiana zewnętrzna wymaga jawnego przywrócenia, a usunięcie — ponownego utworzenia. Po przerwaniu połączenia dokończenie oczekującej operacji używa tej samej automatyzacji.
 

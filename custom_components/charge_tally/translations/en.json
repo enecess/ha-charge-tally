@@ -470,7 +470,7 @@
     },
     "select_identity": {
       "name": "Select recording identity",
-      "description": "Scan a tag to select the identity for the next recording. Current records and locked automatic candidates keep their identity.",
+      "description": "Scan a tag to select a recording identity. Before start confirmation completes, the selection applies to this charge without changing its start time or confirmation progress. Existing records keep their identity.",
       "fields": {
         "point_id": {
           "name": "Charging point",
@@ -626,7 +626,7 @@
       },
       "nfc": {
         "title": "NFC identity links",
-        "description": "[NFC identity links]({url})\n\nScan a tag to select the identity for the next recording. Current records and locked automatic candidates keep their identity."
+        "description": "[NFC identity links]({url})\n\nScan a tag to select a recording identity. Before start confirmation completes, the selection applies to this charge without changing its start time or confirmation progress. Existing records keep their identity."
       }
     },
     "error": {

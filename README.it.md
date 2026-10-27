@@ -130,7 +130,7 @@ Dopo aver attivato **Rilevamento automatico della ricarica**, configura **Rileva
 - **Soglia di fine (W)**: una potenza inferiore avvia la conferma della fine; deve essere minore della soglia di avvio.
 - **Durata di fine (secondi)**: trascorso questo tempo con la condizione soddisfatta, termina la registrazione; predefinito: 300 secondi.
 
-Scegli soglie adatte alla potenza reale di standby e ricarica. Alla conferma, l’orario viene riportato al momento iniziale della condizione. Una pausa più breve della durata di fine resta nella stessa registrazione. Seleziona l’identità prima che salga la potenza: viene memorizzata quando inizia la conferma dell’avvio.
+Scegli soglie adatte alla potenza reale di standby e ricarica. Alla conferma, l’orario viene riportato al momento iniziale della condizione. Una pausa più breve della durata di fine resta nella stessa registrazione. Puoi scegliere l’identità di questa ricarica fino alla fine della conferma dell’avvio, senza cambiare l’ora di inizio o l’avanzamento.
 
 Il rilevamento è facoltativo: puoi usare **Avvia contabilizzazione manualmente** e **Termina contabilizzazione**.
 
@@ -231,13 +231,13 @@ Accanto al titolo appare **Connesso** oppure **Disconnesso · in attesa di dati 
 
 Il pannello distingue lo stato della contabilizzazione da **Potenza** e **Rilevamento**. **Nessuna contabilizzazione in corso**, **Contabilizzazione manuale in corso** e **Contabilizzazione automatica in corso** descrivono il registro; una registrazione attiva non implica che il caricatore stia assorbendo corrente. Il rilevamento indica separatamente attesa, conferma, pausa durante una registrazione manuale, dati non disponibili o attesa del calo di potenza.
 
-Durante la conferma dell’avvio, **Identità fissata per la registrazione automatica** mostra l’identità memorizzata all’inizio della conferma. **Identità della prossima registrazione / registrazione manuale** vale per la prossima registrazione automatica o per un avvio manuale immediato, senza cambiare l’identità fissata del candidato o quella della registrazione attiva.
+Durante la conferma dell’avvio, **Identità di questa ricarica in attesa** mostra l’identità attuale del candidato. **Identità della registrazione in attesa / manuale** cambia questa ricarica in attesa o un avvio manuale immediato. L’ora di inizio e l’avanzamento restano invariati; le registrazioni esistenti mantengono la propria identità.
 
 Ogni punto corrente mostra nome, stato, **Potenza**, **Prezzo attuale** e stato di **Rilevamento**. Valori non disponibili possono essere vuoti. Qui Rilevamento è solo un’indicazione: per cambiarlo usa la configurazione o l’interruttore nativo **Rilevamento**.
 
 | Contenuto | Significato |
 | --- | --- |
-| **Identità selezionata** | Attribuzione della prossima ricarica quando non vi sono registrazioni attive |
+| **Identità selezionata** | Attribuzione della ricarica in attesa o successiva quando non vi sono registrazioni attive |
 | **Questa registrazione** | Identità della registrazione attiva |
 | **Identità della prossima registrazione** | Prepara la successiva senza cambiare quella corrente |
 | **Contabilizzazione in corso · Totale attuale** | Energia, costo, inizio, durata e qualità attuali |
@@ -275,7 +275,7 @@ Questi pulsanti registrano gli orari senza comandare il caricatore. Una registra
 
 ### Rilevare automaticamente la ricarica
 
-Con il rilevamento configurato e attivo, la sequenza può essere **Conferma della ricarica in corso → Monitoraggio di una registrazione automatica → Conferma della fine in corso → In attesa del rilevamento automatico**. Se la condizione di potenza cessa durante la conferma, la conferma in sospeso viene annullata. La conferma automatica usa l’identità fissata del candidato anche se la selezione cambia. Puoi terminare in anticipo una registrazione automatica con **Termina contabilizzazione manualmente**, oppure **Termina contabilizzazione ora** durante la conferma della fine.
+Con il rilevamento configurato e attivo, la sequenza può essere **Conferma della ricarica in corso → Monitoraggio di una registrazione automatica → Conferma della fine in corso → In attesa del rilevamento automatico**. Se la condizione di potenza cessa durante la conferma, la conferma in sospeso viene annullata. La conferma automatica usa l’ultima identità selezionata con successo prima della sua conclusione, inclusa **Unassigned**. Puoi terminare in anticipo una registrazione automatica con **Termina contabilizzazione manualmente**, oppure **Termina contabilizzazione ora** durante la conferma della fine.
 
 Dopo una fine esplicita, il rilevamento normalmente attende una potenza inferiore alla soglia di fine. Può riprendere subito solo se l’ultima misura valida di bassa potenza non è successiva al comando di fine, la sua età non supera la durata di validità impostata in **Intervallo massimo di ripartizione (secondi)** e non è stata invalidata da dati indisponibili o da un riavvio. Misure alte, mancanti, future o obsolete non rimuovono il blocco. Dopo una potenza `unknown` o indisponibile occorre una successiva misura valida sotto la soglia. Durante il blocco resta possibile avviare manualmente una registrazione.
 
@@ -437,7 +437,7 @@ Serve aiuto? [Apri una segnalazione](https://github.com/enecess/ha-charge-tally/
 
 Gli amministratori aprono **Impostazioni → Dispositivi e servizi → Charge Tally → Configura → Collegamenti identità NFC**. Registra prima un tag in HA, poi scegli tag, punto, dispositivi di scansione e identità. Puoi aggiungere più dispositivi o solo un’identità predefinita. Ogni coppia tag/punto ha un’automazione gestita; un tag condiviso può agire su più punti indipendenti.
 
-Le associazioni dei dispositivi hanno precedenza. Gli altri usano l’identità predefinita facoltativa; senza di essa non accade nulla. Le registrazioni in corso e i candidati automatici bloccati mantengono l’identità. Rinominare un’identità conserva il collegamento. Un tag, dispositivo o punto eliminato, oppure un’identità disattivata, blocca l’intero collegamento fino alla correzione, senza ripiego su un’altra identità.
+Le associazioni dei dispositivi hanno precedenza. Gli altri usano l’identità predefinita facoltativa; senza di essa non accade nulla. La scansione sceglie un’identità. Prima della fine della conferma dell’avvio, la scelta vale per questa ricarica senza cambiare l’ora di inizio o l’avanzamento. Le registrazioni esistenti mantengono la propria identità. Rinominare un’identità conserva il collegamento. Un tag, dispositivo o punto eliminato, oppure un’identità disattivata, blocca l’intero collegamento fino alla correzione, senza ripiego su un’altra identità.
 
 Nome e descrizione indicano che l’automazione è gestita da Charge Tally. Modifica i collegamenti nell’integrazione; usa HA per le tracce e la pausa. Il salvataggio mantiene la pausa. Rinominare l’ID dell’entità nativamente in HA può riattivare l’automazione: controlla quindi il suo interruttore. Le modifiche esterne richiedono un ripristino esplicito; le automazioni eliminate vanno ricreate. Dopo una disconnessione, completa l’operazione in sospeso per riutilizzare la stessa automazione.
 

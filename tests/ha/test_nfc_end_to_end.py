@@ -6,7 +6,7 @@ from homeassistant.helpers import entity_registry as er
 from test_nfc_api import request
 from test_nfc_manager import setup_manager
 from test_nfc_native_contract import async_setup_nfc_native
-from test_runtime import POWER
+from test_runtime import POWER, tick
 
 
 async def configure_rule(hass, client, ws, entry, draft, rule=None, operation="create"):
@@ -41,8 +41,8 @@ async def configure_rule(hass, client, ws, entry, draft, rule=None, operation="c
 
 
 @pytest.mark.parametrize("recording", ["manual", "pending_start"])
-async def test_real_rule_preserves_manual_record_and_paused_automation(
-    hass, tmp_path, hass_client, hass_ws_client, recording
+async def test_real_rule_updates_pending_identity_preserves_manual_record_and_pause(
+    hass, tmp_path, hass_client, hass_ws_client, freezer, recording
 ):
     entry, runtime, _, draft = await setup_manager(
         hass,
@@ -65,6 +65,7 @@ async def test_real_rule_preserves_manual_record_and_paused_automation(
     else:
         hass.states.async_set("sensor.power", "1000", POWER)
         await hass.async_block_till_done()
+    before = (await runtime.async_snapshot())["points"][0]
     await async_scan_tag(hass, "tag-a", draft["device_bindings"][0]["device_id"])
     await hass.async_block_till_done()
     point = (await runtime.async_snapshot())["points"][0]
@@ -74,7 +75,12 @@ async def test_real_rule_preserves_manual_record_and_paused_automation(
         assert point["active_record"]["identity_id"] == "unassigned"
     else:
         assert point["active_record"] is None
-        assert point["candidate_identity_id"] == "unassigned"
+        assert point["candidate_identity_id"] == "car"
+        assert point["candidate"] == before["candidate"]
+        await tick(hass, freezer, 61)
+        confirmed = (await runtime.async_snapshot())["points"][0]
+        assert confirmed["active_record"]["identity_id"] == "car"
+        assert confirmed["active_record"]["start"] == before["candidate"]
     entity = er.async_get(hass).async_get_entity_id(
         "automation", "automation", rule["automation_id"]
     )
