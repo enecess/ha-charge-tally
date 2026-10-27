@@ -175,6 +175,51 @@ def test_pdf_user_markup_is_literal_and_unicode_is_nfc():
     assert "Next line" in text
 
 
+def test_pdf_note_preserves_significant_whitespace_without_compaction():
+    report = report_fixture()
+    report["rows"][0]["record"]["note"] = "Left  Middle\tRight\n  Indented end  "
+    _, text = read_pdf(report)
+    # A tab occupies four spaces; extraction may encode protected spaces as NBSP.
+    text = text.replace("\u00a0", " ")
+    assert "Left  Middle    Right\n  Indented end  \n" in text
+
+
+@pytest.mark.parametrize("target", ["summary", "row"])
+@pytest.mark.parametrize(
+    "value",
+    ["1e100000", "-1e100000", "1." + "2" * 1024],
+    ids=["compact-positive", "compact-negative", "coefficient-precision"],
+)
+def test_pdf_rejects_numeric_work_before_formatting_or_layout(
+    monkeypatch, target, value
+):
+    report = report_fixture()
+    item = report["summary"] if target == "summary" else report["rows"][0]
+    item["known_cost"] = value
+    before = deepcopy(report)
+
+    def no_layout(*args):
+        pytest.fail("Numeric work must be rejected before formatting or layout")
+
+    monkeypatch.setattr(pdf_report, "_render", no_layout)
+    with pytest.raises(pdf_report.PdfReportError, match="^export_too_large$"):
+        pdf_report.render_pdf(report, "en")
+    assert report == before
+
+
+def test_pdf_rejects_cumulative_numeric_work_before_layout(monkeypatch):
+    report = report_fixture()
+    report["rows"][0].update(known_cost="1e100", energy_kwh="1e100")
+    report["rows"] *= 5000
+
+    def no_layout(*args):
+        pytest.fail("Cumulative numeric work must be rejected before layout")
+
+    monkeypatch.setattr(pdf_report, "_render", no_layout)
+    with pytest.raises(pdf_report.PdfReportError, match="^export_too_large$"):
+        pdf_report.render_pdf(report, "en")
+
+
 @pytest.mark.parametrize(
     "language,positive,negative,energy",
     [

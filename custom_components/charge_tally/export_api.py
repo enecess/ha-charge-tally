@@ -112,6 +112,8 @@ class ExportPdfView(HomeAssistantView):
                 data["end"]
             ):
                 raise vol.Invalid("Invalid range")
+        except web.HTTPRequestEntityTooLarge:
+            return _error("export_too_large", 413)
         except (ValueError, TypeError, vol.Invalid, web.HTTPBadRequest):
             return _error("invalid_request", 400)
 

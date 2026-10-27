@@ -7,7 +7,7 @@ from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal, localcontext
 from functools import lru_cache, partial
 from io import BytesIO
-from itertools import zip_longest
+from itertools import chain, zip_longest
 from pathlib import Path
 from threading import RLock
 from xml.sax.saxutils import escape
@@ -33,6 +33,10 @@ from .reports import MAX_REPORT_RECORDS
 _ROOT = Path(__file__).parent
 _FONT = "ChargeTallySarasaRegular"
 _LOCK = RLock()
+# Bound Decimal precision and expanded display work before quantization or layout.
+_MAX_NUMBER_DIGITS = 128
+_MAX_DECIMAL_DIGITS = 1024
+_MAX_NUMERIC_TEXT = 1_000_000
 _WIDTHS = (38, 88, 134, 64, 70, 137)
 # The widths fill the A4 body with 32-point side margins.
 _WIDTHS = tuple(width * (A4[0] - 64) / sum(_WIDTHS) for width in _WIDTHS)
@@ -99,13 +103,52 @@ def _text(value, field, row):
                 "codepoints": [f"U+{code:04X}" for code in missing],
             },
         )
-    return escape(text).replace("\n", "<br/>")
+    text = escape(text)
+
+    def spaces(match):
+        count = len(match[0])
+        if (
+            match.start() == 0
+            or text[match.start() - 1] == "\n"
+            or match.end() == len(text)
+            or text[match.end()] == "\n"
+        ):
+            return "&nbsp;" * count
+        # Keep a break opportunity while protecting the rest of an interior run.
+        return "&nbsp;" * (count - 1) + " "
+
+    return re.sub(r" +", spaces, text).replace("\n", "<br/>")
 
 
-def _rounded(value, digits):
+def _numeric_work(value, digits):
     value = Decimal(value)
     if not value.is_finite():
         raise ValueError("Non-finite report value")
+    # Include a possible rounding carry without expanding compact exponents.
+    integer_digits = 1 if value.is_zero() else max(1, value.adjusted() + 2)
+    if (
+        integer_digits > _MAX_NUMBER_DIGITS
+        or len(value.as_tuple().digits) > _MAX_DECIMAL_DIGITS
+    ):
+        raise PdfReportError("export_too_large")
+    return value, integer_digits + (integer_digits - 1) // 3 + digits + 2
+
+
+def _check_numeric_work(report):
+    work = 0
+    for item in chain((report["summary"],), report["rows"]):
+        for key, flag, digits in (
+            ("energy_kwh", "has_energy_data", 3),
+            ("known_cost", "has_known_cost", 2),
+        ):
+            if item[flag]:
+                work += _numeric_work(item[key], digits)[1]
+                if work > _MAX_NUMERIC_TEXT:
+                    raise PdfReportError("export_too_large")
+
+
+def _rounded(value, digits):
+    value, _ = _numeric_work(value, digits)
     with localcontext() as context:
         context.prec = (
             max(36, len(value.as_tuple().digits), value.adjusted() + 1) + digits + 3
@@ -201,6 +244,7 @@ def render_pdf(report: dict, language: str) -> bytes:
     """Return a searchable A4 PDF; callers must execute this on a background thread."""
     if len(report["rows"]) > MAX_REPORT_RECORDS:
         raise PdfReportError("export_too_large")
+    _check_numeric_work(report)
     # ReportLab font registration and subset creation share process-global state.
     with _LOCK:
         _font()

@@ -18,7 +18,7 @@ URL = "/api/charge_tally/export.pdf"
 SCOPE = {"calendar_period": "total", "language": "en"}
 
 
-async def add_record(runtime, point="point", *, hour=0, note=""):
+async def add_record(runtime, point="point", *, hour=0, note="", cost="2"):
     preview = await runtime.async_command(
         "preview",
         {
@@ -27,7 +27,7 @@ async def add_record(runtime, point="point", *, hour=0, note=""):
             "start": f"2025-01-01T{hour:02d}:00:00Z",
             "end": f"2025-01-01T{hour + 1:02d}:00:00Z",
             "energy_kwh": "1",
-            "cost": "2",
+            "cost": cost,
             "note": note,
         },
     )
@@ -140,6 +140,63 @@ async def test_export_rejects_invalid_scope(hass, tmp_path, hass_client, payload
     await assert_error(await client.post(URL, json=payload), 400, "invalid_request")
     await assert_error(await client.post(URL, data="not JSON"), 400, "invalid_request")
     await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_export_oversized_request_is_controlled_and_next_export_recovers(
+    hass, tmp_path, hass_client
+):
+    entry, _ = await setup_runtime(hass, tmp_path)
+    try:
+        client = await hass_client()
+        await assert_error(
+            await client.post(
+                URL,
+                data=json.dumps(
+                    {**SCOPE, "language": "x" * (hass.http.app._client_max_size + 1)}
+                ),
+                headers={"Content-Type": "application/json"},
+            ),
+            413,
+            "export_too_large",
+        )
+        await assert_error(
+            await client.post(URL, data="not JSON"), 400, "invalid_request"
+        )
+        await assert_error(await client.post(URL, json={}), 400, "invalid_request")
+        response = await client.post(URL, json=SCOPE)
+        assert response.status == 200
+        assert (await response.read()).startswith(b"%PDF-")
+    finally:
+        await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_export_compact_numeric_work_is_controlled_before_layout(
+    hass, tmp_path, hass_client, monkeypatch
+):
+    entry, runtime = await setup_runtime(hass, tmp_path)
+    try:
+        await add_record(runtime, cost="1e100000")
+        from custom_components.charge_tally import pdf_report
+
+        def no_layout(*args):
+            raise RuntimeError("Unsafe numeric work reached layout")
+
+        with monkeypatch.context() as context:
+            context.setattr(pdf_report, "_render", no_layout)
+            client = await hass_client()
+            await assert_error(
+                await client.post(URL, json=SCOPE), 413, "export_too_large"
+            )
+        report = await runtime.async_query("report", {"calendar_period": "total"})
+        assert Decimal(report["rows"][0]["known_cost"]) == Decimal("1e100000")
+        response = await client.post(
+            URL,
+            json={"start": "2020-01-01T00:00:00Z", "end": "2020-01-02T00:00:00Z"},
+        )
+        assert response.status == 200
+        assert (await response.read()).startswith(b"%PDF-")
+    finally:
+        await hass.config_entries.async_unload(entry.entry_id)
 
 
 async def test_export_forbidden_point_and_empty_scope_hide_names(
