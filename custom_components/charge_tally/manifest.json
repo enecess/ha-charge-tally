@@ -10,5 +10,5 @@
   "dependencies": ["sensor"],
   "after_dependencies": ["integration", "utility_meter"],
   "codeowners": [],
-  "requirements": []
+  "requirements": ["reportlab==5.1.0"]
 }

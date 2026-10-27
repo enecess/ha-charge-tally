@@ -42,6 +42,8 @@ python3 scripts/test_ha.py --version 2025.9.0
 python3.14 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r requirements-dev.txt
+# Install the PDF runtime dependency declared by the integration.
+python -m pip install reportlab==5.1.0
 ruff check custom_components tests scripts
 ruff format --check custom_components tests scripts
 python -m pytest -q
@@ -57,3 +59,17 @@ python -m unittest discover -s tests/core -p 'test_*.py'
 需要修正格式时运行 `ruff check --fix custom_components tests scripts` 和 `ruff format custom_components tests scripts`，随后检查差异并重新测试。所有文本文件使用 LF。Ruff 检查包括基础 Python 错误、导入顺序和现代 Python 语法；它不等同于严格类型检查或完整 HA 质量等级认证。
 
 浏览器测试另需 Playwright 与浏览器运行时：通过 `PLAYWRIGHT_MODULE` 指定本机 Playwright 模块，必要时使用 `BROWSER_CHANNEL=msedge`，再执行 `node --test tests/browser/*.test.mjs`。
+
+## PDF 报表验证
+
+运行依赖由 `manifest.json` 固定为 `reportlab==5.1.0`；PDF 解析测试依赖
+`pypdf==6.21.2` 独立保存在 `requirements-test.txt`，开发依赖引用该文件。
+矩阵运行器同时安装对应版本的 HA 测试插件、集成运行依赖和测试依赖；
+不会读取默认最新插件的 `requirements-dev.txt` 去覆盖旧版本环境。
+
+`python -m pytest tests/ha/test_pdf_report.py -q` 使用实际 Regular 字体生成并
+解析六语 PDF，覆盖分页、长文本、缺字提示、Decimal 舍入与本期贡献语义。
+字体来源、版本、SHA256 和许可位于集成的私有 `fonts/` 目录；不依赖系统字体。
+PDF 排版采用串行锁保护字体注册和 ReportLab 生成，调用方必须在后台线程执行，
+不能放在 HA 事件循环或账本 worker。
+视觉样稿与渲染截图只保存在本地 `.superpowers/`，不提交。

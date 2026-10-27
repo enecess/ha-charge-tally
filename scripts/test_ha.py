@@ -34,7 +34,14 @@ def main():
                 [uv, "venv", "--allow-existing", "--python", row["python"], str(env)],
                 check=True,
             )
-            dependencies = [f"pytest-homeassistant-custom-component=={row['plugin']}"]
+            dependencies = [
+                f"pytest-homeassistant-custom-component=={row['plugin']}",
+                *json.loads(
+                    (ROOT / "custom_components/charge_tally/manifest.json").read_text()
+                )["requirements"],
+                "-r",
+                str(ROOT / "requirements-test.txt"),
+            ]
             if constraint := row.get("constraint"):
                 dependencies.append(constraint)
             subprocess.run(
@@ -48,7 +55,9 @@ def main():
                     "import importlib.metadata as m, sys; "
                     "assert m.version('homeassistant') == sys.argv[1]; "
                     "assert m.version('pytest-homeassistant-custom-component') == sys.argv[2]; "
-                    "print(sys.version)",
+                    "print(sys.version); "
+                    "print('ReportLab', m.version('reportlab'), "
+                    "'pypdf', m.version('pypdf'))",
                     version,
                     row["plugin"],
                 ],
