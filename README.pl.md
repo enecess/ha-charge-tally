@@ -93,7 +93,7 @@ Karta jest dołączona do integracji i nie wymaga osobnego pobierania w HACS. Je
 
 ### 1. Utwórz księgę
 
-W oknie **Rejestr Charge Tally** wybierz **Waluta** spośród wszystkich walut obsługiwanych przez Home Assistant. Lista pokazuje lokalną nazwę i kod ISO, na przykład juan chiński(CNY), i jest sortowana według nazw w języku interfejsu. Podczas pierwszej konfiguracji domyślnie wybrana jest waluta z ustawień gospodarstwa domowego Home Assistant. Każda instalacja HA ma jedną księgę; wszystkie punkty i wpisy używają tej samej waluty.
+W oknie **Rejestr Charge Tally** wybierz **Waluta** spośród wszystkich walut obsługiwanych przez Home Assistant. Lista pokazuje lokalną nazwę i kod ISO, na przykład juan chiński (CNY), i jest sortowana według nazw w języku interfejsu. Podczas pierwszej konfiguracji domyślnie wybrana jest waluta z ustawień gospodarstwa domowego Home Assistant. Każda instalacja HA ma jedną księgę; wszystkie punkty i wpisy używają tej samej waluty.
 
 - Walutę można zmienić bez punktów, również archiwalnych, i bez zachowanych danych księgowych. Same tożsamości jej nie blokują.
 - Dodanie punktu blokuje walutę nawet przed pierwszym ładowaniem.

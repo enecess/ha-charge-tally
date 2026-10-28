@@ -60,13 +60,14 @@ class TranslationTests(unittest.TestCase):
             for code, label in labels.items():
                 with self.subTest(language=language, code=code):
                     self.assertRegex(code, r"^[A-Z]{3}$")
-                    self.assertTrue(label.endswith(f"({code})"))
-                    name = label[:-5]
+                    suffix = f" ({code})"
+                    self.assertTrue(label.endswith(suffix))
+                    name = label[: -len(suffix)]
                     self.assertTrue(name.strip())
                     self.assertNotEqual(name, code)
                     self.assertEqual(name, name.rstrip())
             if language == "zh-Hans":
-                self.assertEqual(labels["CNY"], "人民币(CNY)")
+                self.assertEqual(labels["CNY"], "人民币 (CNY)")
             if language == "en":
                 self.assertEqual(translated, canonical)
 

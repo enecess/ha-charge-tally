@@ -93,7 +93,7 @@ La scheda è inclusa nell’integrazione: non serve installare separatamente un 
 
 ### 1. Creare il registro
 
-In **Registro contabile Charge Tally**, seleziona la **Valuta** tra tutte quelle supportate da Home Assistant. L’elenco mostra il nome localizzato con il codice ISO, per esempio yuan cinese(CNY), e ordina le valute per nome nella lingua dell’interfaccia. Alla prima configurazione viene preselezionata la valuta delle impostazioni della casa di Home Assistant. Ogni istanza HA usa un solo registro, con una valuta comune a tutti i punti e alle registrazioni.
+In **Registro contabile Charge Tally**, seleziona la **Valuta** tra tutte quelle supportate da Home Assistant. L’elenco mostra il nome localizzato con il codice ISO, per esempio yuan cinese (CNY), e ordina le valute per nome nella lingua dell’interfaccia. Alla prima configurazione viene preselezionata la valuta delle impostazioni della casa di Home Assistant. Ogni istanza HA usa un solo registro, con una valuta comune a tutti i punti e alle registrazioni.
 
 - La valuta è modificabile quando non restano punti, anche archiviati, né dati contabili. Le sole identità non la bloccano.
 - Aggiungere un punto la blocca, anche prima della prima ricarica.

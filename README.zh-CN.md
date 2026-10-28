@@ -93,7 +93,7 @@
 
 ### 1. 创建账本
 
-在 **Charge Tally 账本** 窗口中选择 **币种**。下拉菜单包含 Home Assistant 支持的全部币种，显示本地化名称和 ISO 代码，例如人民币(CNY)，并按当前界面语言的名称排序。首次默认选中 Home Assistant“家庭详情”中的系统币种。每个 Home Assistant 使用一个 Charge Tally 账本，所有充电点和记录共用此币种。
+在 **Charge Tally 账本** 窗口中选择 **币种**。下拉菜单包含 Home Assistant 支持的全部币种，显示本地化名称和 ISO 代码，例如人民币 (CNY)，并按当前界面语言的名称排序。首次默认选中 Home Assistant“家庭详情”中的系统币种。每个 Home Assistant 使用一个 Charge Tally 账本，所有充电点和记录共用此币种。
 
 - 无充电点（包括归档点）且无保留记账数据时，可以修改币种；仅添加身份不会锁定。
 - 添加充电点后，即使还没有充电，也会锁定币种。

@@ -644,10 +644,11 @@ async def test_currency_labels_cover_all_supported_codes(hass, language):
         label = translations.get(
             f"component.{DOMAIN}.selector.currency.options.{code}", ""
         )
-        assert label.endswith(f"({code})"), (language, code, label)
-        assert label[: -len(code) - 2].strip(), (language, code, label)
+        suffix = f" ({code})"
+        assert label.endswith(suffix), (language, code, label)
+        assert label[: -len(suffix)].strip(), (language, code, label)
     if language == "zh-Hans":
         assert (
             translations[f"component.{DOMAIN}.selector.currency.options.CNY"]
-            == "人民币(CNY)"
+            == "人民币 (CNY)"
         )

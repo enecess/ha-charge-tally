@@ -93,7 +93,7 @@ La carte est fournie avec l’intégration ; aucune installation séparée de ca
 
 ### 1. Créer le registre
 
-Dans **Registre Charge Tally**, sélectionnez la **Devise** parmi toutes celles prises en charge par Home Assistant. La liste affiche le nom localisé et le code ISO, par exemple yuan renminbi chinois(CNY), et trie les devises par nom dans la langue de l’interface. À la première configuration, la devise des paramètres du foyer de Home Assistant est présélectionnée. Une instance de Home Assistant utilise un seul registre Charge Tally ; tous les points et enregistrements partagent sa devise.
+Dans **Registre Charge Tally**, sélectionnez la **Devise** parmi toutes celles prises en charge par Home Assistant. La liste affiche le nom localisé et le code ISO, par exemple yuan renminbi chinois (CNY), et trie les devises par nom dans la langue de l’interface. À la première configuration, la devise des paramètres du foyer de Home Assistant est présélectionnée. Une instance de Home Assistant utilise un seul registre Charge Tally ; tous les points et enregistrements partagent sa devise.
 
 - La devise peut être modifiée tant qu’il ne reste aucun point, même archivé, ni aucune donnée comptable. Les identités seules ne la verrouillent pas.
 - L’ajout d’un point verrouille la devise, même avant la première recharge.

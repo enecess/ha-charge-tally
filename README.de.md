@@ -93,7 +93,7 @@ Die Karte wird mitgeliefert und braucht keine separate HACS-Installation. Fehlt 
 
 ### 1. Abrechnungsbuch erstellen
 
-Wähle unter **Charge Tally-Abrechnungsbuch** die **Währung** aus allen von Home Assistant unterstützten Währungen. Die Liste zeigt lokalisierte Namen mit ISO-Code, etwa Renminbi Yuan(CNY), und wird nach Namen in der Oberflächensprache sortiert. Bei der ersten Einrichtung ist die Währung aus den Haushaltseinstellungen von Home Assistant vorausgewählt. Pro HA-Instanz gibt es ein Buch mit gemeinsamer Währung für alle Punkte und Einträge.
+Wähle unter **Charge Tally-Abrechnungsbuch** die **Währung** aus allen von Home Assistant unterstützten Währungen. Die Liste zeigt lokalisierte Namen mit ISO-Code, etwa Renminbi Yuan (CNY), und wird nach Namen in der Oberflächensprache sortiert. Bei der ersten Einrichtung ist die Währung aus den Haushaltseinstellungen von Home Assistant vorausgewählt. Pro HA-Instanz gibt es ein Buch mit gemeinsamer Währung für alle Punkte und Einträge.
 
 - Ohne Ladepunkte, einschließlich archivierter, und ohne gespeicherte Buchungsdaten ist sie änderbar. Identitäten allein sperren sie nicht.
 - Ein hinzugefügter Punkt sperrt sie bereits vor dem ersten Laden.

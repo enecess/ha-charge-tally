@@ -93,7 +93,7 @@ The card is bundled with the integration; no separate HACS frontend installation
 
 ### 1. Create the ledger
 
-In **Charge Tally ledger**, select the **Currency** from all currencies supported by Home Assistant. Options show the localized name and ISO code, such as Chinese Yuan(CNY), and are sorted by name in your interface language. The initial selection uses the currency in Home Assistant’s household settings. Each Home Assistant instance uses one ledger; all points and records share its currency.
+In **Charge Tally ledger**, select the **Currency** from all currencies supported by Home Assistant. Options show the localized name and ISO code, such as Chinese Yuan (CNY), and are sorted by name in your interface language. The initial selection uses the currency in Home Assistant’s household settings. Each Home Assistant instance uses one ledger; all points and records share its currency.
 
 - Currency is editable when no charging points, including archived points, or accounting data remain. Identities alone do not lock it.
 - Adding a point locks it, even before the first charge.
