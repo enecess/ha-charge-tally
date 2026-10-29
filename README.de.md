@@ -214,7 +214,7 @@ Falls nötig, öffne im Menü unter **Einstellungen → Dashboards** die **Resso
 
 | Feld | Inhalt |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-8` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-9` |
 | Ressourcentyp | **JavaScript-Modul** |
 
 Aktualisiere vorhandene Ressourcen mit demselben Pfad, statt sie doppelt anzulegen. Bei YAML-Ressourcenverwaltung trage dieselbe Adresse als Modul ein. Installiere keine zweite Karte. Siehe [HA-Dashboard-Dokumentation](https://www.home-assistant.io/dashboards/dashboards/).

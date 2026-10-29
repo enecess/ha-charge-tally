@@ -546,9 +546,22 @@ class Runtime:
                     raise
 
     async def async_snapshot(self, point_ids=None):
+        if point_ids is not None:
+            await self._gate.wait()
+            if self._closed:
+                raise ValueError("Runtime is closed")
         result = (
             deepcopy(self.snapshot)
             if point_ids is None
+            or (
+                point_ids
+                and set(point_ids)
+                == {
+                    point["id"]
+                    for point in self.snapshot["points"]
+                    + self.snapshot.get("archived_points", [])
+                }
+            )
             else await self._read(self._store.snapshot, point_ids)
         )
         self._decorate(result)

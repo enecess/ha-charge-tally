@@ -214,7 +214,7 @@
 
 | 字段 | 内容 |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-8` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-9` |
 | 资源类型 | **JavaScript 模块** |
 
 已有相同路径的资源时更新它，避免重复添加。自行用 YAML 管理资源的用户，在自己的资源配置中登记同一地址与模块类型；不要再安装第二份卡片。资源管理方式见 [Home Assistant 仪表盘文档](https://www.home-assistant.io/dashboards/dashboards/)。

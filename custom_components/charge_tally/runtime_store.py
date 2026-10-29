@@ -1,5 +1,6 @@
 """Serial-thread runtime state and transactional accounting adaptation."""
 
+from collections import OrderedDict
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -67,6 +68,8 @@ class RuntimeStore:
             self.ledger, self.preview_prices, self.preview_price_basis
         )
         self.currency, self.timezone = currency, timezone
+        self._summary_version = None
+        self._summary_cache = OrderedDict()
         self.states = self.ledger.get_checkpoint("runtime") or {}
         self.points = {}
         for state in self.states.values():
@@ -170,6 +173,7 @@ class RuntimeStore:
                 transaction.__exit__(type(error), error, None)
         finally:
             if not committed:
+                self._summary_cache.clear()
                 if self.ledger._db.in_transaction:
                     self.ledger._db.rollback()
                 self.states = previous
@@ -185,6 +189,7 @@ class RuntimeStore:
                 snapshot = self.snapshot()
             return result, snapshot
         except BaseException:
+            self._summary_cache.clear()
             self.states, self.points = previous, points
             self.timezone = timezone
             raise
@@ -773,12 +778,11 @@ class RuntimeStore:
             "monthly": day.replace(day=1),
             "yearly": day.replace(month=1, day=1),
         }
-        labels = {
-            period: start.date().isoformat()[
-                : {"daily": 10, "monthly": 7, "yearly": 4}[period]
-            ]
-            for period, start in period_starts.items()
-        }
+        allowed = (
+            [point["id"] for point in self.ledger.list_points()]
+            if point_ids is None
+            else point_ids
+        )
         points = []
         for point_id, point in self.points.items():
             if point_ids is not None and point_id not in point_ids:
@@ -833,12 +837,10 @@ class RuntimeStore:
         identities = self.ledger.list_identities()
         for identity in identities:
             identity["summaries"] = {
-                period: summarize(
-                    scoped,
-                    None,
-                    None,
-                    identity_id=identity["id"],
-                    calendar=labels.get(period),
+                period: self.scoped_summary(
+                    allowed,
+                    {"identity_id": identity["id"], "calendar_period": period},
+                    now=day,
                 )
                 for period in ("total", "daily", "monthly", "yearly")
             }
@@ -855,7 +857,7 @@ class RuntimeStore:
             "points": points,
             "archived_points": archived,
             "records": [record_view(record) for record in scoped.list_records()],
-            "summary": summarize(scoped, None, None),
+            "summary": self.scoped_summary(allowed, {}, now=day),
             "revision": self.ledger.data_version(),
             "period_starts": {
                 period: start.isoformat() for period, start in period_starts.items()
@@ -893,19 +895,44 @@ class RuntimeStore:
         max_records=None,
         max_segments=None,
     ):
-        return summarize(
+        start = instant(data["start"]) if data.get("start") else None
+        end = instant(data["end"]) if data.get("end") else None
+        calendar = self.calendar_label(data, now=now)
+        version = self.ledger.data_version()
+        if self._summary_version != version:
+            self._summary_cache.clear()
+            self._summary_version = version
+        key = (
+            tuple(sorted(set(point_ids))),
+            start,
+            end,
+            data.get("identity_id"),
+            data.get("point_id"),
+            calendar,
+            data.get("bucket_period", "auto"),
+            self.timezone,
+        )
+        if not include_records and key in self._summary_cache:
+            self._summary_cache.move_to_end(key)
+            return deepcopy(self._summary_cache[key])
+        result = summarize(
             ScopedLedger(self.ledger, point_ids),
-            instant(data["start"]) if data.get("start") else None,
-            instant(data["end"]) if data.get("end") else None,
+            start,
+            end,
             identity_id=data.get("identity_id"),
             point_id=data.get("point_id"),
-            calendar=self.calendar_label(data, now=now),
+            calendar=calendar,
             bucket_period=data.get("bucket_period", "auto"),
             timezone=self.timezone,
             include_records=include_records,
             max_records=max_records,
             max_segments=max_segments,
         )
+        if not include_records:
+            self._summary_cache[key] = deepcopy(result)
+            if len(self._summary_cache) > 128:
+                self._summary_cache.popitem(last=False)
+        return result
 
     def query(self, command, data, point_ids):
         if command == "report":
@@ -974,27 +1001,19 @@ class RuntimeStore:
             or not 1 <= limit <= 500
         ):
             raise ValueError("Invalid query page")
-        records = [
-            record
-            for record in self.ledger.list_records(
-                data.get("point_id"),
-                data.get("identity_id"),
-                include_void=data.get("include_void", False),
-            )
-            if record["point_id"] in allowed
-            and (
-                not data.get("start")
-                or record["end"] is None
-                or instant(record["end"]) > instant(data["start"])
-            )
-            and (not data.get("end") or instant(record["start"]) < instant(data["end"]))
-        ]
-        records.sort(key=lambda record: (record["start"], record["id"]), reverse=True)
+        records, total = self.ledger.record_page(
+            allowed,
+            point_id=data.get("point_id"),
+            identity_id=data.get("identity_id"),
+            include_void=data.get("include_void", False),
+            start=instant(data["start"]).isoformat() if data.get("start") else None,
+            end=instant(data["end"]).isoformat() if data.get("end") else None,
+            offset=offset,
+            limit=limit,
+        )
         return {
-            "records": [
-                record_view(record) for record in records[offset : offset + limit]
-            ],
-            "total": len(records),
+            "records": [record_view(record) for record in records],
+            "total": total,
             "offset": offset,
             "limit": limit,
         }

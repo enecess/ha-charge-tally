@@ -214,7 +214,7 @@ If necessary, open **Resources** from the **Settings → Dashboards** menu. Enab
 
 | Field | Value |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-8` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-9` |
 | Resource type | **JavaScript module** |
 
 Update an existing entry for that path rather than duplicating it. If you manage resources in YAML, register this URL and module type there; do not install a second card copy. See the [Home Assistant dashboard documentation](https://www.home-assistant.io/dashboards/dashboards/).

@@ -335,16 +335,61 @@ class Ledger:
         return self._get("records", id)
 
     def list_records(self, point_id=None, identity_id=None, include_void=False):
-        return sorted(
-            (
-                r
-                for r in self._list("records")
-                if (point_id is None or r["point_id"] == point_id)
-                and (identity_id is None or r["identity_id"] == identity_id)
-                and (include_void or r["status"] != "void")
-            ),
-            key=lambda r: (r["start"], r["id"]),
+        where, parameters = self._record_filter(point_id, identity_id, include_void)
+        return [
+            json.loads(row[0])
+            for row in self._db.execute(
+                f"SELECT data FROM records WHERE {where} ORDER BY start,id", parameters
+            )
+        ]
+
+    def _record_filter(
+        self, point_id, identity_id, include_void, point_ids=None, start=None, end=None
+    ):
+        clauses, parameters = [], []
+        for field, value in (("point_id", point_id), ("identity_id", identity_id)):
+            if value is not None:
+                clauses.append(f"{field}=?")
+                parameters.append(value)
+        if not include_void:
+            clauses.append("status!='void'")
+        if point_ids is not None:
+            clauses.append("point_id IN (" + ",".join("?" for _ in point_ids) + ")")
+            parameters.extend(point_ids)
+        if start is not None:
+            clauses.append("(end IS NULL OR end>?)")
+            parameters.append(start)
+        if end is not None:
+            clauses.append("start<?")
+            parameters.append(end)
+        return " AND ".join(clauses) or "1", parameters
+
+    def record_page(
+        self,
+        point_ids,
+        *,
+        point_id=None,
+        identity_id=None,
+        include_void=False,
+        start=None,
+        end=None,
+        offset=0,
+        limit=50,
+    ):
+        where, parameters = self._record_filter(
+            point_id, identity_id, include_void, point_ids, start, end
         )
+        total = self._db.execute(
+            f"SELECT COUNT(*) FROM records WHERE {where}", parameters
+        ).fetchone()[0]
+        records = [
+            json.loads(row[0])
+            for row in self._db.execute(
+                f"SELECT data FROM records WHERE {where} ORDER BY start DESC,id DESC LIMIT ? OFFSET ?",
+                [*parameters, limit, offset],
+            )
+        ]
+        return records, total
 
     def overlaps(self, point_id, start, end, exclude_id=""):
         rows = self._db.execute(

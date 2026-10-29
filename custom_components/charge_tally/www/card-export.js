@@ -1,5 +1,5 @@
-import {queryRequest} from './card-state.js?v=0.1.2-8';
-import {tr} from './card-i18n.js?v=0.1.2-8';
+import {queryRequest} from './card-state.js?v=0.1.2-9';
+import {tr} from './card-i18n.js?v=0.1.2-9';
 
 const codes=new Set(['invalid_request','forbidden','export_unavailable','export_busy','export_too_large','export_missing_glyph','export_failed']);
 const reportFields=new Set(['title','period','currency','generated','times','energy','cost','ordinal','names','status_note']);

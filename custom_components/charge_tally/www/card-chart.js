@@ -1,7 +1,7 @@
-import {SelectControl} from './card-controls.js?v=0.1.2-8';
-import {el,field} from './card-ui.js?v=0.1.2-8';
-import {formatDecimal,formatCost} from './card-state.js?v=0.1.2-8';
-import {tr} from './card-i18n.js?v=0.1.2-8';
+import {SelectControl} from './card-controls.js?v=0.1.2-9';
+import {el,field} from './card-ui.js?v=0.1.2-9';
+import {formatDecimal,formatCost} from './card-state.js?v=0.1.2-9';
+import {tr} from './card-i18n.js?v=0.1.2-9';
 
 export function chartGeometry(values,{width=600,height=144,padding=12}={}){
   const low=Math.min(0,...values),high=Math.max(0,...values);
@@ -24,6 +24,7 @@ export class ChartView{
     this.node.append(this.metric.label,this.hint,this.message,this.plot,this.incomplete,this.details);
   }
   update({summary,metric,language,currency}){
+    const key=JSON.stringify([summary,metric,language,currency]);if(this.key===key)return;this.key=key;
     const t=key=>tr(key,language),buckets=summary.buckets||[],state=chartState(summary,metric);
     this.metric.label.firstChild.textContent=t('chartMetric');this.metric.update({options:[{id:'energy_kwh',name:t('energy')},{id:'known_cost',name:t('cost')}],value:metric});
     this.hint.textContent=t('group_'+summary.bucket_period);this.toggle.textContent=t('chartData');

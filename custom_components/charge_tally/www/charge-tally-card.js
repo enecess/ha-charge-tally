@@ -1,12 +1,12 @@
-import {exportRequest,fetchReport} from './card-export.js?v=0.1.2-8';
-import {CardView} from './card-view.js?v=0.1.2-8';
-import {newRequestId} from './request-id.js?v=0.1.2-8';
-import {tr} from './card-i18n.js?v=0.1.2-8';
-import {styles} from './card-styles.js?v=0.1.2-8';
-import {Latest,Subscription,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.2-8';
-import {el} from './card-ui.js?v=0.1.2-8';
-import {RecordDialog} from './card-dialog.js?v=0.1.2-8';
-import './card-editor.js?v=0.1.2-8';
+import {exportRequest,fetchReport} from './card-export.js?v=0.1.2-9';
+import {CardView} from './card-view.js?v=0.1.2-9';
+import {newRequestId} from './request-id.js?v=0.1.2-9';
+import {tr} from './card-i18n.js?v=0.1.2-9';
+import {styles} from './card-styles.js?v=0.1.2-9';
+import {Latest,Subscription,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.2-9';
+import {el} from './card-ui.js?v=0.1.2-9';
+import {RecordDialog} from './card-dialog.js?v=0.1.2-9';
+import './card-editor.js?v=0.1.2-9';
 
 export class ChargeTallyCard extends HTMLElement {
   static getConfigElement(){return document.createElement('charge-tally-card-editor');}
@@ -39,13 +39,13 @@ export class ChargeTallyCard extends HTMLElement {
     this.snapshotVersion=(this.snapshotVersion||0)+1;
     if(!this.snapshot)this.error=null;this.snapshot=snapshot;this.summaryDirty=true;this.recordsDirty=true;
     // Keep loaded content during background refresh so the page does not collapse.
-    if(!snapshot){this.cancelExport();this.latest.invalidate();this.queryVersion++;this.pendingSelections.clear();this.summary=null;this.page=null;this.dialogEpoch++;this.actions.invalidate();this.busy=false;this.notice=null;this.dialog?.close();}
+    if(!snapshot){this.cancelExport();this.latest.invalidate();this.queryVersion++;this.summaryPending=false;this.recordsPending=false;this.pendingSelections.clear();this.summary=null;this.page=null;this.dialogEpoch++;this.actions.invalidate();this.busy=false;this.notice=null;this.dialog?.close();}
     this.render();if(snapshot)this.refresh();
   }
   call(request){if(!this.snapshot||this._hass.connection.connected===false)throw Object.assign(new Error('unavailable'),{code:'unavailable'});return this._hass.callWS(request);}
   pointName(id){return [...(this.snapshot?.points||[]),...(this.snapshot?.archived_points||[])].find(p=>p.id===id)?.name||id;}
   identityName(id){return this.snapshot?.identities.find(i=>i.id===id)?.name||id;}
-  invalidateQueries(){this.queryVersion++;this.latest.invalidate();this.summaryDirty=true;this.recordsDirty=true;this.summary=null;this.page=null;}
+  invalidateQueries(){this.queryVersion++;this.latest.invalidate();this.summaryPending=false;this.recordsPending=false;this.summaryDirty=true;this.recordsDirty=true;this.summary=null;this.page=null;}
   setFilter(key,value){this.error=null;this.filters[key]=value;this.offset=0;this.invalidateQueries();this.render();this.refresh();}
   setPeriod(value){this.error=null;this.period=value;this.summaryVersion=(this.summaryVersion||0)+1;this.summaryDirty=true;this.summaryPending=false;this.summary=null;this.render();this.refresh();}
   applyRange(){
@@ -56,8 +56,8 @@ export class ChargeTallyCard extends HTMLElement {
     }catch(error){this.error=error;this.render();return;}
     this.error=null;this.summaryVersion=(this.summaryVersion||0)+1;this.summaryDirty=true;this.summaryPending=false;this.summary=null;this.render();this.refresh();
   }
-  setOffset(value){this.error=null;this.offset=value;this.recordsVersion=(this.recordsVersion||0)+1;this.recordsDirty=true;this.page=null;this.render();this.refresh();}
-  setExpanded(id,value){if(!Object.hasOwn(this.expanded,id))return;this.expanded[id]=!!value;this.view?.setExpanded(id,!!value);if(value)this.refresh();}
+  setOffset(value){this.error=null;this.offset=value;this.recordsVersion=(this.recordsVersion||0)+1;this.recordsPending=false;this.recordsDirty=true;this.page=null;this.render();this.refresh();}
+  setExpanded(id,value){if(!Object.hasOwn(this.expanded,id))return;this.expanded[id]=!!value;this.render();if(value)this.refresh();}
   canSelect(point){return !!this.snapshot&&this._hass?.connection?.connected!==false&&!!point?.identity_entity_id&&point.active!==false&&point.available!==false&&!['unknown','unavailable'].includes(this._hass?.states?.[point.identity_entity_id]?.state);}
   selectIdentity(pointId,identityId){
     const point=this.snapshot?.points.find(p=>p.id===pointId),identity=this.snapshot?.identities.find(i=>i.id===identityId&&i.active!==false);
@@ -110,15 +110,15 @@ export class ChargeTallyCard extends HTMLElement {
     if(newLiveIntent){this.pendingLive=null;this.error=null;}
     if(!this.snapshot)return;
     const version=this.queryVersion,summaryVersion=this.summaryVersion,recordsVersion=this.recordsVersion;
-    if(this.expanded.statistics&&(this.period!=='custom'||this.appliedRange)&&(this.summaryDirty||!this.summary&&!this.summaryPending)){
+    if(this.expanded.statistics&&(this.period!=='custom'||this.appliedRange)&&!this.summaryPending&&(this.summaryDirty||!this.summary)){
       try{
         const request=queryRequest(this.filters,this.range());this.summaryDirty=false;this.summaryPending=true;
-        this.latest.run('summary',()=>this.call(request),summary=>{if(version!==this.queryVersion||summaryVersion!==this.summaryVersion)return;this.summaryPending=false;this.summary=summary;this.render();},error=>{if(version!==this.queryVersion||summaryVersion!==this.summaryVersion)return;this.summaryPending=false;this.summaryDirty=true;this.error=error;this.render();});
+        this.latest.run('summary',()=>this.call(request),summary=>{if(version!==this.queryVersion||summaryVersion!==this.summaryVersion)return;this.summaryPending=false;this.summary=summary;this.render();if(this.summaryDirty)this.refresh();},error=>{if(version!==this.queryVersion||summaryVersion!==this.summaryVersion)return;this.summaryPending=false;this.summaryDirty=true;this.error=error;this.render();});
       }catch(error){this.error=error;this.render();}
     }
-    if(this.expanded.records&&this.config.show_records!==false&&(this.recordsDirty||!this.page&&!this.recordsPending)){
+    if(this.expanded.records&&this.config.show_records!==false&&!this.recordsPending&&(this.recordsDirty||!this.page)){
       this.recordsDirty=false;this.recordsPending=true;
-      this.latest.run('records',()=>this.call(recordsRequest(this.filters,this.offset)),page=>{if(version!==this.queryVersion||recordsVersion!==this.recordsVersion)return;this.recordsPending=false;this.page=page;this.render();},error=>{if(version!==this.queryVersion||recordsVersion!==this.recordsVersion)return;this.recordsPending=false;this.recordsDirty=true;this.error=error;this.render();});
+      this.latest.run('records',()=>this.call(recordsRequest(this.filters,this.offset)),page=>{if(version!==this.queryVersion||recordsVersion!==this.recordsVersion)return;this.recordsPending=false;this.page=page;this.render();if(this.recordsDirty)this.refresh();},error=>{if(version!==this.queryVersion||recordsVersion!==this.recordsVersion)return;this.recordsPending=false;this.recordsDirty=true;this.error=error;this.render();});
     }
   }
   mutate(request){

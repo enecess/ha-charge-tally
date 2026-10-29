@@ -1,8 +1,8 @@
-import {exportErrorMessage} from './card-export.js?v=0.1.2-8';
-import {ChartView} from './card-chart.js?v=0.1.2-8';
-import {SelectControl} from './card-controls.js?v=0.1.2-8';
-import {el,button,field,input,summaryView,quality,dateText} from './card-ui.js?v=0.1.2-8';
-import {formatDecimal,formatCost,errorMessage} from './card-state.js?v=0.1.2-8';
+import {exportErrorMessage} from './card-export.js?v=0.1.2-9';
+import {ChartView} from './card-chart.js?v=0.1.2-9';
+import {SelectControl} from './card-controls.js?v=0.1.2-9';
+import {el,button,field,input,summaryView,quality,dateText} from './card-ui.js?v=0.1.2-9';
+import {formatDecimal,formatCost,errorMessage} from './card-state.js?v=0.1.2-9';
 
 const text=(node,value)=>{if(node.textContent!==String(value))node.textContent=value;};
 const label=(control,value)=>text(control.label.firstChild,value);
@@ -38,8 +38,12 @@ export class CardView {
     for(const [id,view]of this.points)if(!ids.has(id)){view.select.dispose();view.node.remove();this.points.delete(id);}
     this.period.update({options:['daily','monthly','yearly','total','custom'].map(id=>({id,name:t(id)})),value:c.period,disabled:!online});label(this.period,t('period'));text(this.refresh,t('refresh'));this.refresh.disabled=!online;this.range.hidden=c.period!=='custom';text(this.fromLabel.firstChild,t('from'));text(this.toLabel.firstChild,t('to'));text(this.rangeHint,`${s?.timezone||''} · ${t('rangeHint')}`);text(this.apply,t('apply'));this.apply.disabled=!online;this.from.disabled=!online;this.to.disabled=!online;text(this.scope,t('scope'));
     text(this.export,t(c.exportBusy?'exportingPdf':'exportPdf'));this.export.disabled=!!c.exportBusy||!c.canExport();this.exportError.hidden=!c.exportError;text(this.exportError,c.exportError?exportErrorMessage(c.exportError,c.language):'');
-    if(c.summary&&s)this.summary.replaceChildren(summaryView(c.summary,s.currency,c.language),el('p',`${t('count')}: ${c.summary.active_count??'—'} / ${c.summary.completed_count??'—'}`,{class:'muted'}),...(c.summary.quality?.length?[el('p',quality(c.summary.quality,c.language),{class:'quality'})]:[]));else text(this.summary,t(online?'loading':'offline'));
-    this.updateChart();this.updateRecords(online);
+    if(c.expanded.statistics||!s){
+      const key=JSON.stringify([c.summary,s?.currency,c.language]);
+      if(this.summaryKey!==key){this.summaryKey=key;if(c.summary&&s)this.summary.replaceChildren(summaryView(c.summary,s.currency,c.language),el('p',`${t('count')}: ${c.summary.active_count??'—'} / ${c.summary.completed_count??'—'}`,{class:'muted'}),...(c.summary.quality?.length?[el('p',quality(c.summary.quality,c.language),{class:'quality'})]:[]));else text(this.summary,t(online?'loading':'offline'));}
+      this.updateChart();
+    }
+    if(c.expanded.records&&c.config.show_records!==false||!s)this.updateRecords(online);
   }
   createPoint(id){
     const c=this.card,node=el('article',null,{class:'point','data-point-id':id}),head=el('div',null,{class:'row spread'}),name=el('h3'),status=el('span',null,{class:'badge'});head.append(name,status);
@@ -58,17 +62,18 @@ export class CardView {
     v.hint.hidden=recording!=='manual'&&!pending;text(v.hint,recording==='manual'?t('manualEndRequired'):pending?t('candidateHint'):'');text(v.measurements,`${t('power')}: ${formatDecimal(p.power_w,c.language)} W · ${t('price')}: ${formatDecimal(p.current_price,c.language,4)} ${c.snapshot.currency}/kWh`);text(v.message,[p.error,quality(p.quality,c.language)].filter(Boolean).join(' · '));v.message.hidden=!v.message.textContent;
     const selected=c.pendingSelections.get(p.id)?.identityId??p.selected_identity_id;
     v.select.update({options:c.snapshot.identities.filter(i=>i.active!==false),value:selected,disabled:!online||!!c.busy||!c.canSelect(p)||!!c.pendingSelections.get(p.id)});label(v.select,t(pending?'nextManualIdentity':active?'next':'selected'));
-    if(active)v.summary.replaceChildren(el('strong',`${t('current')}: ${c.identityName(active.identity_id)}`),summaryView(active,c.snapshot.currency,c.language),el('small',`${t('began')}: ${dateText(active.start,active.timezone)} (${active.timezone}) · ${t('duration')}: ${Math.max(0,Math.floor((Date.now()-Date.parse(active.start))/60000))} min`));else text(v.summary,'');
+    const minutes=active?Math.max(0,Math.floor((Date.now()-Date.parse(active.start))/60000)):0,summaryKey=JSON.stringify([active,c.snapshot.currency,c.language,active?c.identityName(active.identity_id):null,minutes]);
+    if(v.summaryKey!==summaryKey){v.summaryKey=summaryKey;if(active)v.summary.replaceChildren(el('strong',`${t('current')}: ${c.identityName(active.identity_id)}`),summaryView(active,c.snapshot.currency,c.language),el('small',`${t('began')}: ${dateText(active.start,active.timezone)} (${active.timezone}) · ${t('duration')}: ${minutes} min`));else text(v.summary,'');}
     v.details.hidden=v.reassign.hidden=!active;text(v.details,t('details'));text(v.reassign,t('reassign'));text(v.live,t(active?(recording==='manual'?'end':detection==='pending_end'?'endNow':'endAutomatic'):pending?'startNow':'startManual'));v.details.disabled=v.reassign.disabled=!online||!!c.busy;v.live.disabled=!online||!!c.busy||!p.identity_entity_id||(!active&&(!p.available||c.pendingSelections.has(p.id)));
   }
   updateChart(){
     const c=this.card;this.chart.hidden=c.config.show_chart===false||!c.summary;
-    if(c.summary&&c.snapshot)this.chartView.update({summary:c.summary,metric:c.chartMetric||'energy_kwh',language:c.language,currency:c.snapshot.currency});
+    if(c.expanded.statistics&&!this.chart.hidden&&c.snapshot)this.chartView.update({summary:c.summary,metric:c.chartMetric||'energy_kwh',language:c.language,currency:c.snapshot.currency});
   }
 
   updateRecords(online){
     const c=this.card,t=key=>c.t(key);text(this.add,t('add'));this.add.disabled=!online||!!c.busy;text(this.historyHint,t('historyHint'));text(this.loading,t(online?'loading':'offline'));this.loading.hidden=!!c.page;this.pager.hidden=!c.page;this.noRecords.hidden=!c.page||!!c.page.records.length;text(this.noRecords,t('empty'));
-    const ids=new Set();for(const record of c.page?.records||[]){ids.add(record.id);let v=this.records.get(record.id);if(!v){const node=el('li',null,{class:'row','data-record-id':record.id}),open=button('',()=>{const current=c.page?.records.find(r=>r.id===record.id);if(current)c.details(current);},false,'record-open');node.append(open);v={node,open};this.records.set(record.id,v);this.list.append(node);}v.open.replaceChildren(el('strong',`${c.pointName(record.point_id)} · ${c.identityName(record.identity_id)}`),el('small',`${dateText(record.start,record.timezone)} · ${t(record.status)}`),el('span',`${formatDecimal(record.energy_kwh,c.language)} kWh · ${formatCost(record,c.snapshot.currency,c.language)}`),...(record.quality?.length?[el('small',quality(record.quality,c.language))]:[]));}
+    const ids=new Set();for(const record of c.page?.records||[]){ids.add(record.id);let v=this.records.get(record.id);if(!v){const node=el('li',null,{class:'row','data-record-id':record.id}),open=button('',()=>{const current=c.page?.records.find(r=>r.id===record.id);if(current)c.details(current);},false,'record-open');node.append(open);v={node,open};this.records.set(record.id,v);this.list.append(node);}const key=JSON.stringify([record,c.pointName(record.point_id),c.identityName(record.identity_id),c.language,c.snapshot.currency]);if(v.key!==key){v.key=key;v.open.replaceChildren(el('strong',`${c.pointName(record.point_id)} · ${c.identityName(record.identity_id)}`),el('small',`${dateText(record.start,record.timezone)} · ${t(record.status)}`),el('span',`${formatDecimal(record.energy_kwh,c.language)} kWh · ${formatCost(record,c.snapshot.currency,c.language)}`),...(record.quality?.length?[el('small',quality(record.quality,c.language))]:[]));}}
     for(const [id,v]of this.records)if(!ids.has(id)){v.node.remove();this.records.delete(id);}
     const focused=c.shadowRoot.activeElement;
     (c.page?.records||[]).forEach((record,index)=>{const node=this.records.get(record.id).node;if(this.list.children[index]!==node)this.list.insertBefore(node,this.list.children[index]||null);});

@@ -236,7 +236,7 @@ test('period and page versions independently reject late responses',async t=>{
 test('select protection clones the latest queued options and dispose drops pending changes',async t=>{
   const {page}=await createCardFixture(t);
   assert.deepEqual(await page.evaluate(async()=>{
-    const {SelectControl}=await import('/card-controls.js?v=0.1.2-8');const control=new SelectControl();document.body.append(control.node);control.update({options:[{id:'a',name:'A'}],value:'a'});const original=control.node.firstChild;control.update({options:[{id:'a',name:'A'}],value:'a'});const untouched=original===control.node.firstChild;control.node.focus();const options=[{id:'b',name:'B'}];control.update({options,value:'b'});options[0].name='Changed outside';control.node.blur();const name=control.node.firstChild.textContent;control.node.focus();control.update({options:[{id:'c',name:'C'}],value:'c'});control.dispose();control.node.blur();return {untouched,name,value:control.node.value,pending:control.pending,editing:control.editing};
+    const {SelectControl}=await import('/card-controls.js?v=0.1.2-9');const control=new SelectControl();document.body.append(control.node);control.update({options:[{id:'a',name:'A'}],value:'a'});const original=control.node.firstChild;control.update({options:[{id:'a',name:'A'}],value:'a'});const untouched=original===control.node.firstChild;control.node.focus();const options=[{id:'b',name:'B'}];control.update({options,value:'b'});options[0].name='Changed outside';control.node.blur();const name=control.node.firstChild.textContent;control.node.focus();control.update({options:[{id:'c',name:'C'}],value:'c'});control.dispose();control.node.blur();return {untouched,name,value:control.node.value,pending:control.pending,editing:control.editing};
   }),{untouched:true,name:'B',value:'b',pending:null,editing:false});
 });
 test('selection failure stays visible through a background push',async t=>{
@@ -255,6 +255,7 @@ test('fresh stream confirmation wins over a late older confirmation read',async 
 });
 test('keyed history follows backend ordering when a new record arrives',async t=>{
   const {page}=await createCardFixture(t,{show_chart:false});
+  await page.evaluate(()=>fixture.card.setExpanded('records',true));
   assert.deepEqual(await page.evaluate(()=>{
     const c=fixture.card,record=id=>({id,point_id:'p',identity_id:'i',start:'2026-09-22T08:00:00Z',timezone:'UTC',status:'ended',energy_kwh:'1',known_cost:'1',cost_complete:true});c.page={records:[record('old')],total:1,limit:25};c.render();const old=c.shadowRoot.querySelector('li');c.page={records:[record('new'),record('old')],total:2,limit:25};c.render();return {order:[...c.shadowRoot.querySelectorAll('li')].map(n=>n.dataset.recordId),reused:old===c.shadowRoot.querySelectorAll('li')[1]};
   }),{order:['new','old'],reused:true});

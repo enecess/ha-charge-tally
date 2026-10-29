@@ -322,31 +322,42 @@ async def subscribe(
     closed = False
     previous = None
     generation = 0
+    publishing = False
+    pending = False
 
     async def publish() -> None:
-        nonlocal previous, generation
-        if closed:
-            return
+        nonlocal previous, generation, publishing, pending
         try:
-            result = await public_snapshot(
-                runtime, connection.user, msg.get("point_id")
-            )
-        except Unauthorized:
-            result = {
-                "points": [],
-                "archived_points": [],
-                "identities": [],
-                "summary": {},
-            }
-        if not closed and result != previous:
-            previous = deepcopy(result)
-            generation += 1
-            connection.send_event(msg["id"], {**result, "generation": generation})
+            while pending and not closed:
+                pending = False
+                try:
+                    result = await public_snapshot(
+                        runtime, connection.user, msg.get("point_id")
+                    )
+                except Unauthorized:
+                    result = {
+                        "points": [],
+                        "archived_points": [],
+                        "identities": [],
+                        "summary": {},
+                    }
+                if not closed and result != previous:
+                    previous = deepcopy(result)
+                    generation += 1
+                    connection.send_event(
+                        msg["id"], {**result, "generation": generation}
+                    )
+        finally:
+            publishing = False
 
     @callback
     def updated() -> None:
+        nonlocal publishing, pending
         if not closed:
-            hass.async_create_task(publish())
+            pending = True
+            if not publishing:
+                publishing = True
+                hass.async_create_task(publish())
 
     unsub = async_dispatcher_connect(hass, runtime.update_signal, updated)
 
@@ -369,6 +380,7 @@ async def subscribe(
     connection.subscriptions[msg["id"]] = cancel
     runtime.entry.async_on_unload(unloaded)
     connection.send_result(msg["id"])
+    publishing = pending = True
     await publish()
 
 
