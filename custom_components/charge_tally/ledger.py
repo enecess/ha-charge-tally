@@ -322,6 +322,9 @@ class Ledger:
                 raise ValueError(
                     "Replacement history must conserve source gap energy and bounds"
                 )
+            if len(intervals) == 1 and intervals[0]["id"] == gap_id:
+                # Identical endpoints are not finer evidence, including price-only changes.
+                return False
             self._put(
                 "observation_resolutions",
                 gap_id,

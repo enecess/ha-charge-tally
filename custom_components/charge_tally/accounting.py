@@ -17,6 +17,13 @@ def instant(value):
     return utc(datetime.fromisoformat(value) if isinstance(value, str) else value)
 
 
+def allocatable(observation):
+    """Read new allocation evidence without reinterpreting legacy gaps."""
+    return observation.get(
+        "allocation_basis", "missing" if observation.get("gap") else "measured"
+    ) != "missing"
+
+
 def totals(record, segments, quality=(), *, append=False):
     marks = set(quality)
     for segment in segments:
@@ -37,6 +44,8 @@ def totals(record, segments, quality=(), *, append=False):
         record.update(
             energy_kwh=str(energy),
             known_cost=str(cost),
+            has_known_cost=(append and record.get("has_known_cost", False))
+            or any(segment["cost"] is not None for segment in segments),
             cost_complete=not bool(
                 marks & {"missing_price", "missing_energy", "pending_settlement"}
             ),
@@ -100,7 +109,7 @@ class Accounting:
                 boundaries.append(instant(other["end"]))
         for observation in intervals:
             left, right = instant(observation["start"]), instant(observation["end"])
-            if observation.get("gap"):
+            if not allocatable(observation):
                 quality.add("missing_energy")
                 continue
             parts = self._observation_parts(record, observation, boundaries)
@@ -130,7 +139,11 @@ class Accounting:
         record["quality_spans"] = []
         for left, right in missing:
             marks = {"missing_energy"}
-            if end and right > latest:
+            if (
+                end
+                and right > latest
+                and record.get("end_reason") != "source_unavailable"
+            ):
                 marks.add("pending_settlement")
             for observation in intervals:
                 if (
@@ -179,6 +192,7 @@ class Accounting:
             or record.get("manual_override")
             or record.get("manual_fee_override")
             or record.get("quality_spans")
+            or "has_known_cost" not in record
             or observation.get("gap")
             or record["point_id"] != observation["point_id"]
             or record.get("_accounted_until") != observation["start"]
@@ -318,7 +332,7 @@ class Accounting:
             operation,
         )
 
-    def end(self, record_id, at: datetime, request_id: str):
+    def end(self, record_id, at: datetime, request_id: str, *, reason=None):
         at = instant(at).isoformat()
 
         def operation():
@@ -326,11 +340,17 @@ class Accounting:
             if record["status"] != "active" or at <= record["start"]:
                 raise ValueError("End must follow the active record start")
             record.update(end=at, status="ended", revision=record["revision"] + 1)
+            if reason is not None:
+                record["end_reason"] = reason
             record, segments, _ = self._build(record)
             self.ledger.save_record(record, segments)
             return record
 
-        return self._request(request_id, ["end", record_id, at], operation)
+        return self._request(
+            request_id,
+            ["end", record_id, at] + ([reason] if reason is not None else []),
+            operation,
+        )
 
     def _interval_data(self, point_id, start, end, energy, prices, quality):
         start, end = instant(start), instant(end)
@@ -346,6 +366,14 @@ class Accounting:
         gap = elapsed(start, end) > Decimal(
             str(point.get("max_interval_seconds", 600))
         ) or bool(set(quality) & {"unavailable", "missing_energy", "gap", "reset"})
+        basis = (
+            "measured"
+            if not gap
+            else "estimated"
+            if point.get("input_mode") in ("energy", "energy_power")
+            and not set(quality) & {"reset", "missing_energy"}
+            else "missing"
+        )
         return dict(
             id=sha256(
                 encode([point_id, start.isoformat(), end.isoformat()]).encode()
@@ -358,8 +386,9 @@ class Accounting:
                 [at.isoformat(), None if price is None else str(price)]
                 for at, price in prices
             ],
-            quality=sorted(set(quality)),
+            quality=sorted(set(quality) | ({"estimated"} if basis == "estimated" else set())),
             gap=gap,
+            allocation_basis=basis,
         )
 
     @contextmanager
@@ -383,6 +412,10 @@ class Accounting:
             record is None
             or record["status"] == "void"
             or record.get("manual_override")
+            or (
+                record["status"] == "ended"
+                and record.get("end_reason") == "source_unavailable"
+            )
         ):
             return
         previous = dict(record)
@@ -434,7 +467,8 @@ class Accounting:
             for i in intervals
         ]
         with self.ledger.transaction():
-            self.ledger.resolve_gap(gap_id, replacements)
+            if self.ledger.resolve_gap(gap_id, replacements) is False:
+                return
             self._refresh(point_id, start, end)
 
     def reassign(self, record_id, identity_id, expected_revision: int):
