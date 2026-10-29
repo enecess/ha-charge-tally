@@ -59,9 +59,9 @@ test('statistics request uses backend date range; history pagination is separate
   assert.deepEqual(recordsRequest({point_id:'p',identity_id:'',start:'ignored'},25),{type:'charge_tally/records',point_id:'p',offset:25,limit:25});
   assert.throws(() => recordsRequest({},0,101));
 });
-test('live service uses active record revision and response wrapper, native select uses name', () => {
+test('live end targets the active record without a changing meter revision', () => {
   const p={id:'p',identity_entity_id:'select.actual',active_record:{id:'r',revision:9},available:true};
-  assert.deepEqual(liveRequest('end',p,'op'),{type:'call_service',domain:'charge_tally',service:'end',return_response:true,service_data:{record_id:'r',expected_revision:9,request_id:'op'}});
+  assert.deepEqual(liveRequest('end',p,'op'),{type:'call_service',domain:'charge_tally',service:'end',return_response:true,service_data:{record_id:'r',request_id:'op'}});
   assert.deepEqual(identityRequest(p,{name:'Family',id:'i'}),{type:'call_service',domain:'select',service:'select_option',service_data:{entity_id:'select.actual',option:'Family'}});
   assert.throws(() => liveRequest('start',{id:'archived'},'op'));
   assert.throws(() => identityRequest({id:'archived'},{name:'Family'}));
@@ -75,6 +75,10 @@ test('errors provide localized actionable guidance', () => {
   assert.match(errorMessage({code:'stale_preview'},'en'), /preview/i);
   assert.match(errorMessage({code:'conflict'},'zh-Hans'), /刷新/);
   assert.match(errorMessage({code:'home_assistant_error'},'en'), /Home Assistant/);
+});
+test('HA service validation errors use Charge Tally translation keys', () => {
+  assert.equal(errorMessage({code:'service_validation_error',translation_domain:'charge_tally',translation_key:'conflict'},'en'),tr('error.conflict','en'));
+  assert.equal(errorMessage({code:'service_validation_error',translation_domain:'another_integration',translation_key:'conflict'},'en'),tr('error.unknown','en'));
 });
 test('newer request and invalidation suppress old responses and errors', async () => {
   const latest = new Latest(); let first; const shown=[];
@@ -154,10 +158,10 @@ globalThis.document={createElement:tag=>{const node=new TestNode();node.tagName=
 globalThis.window={customCards:[]};
 globalThis.customElements={get:()=>undefined,define:()=>{}};
 const {ChargeTallyCard}=await import('../../custom_components/charge_tally/www/charge-tally-card.js');
-const {RecordDialog}=await import('../../custom_components/charge_tally/www/card-dialog.js?v=0.1.2-10');
-const {ChargeTallyEditor}=await import('../../custom_components/charge_tally/www/card-editor.js?v=0.1.2-10');
+const {RecordDialog}=await import('../../custom_components/charge_tally/www/card-dialog.js?v=0.1.2-11');
+const {ChargeTallyEditor}=await import('../../custom_components/charge_tally/www/card-editor.js?v=0.1.2-11');
 const state=await import('../../custom_components/charge_tally/www/card-state.js');
-const {summaryView,segmentTable}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.2-10');
+const {summaryView,segmentTable}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.2-11');
 
 const visibleText=node=>[node.textContent||'',...(node.children||[]).map(visibleText)].join(' ');
 test('revision history keeps a deleted identity name without restoring its selector entry',()=>{

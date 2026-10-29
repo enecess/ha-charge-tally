@@ -92,3 +92,17 @@ matrix before release. Validate raw HA cost states and Recorder numeric points;
 a correct-looking dashboard alone does not prove native entity publication.
 Design documents, local diagnostic fixtures, browser assets and test logs remain
 under ignored `docs/superpowers/` or `.superpowers/` directories.
+
+## Manual end during live sampling
+
+The card ends an active record by its fixed `record_id` and reuses its
+`request_id` for retries. Meter samples can change the accounting revision
+between a snapshot and the end request. `charge_tally.end` therefore accepts an
+optional `expected_revision`: omit it to end the targeted active record using
+the latest accounting data, or supply it for strict optimistic concurrency.
+Reassign, void, and historical edits still require their revision guards.
+Ending a record does not switch off a physical charger.
+
+`tests/ha/test_manual_end.py` covers the real WebSocket service with manual and
+automatic records, intervening measurements, explicit revision conflicts,
+idempotent retries, and protection of a newer record from an old end request.

@@ -435,7 +435,11 @@ def async_register(hass: HomeAssistant) -> None:
                 else vol.Optional("identity_id")
             ] = ID
         if command in ("end", "reassign"):
-            schema[vol.Required("expected_revision")] = REV
+            schema[
+                vol.Optional("expected_revision")
+                if command == "end"
+                else vol.Required("expected_revision")
+            ] = REV
 
         async def service(call: ServiceCall, command: str = command) -> ServiceResponse:
             user = (

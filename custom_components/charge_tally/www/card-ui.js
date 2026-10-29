@@ -1,6 +1,6 @@
-import {formatCost,formatDecimal,localInput} from './card-state.js?v=0.1.2-10';
-import {tr} from './card-i18n.js?v=0.1.2-10';
-import {SelectControl} from './card-controls.js?v=0.1.2-10';
+import {formatCost,formatDecimal,localInput} from './card-state.js?v=0.1.2-11';
+import {tr} from './card-i18n.js?v=0.1.2-11';
+import {SelectControl} from './card-controls.js?v=0.1.2-11';
 
 export function el(tag,text,attributes={}) {
   const node=document.createElement(tag);if(text!=null)node.textContent=text;

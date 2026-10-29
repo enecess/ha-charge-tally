@@ -1,4 +1,4 @@
-import {tr,locale} from './card-i18n.js?v=0.1.2-10';
+import {tr,locale} from './card-i18n.js?v=0.1.2-11';
 const numberFormats=new Map();
 export function formatDecimal(value,language='en',digits=3,minimum=0){
   if(value==null)return '—';
@@ -94,14 +94,14 @@ export function liveRequest(service,point,request_id) {
   if (!point?.identity_entity_id || point.active === false) throw Object.assign(new Error('unavailable'),{code:'unavailable'});
   if (service === 'start' && (!point.available || point.active_record)) throw Object.assign(new Error('unavailable'),{code:'unavailable'});
   if (service === 'end' && !point.active_record) throw new Error('No active record');
-  return {type:'call_service',domain:'charge_tally',service,return_response:true,service_data:service==='end' ? {record_id:point.active_record.id,expected_revision:point.active_record.revision,request_id} : {point_id:point.id,...(point.selected_identity_id?{identity_id:point.selected_identity_id}:{}),request_id}};
+  return {type:'call_service',domain:'charge_tally',service,return_response:true,service_data:service==='end' ? {record_id:point.active_record.id,request_id} : {point_id:point.id,...(point.selected_identity_id?{identity_id:point.selected_identity_id}:{}),request_id}};
 }
 export function identityRequest(point,identity) {
   if (!point?.identity_entity_id || point.active === false || !identity?.name) throw Object.assign(new Error('unavailable'),{code:'unavailable'});
   return {type:'call_service',domain:'select',service:'select_option',service_data:{entity_id:point.identity_entity_id,option:identity.name}};
 }
 export function errorMessage(error,language='en') {
-  const key='error.'+error?.code;
+  const key='error.'+(error?.translation_domain==='charge_tally' ? error.translation_key||error.code : error?.code);
   const message=tr(key,language);
   return message===key ? tr('error.unknown',language) : message;
 }

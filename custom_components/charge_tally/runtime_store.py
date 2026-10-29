@@ -684,10 +684,10 @@ class RuntimeStore:
         if command == "start" and self.states[data["point_id"]].get("helper_error"):
             raise ValueError("Repair the point helpers before starting")
         if command in ("end", "reassign", "void"):
-            self.accounting._record(data["record_id"], data["expected_revision"])
+            self.accounting._record(data["record_id"], data.get("expected_revision"))
             data.pop("point_id", None)
         if command == "end":
-            data.pop("expected_revision")
+            data.pop("expected_revision", None)
         if command in ("reassign", "void"):
             data.pop("request_id")
         else:

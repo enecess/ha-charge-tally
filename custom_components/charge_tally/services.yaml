@@ -55,7 +55,6 @@ end:
       selector:
         text:
     expected_revision:
-      required: true
       selector:
         number:
           min: 1

@@ -87,7 +87,7 @@ test('accounting actions retain unavailable meter, busy and connection guards',a
   assert.equal(await apply('manual',true,false,false),true);
   await apply('manual',false);
   await page.locator('[data-point-id] button.primary').click();
-  assert.deepEqual(await page.evaluate(()=>{const r=fixture.pending[0].request;return {service:r.service,id:r.service_data.record_id,revision:r.service_data.expected_revision,request:!!r.service_data.request_id};}),{service:'end',id:'r',revision:7,request:true});
+  assert.deepEqual(await page.evaluate(()=>{const r=fixture.pending[0].request;return {service:r.service,id:r.service_data.record_id,revision:r.service_data.expected_revision,request:!!r.service_data.request_id};}),{service:'end',id:'r',revision:undefined,request:true});
 });
 test('manual start waits for a pending identity selection without blocking active end',async t=>{
   const {page}=await createCardFixture(t);

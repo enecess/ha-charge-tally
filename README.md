@@ -378,7 +378,7 @@ Existing entity IDs and statistics identities remain unchanged. Upgrades do not 
 
 The automation action picker offers **Charge Tally: Start accounting / End accounting / Reassign record identity**. Start/end use server current time, not historical boundaries; use the card for history.
 
-The forms require **Request ID**; ending and reassignment also require **Expected record revision**. These actions need more than selecting a device. Use a new request identifier per new operation, reusing the identifier and fields for retries. To change only the next identity, use **Garage Identity**. If unfamiliar with these validation fields, use the card for direct accounting.
+The forms require **Request ID**; reassignment also requires **Expected record revision**. For ending a record, the revision is optional: omit it to allow ongoing meter updates, or supply it to require an exact revision match. The card ends the displayed record by its fixed record ID. Use a new request identifier per new operation, reusing the identifier and fields for retries. To change only the next identity, use **Garage Identity**. If unfamiliar with these validation fields, use the card for direct accounting.
 
 ## Manage archived data and currency
 
