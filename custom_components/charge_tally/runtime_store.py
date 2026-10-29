@@ -85,6 +85,7 @@ class RuntimeStore:
         self.points = {}
         for state in self.states.values():
             state["available"] = False
+            state["power_w"] = None
             state["interrupted"] = True
             state["detection_power_at"] = None
             if state.get("detector"):
@@ -1157,6 +1158,12 @@ class RuntimeStore:
             ]
             existing = self.ledger.list_intervals(point_id)
             for gap in [i for i in existing if i["gap"]]:
+                # Integral history cannot recover unsampled raw power.
+                if (
+                    self.points[point_id]["input_mode"] == "power"
+                    and "unavailable" in gap["quality"]
+                ):
+                    continue
                 parts = [
                     i
                     for i in valid

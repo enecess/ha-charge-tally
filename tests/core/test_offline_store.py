@@ -232,6 +232,67 @@ def test_power_only_gap_is_not_recovered_from_integral_counter(store):
     assert "missing_energy" in current["quality"]
 
 
+def test_integral_history_cannot_fill_a_known_raw_power_outage(store):
+    point = {**POINT, "input_mode": "power"}
+    store.apply("configure", {"p": point}, {"car": {"name": "Car"}}, T, "UTC")
+    observe(store, "energy", 0, "100")
+    record = start(store)
+    observe(store, "energy", 60, "101")
+    observe(store, "power", 90, "unavailable")
+    observe(store, "power", 100, "1000")
+    observe(store, "energy", 120, "103")
+    before = store.ledger.get_record(record["id"])
+    store.apply(
+        "import_history",
+        "p",
+        [
+            {
+                "start": (T + timedelta(seconds=left)).isoformat(),
+                "end": (T + timedelta(seconds=right)).isoformat(),
+                "energy_kwh": "1",
+                "quality": [],
+                "gap": False,
+            }
+            for left, right in [(60, 90), (90, 120)]
+        ],
+    )
+    assert store.ledger.get_record(record["id"]) == before
+
+
+@pytest.mark.parametrize("first_role", ["energy", "power"])
+def test_restart_does_not_clear_outage_using_cached_other_source(
+    store, tmp_path, first_role
+):
+    record = start(store, "automatic")
+    observe(store, first_role, 90, "unavailable")
+    restored = RuntimeStore(str(tmp_path / "ledger.sqlite3"), "EUR", "UTC")
+    try:
+        restored.apply(
+            "configure",
+            {"p": POINT},
+            {"car": {"name": "Car"}},
+            T + timedelta(seconds=200),
+            "UTC",
+        )
+        observe(restored, first_role, 200, "102" if first_role == "energy" else "1000")
+        observe(
+            restored,
+            "power" if first_role == "energy" else "energy",
+            200,
+            "unavailable",
+        )
+        assert (
+            restored.states["p"]["outage"]["since"]
+            == (T + timedelta(seconds=90)).isoformat()
+        )
+        restored.apply("expire_unavailable", "p", T + timedelta(seconds=390))
+        ended = restored.ledger.get_record(record["id"])
+        assert ended["status"] == "ended"
+        assert ended["end"] == (T + timedelta(seconds=90)).isoformat()
+    finally:
+        restored.ledger.close()
+
+
 @pytest.mark.parametrize("price,known", [(None, False), (Decimal(0), True)])
 def test_legacy_zero_subtotal_projection_uses_actual_priced_segments(
     store, price, known
