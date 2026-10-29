@@ -93,8 +93,10 @@ for(const exit of ['Enter','Escape'])test(`native identity menu survives pushes 
     assert.deepEqual(await page.evaluate(()=>fixture.pending[0].request.service_data),{entity_id:'select.garage',option:'Guest'});
     await page.evaluate(()=>fixture.pending.shift().resolve({}));
     await page.waitForFunction(()=>fixture.pending.some(p=>p.request.type==='charge_tally/snapshot'));
+    assert.equal(await select.isDisabled(),true);
     await page.evaluate(()=>fixture.pending.shift().resolve({...fixture.snapshot,points:[{...fixture.snapshot.points[0],selected_identity_id:'j',power_w:'500'}]}));
     await page.waitForFunction(()=>fixture.card.pendingSelections.size===0);
+    assert.equal(await select.isDisabled(),false);
     assert.equal(await select.inputValue(),'j');
   }
   await page.screenshot({path:`.superpowers/card-qa/task9-menu-${exit.toLowerCase()}.png`});

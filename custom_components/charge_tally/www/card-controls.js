@@ -13,8 +13,10 @@ export class SelectControl {
   }
   update({options=[],value='',disabled=false}){
     const next={options:options.map(({id,name})=>({id:String(id),name:String(name)})),value:String(value??''),disabled:!!disabled};
+    // Disabling can synchronously blur; its handler must see the latest state.
+    if(this.editing)this.pending=next;
     this.node.disabled=next.disabled;
-    if(this.editing){this.pending=next;return;}
+    if(this.editing)return;
     const key=JSON.stringify(next.options);
     if(key!==this.optionsKey){
       this.node.replaceChildren(...next.options.map(item=>{const option=document.createElement('option');option.value=item.id;option.textContent=item.name;return option;}));this.optionsKey=key;
