@@ -214,7 +214,7 @@ Si un enregistrement manuel reste nécessaire, ouvrez **Ressources** dans le men
 
 | Champ | Valeur |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-9` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-10` |
 | Type de ressource | **Module JavaScript** |
 
 Si une ressource utilise déjà ce chemin, mettez-la à jour au lieu de la dupliquer. Si vous gérez les ressources en YAML, déclarez cette même adresse comme module dans votre configuration ; n’installez pas une seconde copie de la carte. Consultez la [documentation des tableaux de bord Home Assistant](https://www.home-assistant.io/dashboards/dashboards/) pour la gestion des ressources.

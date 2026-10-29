@@ -1,5 +1,6 @@
 // Frontend text. Keep keys and placeholders aligned across locales.
 export default {
+  "ended_source_unavailable": "Nach 5 Minuten ohne verfügbare Messquelle beendet; das Ende entspricht dem Beginn des Ausfalls.",
   "recordingIdle": "Keine Erfassung",
   "recordingManual": "Manuelle Erfassung läuft",
   "recordingAutomatic": "Automatische Erfassung läuft",

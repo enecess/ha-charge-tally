@@ -851,6 +851,14 @@ class RuntimeStore:
             )
         raise ValueError("Unknown command")
 
+    def _record_view(self, record):
+        return record_view(
+            record,
+            None
+            if "has_known_cost" in record
+            else self.ledger.list_segments(record["id"]),
+        )
+
     def snapshot(self, point_ids=None):
         scoped = (
             self.ledger if point_ids is None else ScopedLedger(self.ledger, point_ids)
@@ -907,8 +915,10 @@ class RuntimeStore:
                     "id": point_id,
                     "name": point["name"],
                     "selected_identity_id": state["selected_identity_id"],
-                    "active_record": record_view(active) if active else None,
-                    "last_record": record_view(last_record) if last_record else None,
+                    "active_record": self._record_view(active) if active else None,
+                    "last_record": self._record_view(last_record)
+                    if last_record
+                    else None,
                     "unavailable_since": state["outage"]["since"]
                     if state.get("outage")
                     else None,
@@ -963,7 +973,7 @@ class RuntimeStore:
             "identities": identities,
             "points": points,
             "archived_points": archived,
-            "records": [record_view(record) for record in scoped.list_records()],
+            "records": [self._record_view(record) for record in scoped.list_records()],
             "summary": self.scoped_summary(allowed, {}, now=day),
             "revision": self.ledger.data_version(),
             "period_starts": {
@@ -1119,7 +1129,7 @@ class RuntimeStore:
             limit=limit,
         )
         return {
-            "records": [record_view(record) for record in records],
+            "records": [self._record_view(record) for record in records],
             "total": total,
             "offset": offset,
             "limit": limit,

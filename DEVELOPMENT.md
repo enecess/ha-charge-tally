@@ -73,3 +73,22 @@ python -m unittest discover -s tests/core -p 'test_*.py'
 PDF 排版采用串行锁保护字体注册和 ReportLab 生成，调用方必须在后台线程执行，
 不能放在 HA 事件循环或账本 worker。
 视觉样稿与渲染截图只保存在本地 `.superpowers/`，不提交。
+
+## Offline accounting verification
+
+Run tests only from an rsynced WSL `/dev-tmp` copy. The offline regression files
+cover recovered cumulative-meter deltas, the 299/300-second boundary, backdating
+timeout ends to the outage start, persisted deadlines, post-timeout baseline
+gating, frozen bills, numeric partial costs, latest-record retention, and actual
+Recorder statistics. Power-only missing samples remain incomplete; dynamic-price
+gaps are not replaced with a current price. The timeout is fixed at 300 seconds.
+
+```sh
+python -m pytest -q tests/core/test_offline_accounting.py tests/core/test_offline_store.py tests/ha/test_offline_runtime.py tests/ha/test_record_cost_retention.py tests/ha/test_entity_statistics.py
+```
+
+Also run the full Python suite, frontend/browser suites, Ruff, and the six-version
+matrix before release. Validate raw HA cost states and Recorder numeric points;
+a correct-looking dashboard alone does not prove native entity publication.
+Design documents, local diagnostic fixtures, browser assets and test logs remain
+under ignored `docs/superpowers/` or `.superpowers/` directories.

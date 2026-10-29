@@ -87,6 +87,20 @@ def compact(text):
 
 
 @pytest.mark.parametrize(
+    "language,reason",
+    [
+        ("en", "Ended after the source remained unavailable for 5 minutes"),
+        ("zh-Hans", "设备持续离线5分钟，记账结束时间为离线起点"),
+    ],
+)
+def test_pdf_explains_source_unavailable_end(language, reason):
+    report = report_fixture()
+    report["rows"][0]["record"]["end_reason"] = "source_unavailable"
+    _, text = read_pdf(report, language)
+    assert compact(reason) in compact(text)
+
+
+@pytest.mark.parametrize(
     "language,energy,cost,page",
     [
         ("en", "Period energy", "Period cost", "Page 1"),

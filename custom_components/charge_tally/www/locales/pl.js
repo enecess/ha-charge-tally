@@ -1,5 +1,6 @@
 // Frontend text. Keep keys and placeholders aligned across locales.
 export default {
+  "ended_source_unavailable": "Zakończono po 5 minutach niedostępności źródła; czas końca to początek przerwy.",
   "recordingIdle": "Brak rejestrowania",
   "recordingManual": "Rejestrowanie ręczne w toku",
   "recordingAutomatic": "Rejestrowanie automatyczne w toku",

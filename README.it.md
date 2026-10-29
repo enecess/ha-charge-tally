@@ -214,7 +214,7 @@ Se serve intervenire, apri **Risorse** dal menu di **Impostazioni → Dashboard*
 
 | Campo | Valore |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-9` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-10` |
 | Tipo di risorsa | **Modulo JavaScript** |
 
 Se esiste già lo stesso percorso, aggiornalo senza duplicarlo. Se gestisci le risorse in YAML, registra lì lo stesso URL e tipo modulo; non installare una seconda copia. Vedi la [documentazione delle dashboard di Home Assistant](https://www.home-assistant.io/dashboards/dashboards/).

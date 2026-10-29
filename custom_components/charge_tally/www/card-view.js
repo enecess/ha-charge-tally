@@ -1,8 +1,8 @@
-import {exportErrorMessage} from './card-export.js?v=0.1.2-9';
-import {ChartView} from './card-chart.js?v=0.1.2-9';
-import {SelectControl} from './card-controls.js?v=0.1.2-9';
-import {el,button,field,input,summaryView,quality,dateText} from './card-ui.js?v=0.1.2-9';
-import {formatDecimal,formatCost,errorMessage} from './card-state.js?v=0.1.2-9';
+import {exportErrorMessage} from './card-export.js?v=0.1.2-10';
+import {ChartView} from './card-chart.js?v=0.1.2-10';
+import {SelectControl} from './card-controls.js?v=0.1.2-10';
+import {el,button,field,input,summaryView,quality,dateText} from './card-ui.js?v=0.1.2-10';
+import {formatDecimal,formatCost,errorMessage} from './card-state.js?v=0.1.2-10';
 
 const text=(node,value)=>{if(node.textContent!==String(value))node.textContent=value;};
 const label=(control,value)=>text(control.label.firstChild,value);

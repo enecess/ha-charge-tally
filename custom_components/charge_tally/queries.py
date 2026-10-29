@@ -219,7 +219,7 @@ def summarize(
                 range_end = min(finishes, end) if finishes and end else finishes or end
                 contributions.append(
                     dict(
-                        record=record_view(record),
+                        record=record_view(record, parts),
                         range_start=(
                             max(begins, start) if start else begins
                         ).isoformat(),

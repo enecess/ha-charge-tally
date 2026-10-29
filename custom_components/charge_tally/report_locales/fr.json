@@ -41,5 +41,6 @@
   "quality_estimated": "Estimé",
   "quality_manual": "Saisi manuellement",
   "quality_incomplete": "Coût incomplet : seuls les montants connus sont inclus.",
-  "note": "Note"
+  "note": "Note",
+  "ended_source_unavailable": "Terminé après 5 minutes d’indisponibilité de la source ; la fin correspond au début de l’interruption."
 }

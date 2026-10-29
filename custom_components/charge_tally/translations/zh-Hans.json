@@ -43,12 +43,12 @@
                 "energy_entity": "累计电量实体",
                 "power_entity": "功率实体",
                 "resetting": "表底可能重置",
-                "max_gap_seconds": "最大自动分摊间隔（秒）",
+                "max_gap_seconds": "长采样间隔阈值（秒）",
                 "detection_enabled": "智能充电识别"
               },
               "data_description": {
                 "resetting": "表底下降时按重置处理，并标记该区间不完整。",
-                "max_gap_seconds": "更长的区间标记为数据缺口，需要复核。默认 600 秒。"
+                "max_gap_seconds": "超过此间隔的有效累计电量按时间分摊并标记估算，默认 600 秒。来源持续不可用另按固定 5 分钟超时处理。"
               }
             }
           }
@@ -526,34 +526,34 @@
         "name": "{name} 状态"
       },
       "record_energy": {
-        "name": "{name} 记录电量"
+        "name": "{name} 当前／最近记录电量"
       },
       "record_cost": {
-        "name": "{name} 记录费用"
+        "name": "{name} 当前／最近记录已计费用"
       },
       "daily_energy": {
         "name": "{name} 今日电量"
       },
       "daily_cost": {
-        "name": "{name} 今日费用"
+        "name": "{name} 今日已计费用"
       },
       "monthly_energy": {
         "name": "{name} 本月电量"
       },
       "monthly_cost": {
-        "name": "{name} 本月费用"
+        "name": "{name} 本月已计费用"
       },
       "yearly_energy": {
         "name": "{name} 今年电量"
       },
       "yearly_cost": {
-        "name": "{name} 今年费用"
+        "name": "{name} 今年已计费用"
       },
       "total_energy": {
         "name": "{name} 累计电量"
       },
       "total_cost": {
-        "name": "{name} 累计费用"
+        "name": "{name} 累计已计费用"
       }
     },
     "select": {

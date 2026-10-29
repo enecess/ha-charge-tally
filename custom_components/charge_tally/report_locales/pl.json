@@ -41,5 +41,6 @@
   "quality_estimated": "Oszacowane",
   "quality_manual": "Wpisane ręcznie",
   "quality_incomplete": "Niepełny koszt: uwzględniono tylko znane kwoty.",
-  "note": "Uwaga"
+  "note": "Uwaga",
+  "ended_source_unavailable": "Zakończono po 5 minutach niedostępności źródła; czas końca to początek przerwy."
 }

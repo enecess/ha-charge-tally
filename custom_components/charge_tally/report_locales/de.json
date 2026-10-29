@@ -41,5 +41,6 @@
   "quality_estimated": "Geschätzt",
   "quality_manual": "Manuell erfasst",
   "quality_incomplete": "Kosten unvollständig: Nur bekannte Beträge sind enthalten.",
-  "note": "Notiz"
+  "note": "Notiz",
+  "ended_source_unavailable": "Nach 5 Minuten ohne verfügbare Messquelle beendet; das Ende entspricht dem Beginn des Ausfalls."
 }

@@ -1,7 +1,7 @@
-import {tr} from './card-i18n.js?v=0.1.2-9';
-import {newRequestId} from './request-id.js?v=0.1.2-9';
-import {Latest,localInput,localCandidates,errorMessage,previewRequest,commitRequest} from './card-state.js?v=0.1.2-9';
-import {el,button,field,select,input,summaryView,segmentTable,quality,dateText,updateLabels} from './card-ui.js?v=0.1.2-9';
+import {tr} from './card-i18n.js?v=0.1.2-10';
+import {newRequestId} from './request-id.js?v=0.1.2-10';
+import {Latest,localInput,localCandidates,errorMessage,previewRequest,commitRequest} from './card-state.js?v=0.1.2-10';
+import {el,button,field,select,input,summaryView,segmentTable,quality,dateText,updateLabels} from './card-ui.js?v=0.1.2-10';
 
 export class RecordDialog {
   constructor(host,options){
@@ -43,6 +43,7 @@ export class RecordDialog {
   renderDetails(){
     const {record,segments,revisions}=this.detail;this.record=record;
     this.content.append(el('p',`${this.pointName(record.point_id)} · ${this.identityName(record.identity_id)}`),summaryView(record,this.currency,this.language),el('p',`${dateText(record.start,record.timezone)} → ${dateText(record.end,record.timezone)} (${record.timezone})`),el('p',`${this.t('status')}: ${tr(record.status,this.language)} · ${this.t('source')}: ${tr(record.source==='manual'?'manual_source':record.source,this.language)} · ${this.t('revision')}: ${record.revision}`),el('p',quality(record.quality,this.language),{class:'quality'}),el('p',record.note||''),el('h3',this.t('segments')),segmentTable(segments,this.language,this.currency,record.timezone));
+    if(record.end_reason==='source_unavailable')this.content.append(el('p',this.t('ended_source_unavailable')));
     const history=el('details');history.append(el('summary',`${this.t('revisions')} (${revisions?.length||0})`));
     for(const revision of revisions||[]){const item=el('div',null,{class:'point'}),r=revision.record;item.append(el('p',`${this.t('revision')} ${r.revision} · ${(r.identity_name??this.identityName(r.identity_id))} · ${tr(r.status,this.language)}`),summaryView(r,this.currency,this.language),el('p',r.note||''));history.append(item);}this.content.append(history);
     const actions=el('div',null,{class:'row dialog-actions'});

@@ -412,6 +412,8 @@ def _render(report, language):
         if not row["cost_complete"]:
             quality.add("incomplete")
         status = [tr("active") if active else tr("completed")]
+        if record.get("end_reason") == "source_unavailable":
+            status.append(tr("ended_source_unavailable"))
         status.extend(
             tr("quality_" + mark)
             for mark in sorted(marks - {"provisional"})

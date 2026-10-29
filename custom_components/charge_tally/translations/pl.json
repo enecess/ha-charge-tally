@@ -43,12 +43,12 @@
                 "energy_entity": "Czujnik skumulowanej energii",
                 "power_entity": "Czujnik mocy",
                 "resetting": "Licznik może się zerować",
-                "max_gap_seconds": "Maksymalny interwał przypisywania (sekundy)",
+                "max_gap_seconds": "Próg długiego odstępu próbkowania (sekundy)",
                 "detection_enabled": "Automatyczne wykrywanie ładowania"
               },
               "data_description": {
                 "resetting": "Spadek odczytu licznika oznacza niekompletny interwał z wyzerowaniem licznika.",
-                "max_gap_seconds": "Dłuższe interwały stają się lukami wymagającymi sprawdzenia. Domyślnie: 600 sekund."
+                "max_gap_seconds": "Dłuższe prawidłowe odstępy licznika są dzielone proporcjonalnie do czasu i oznaczane jako szacowane. Domyślnie: 600 sekund. Niedostępność źródła ma osobny stały limit 5 minut."
               }
             }
           }
@@ -526,34 +526,34 @@
         "name": "{name} Stan"
       },
       "record_energy": {
-        "name": "{name} Energia wpisu"
+        "name": "{name} Energia bieżącego/ostatniego wpisu"
       },
       "record_cost": {
-        "name": "{name} Koszt wpisu"
+        "name": "{name} Obliczony koszt bieżącego/ostatniego wpisu"
       },
       "daily_energy": {
         "name": "{name} Energia dzienna"
       },
       "daily_cost": {
-        "name": "{name} Koszt dzienny"
+        "name": "{name} Obliczony koszt dzienny"
       },
       "monthly_energy": {
         "name": "{name} Energia miesięczna"
       },
       "monthly_cost": {
-        "name": "{name} Koszt miesięczny"
+        "name": "{name} Obliczony koszt miesięczny"
       },
       "yearly_energy": {
         "name": "{name} Energia roczna"
       },
       "yearly_cost": {
-        "name": "{name} Koszt roczny"
+        "name": "{name} Obliczony koszt roczny"
       },
       "total_energy": {
         "name": "{name} Energia całkowita"
       },
       "total_cost": {
-        "name": "{name} Koszt całkowity"
+        "name": "{name} Obliczony koszt całkowity"
       }
     },
     "select": {

@@ -1,5 +1,6 @@
 // Frontend text. Keep keys and placeholders aligned across locales.
 export default {
+  "ended_source_unavailable": "设备持续离线5分钟，记账结束时间为离线起点。",
   "recordingIdle": "未记账",
   "recordingManual": "手动记账中",
   "recordingAutomatic": "自动记账中",

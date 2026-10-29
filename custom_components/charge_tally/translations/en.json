@@ -43,12 +43,12 @@
                 "energy_entity": "Cumulative energy sensor",
                 "power_entity": "Power sensor",
                 "resetting": "Meter may reset",
-                "max_gap_seconds": "Maximum allocation interval (seconds)",
+                "max_gap_seconds": "Long sampling interval threshold (seconds)",
                 "detection_enabled": "Automatic charging detection"
               },
               "data_description": {
                 "resetting": "A falling meter reading marks an incomplete reset interval.",
-                "max_gap_seconds": "Longer intervals become gaps requiring review. Default: 600 seconds."
+                "max_gap_seconds": "Longer valid cumulative-meter intervals are allocated by time and marked estimated. Default: 600 seconds. Source unavailability has a separate fixed 5-minute timeout."
               }
             }
           }
@@ -526,34 +526,34 @@
         "name": "{name} Status"
       },
       "record_energy": {
-        "name": "{name} Record energy"
+        "name": "{name} Current/latest record energy"
       },
       "record_cost": {
-        "name": "{name} Record cost"
+        "name": "{name} Current/latest record calculated cost"
       },
       "daily_energy": {
         "name": "{name} daily energy"
       },
       "daily_cost": {
-        "name": "{name} daily cost"
+        "name": "{name} daily calculated cost"
       },
       "monthly_energy": {
         "name": "{name} monthly energy"
       },
       "monthly_cost": {
-        "name": "{name} monthly cost"
+        "name": "{name} monthly calculated cost"
       },
       "yearly_energy": {
         "name": "{name} yearly energy"
       },
       "yearly_cost": {
-        "name": "{name} yearly cost"
+        "name": "{name} yearly calculated cost"
       },
       "total_energy": {
         "name": "{name} total energy"
       },
       "total_cost": {
-        "name": "{name} total cost"
+        "name": "{name} total calculated cost"
       }
     },
     "select": {

@@ -22,8 +22,7 @@ if TYPE_CHECKING:
     from .runtime import Runtime
 
 
-def current_record_attributes(point: dict[str, Any] | None) -> dict[str, Any]:
-    record = point.get("active_record") if point else None
+def record_attributes(record: dict[str, Any] | None) -> dict[str, Any]:
     return (
         {
             "record_id": record["id"],
@@ -106,7 +105,7 @@ class Status(TallyEntity, SensorEntity):
             {
                 "quality": self.point["quality"],
                 "error": self.point.get("error"),
-                **current_record_attributes(self.point),
+                **record_attributes(self.point.get("active_record")),
             }
             if self.point
             else {}
@@ -129,10 +128,15 @@ class RecordSensor(TallyEntity, SensorEntity):
         )
 
     @property
+    def record(self) -> dict[str, Any] | None:
+        point = self.point
+        return (
+            (point.get("active_record") or point.get("last_record")) if point else None
+        )
+
+    @property
     def native_value(self) -> str | None:
-        record = self.point.get("active_record") if self.point else None
-        if record and self.metric == "cost" and not record["cost_complete"]:
-            return None
+        record = self.record
         return (
             record["energy_kwh" if self.metric == "energy" else "known_cost"]
             if record
@@ -141,13 +145,17 @@ class RecordSensor(TallyEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        record = self.point.get("active_record") if self.point else None
+        record = self.record
         return (
             {
                 "known_cost": record["known_cost"],
+                "has_known_cost": record["has_known_cost"],
                 "cost_complete": record["cost_complete"],
                 "quality": record["quality"],
-                **current_record_attributes(self.point),
+                "record_status": record["status"],
+                "end": record["end"],
+                "end_reason": record.get("end_reason"),
+                **record_attributes(record),
             }
             if record
             else {}
@@ -188,8 +196,6 @@ class IdentitySensor(TallyEntity, SensorEntity):
 
     @property
     def native_value(self) -> str | None:
-        if self.summary and self.metric == "cost" and not self.summary["cost_complete"]:
-            return None
         return (
             self.summary["energy_kwh" if self.metric == "energy" else "known_cost"]
             if self.summary
@@ -201,6 +207,7 @@ class IdentitySensor(TallyEntity, SensorEntity):
         return (
             {
                 "known_cost": self.summary["known_cost"],
+                "has_known_cost": self.summary["has_known_cost"],
                 "cost_complete": self.summary["cost_complete"],
                 "quality": self.summary["quality"],
             }

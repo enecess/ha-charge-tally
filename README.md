@@ -118,7 +118,7 @@ On **Measurement sources**, expand **Measurement and detection**:
 | **Cumulative energy sensor** | The circuit’s cumulative energy sensor; hidden for **Power only (native Integral)** |
 | **Power sensor** | The circuit’s power sensor; hidden for **Energy only** |
 | **Meter may reset** | Leave enabled if the meter may return to zero; a falling reading marks an incomplete reset interval |
-| **Maximum allocation interval (seconds)** | Default: 600 seconds; longer reading intervals become gaps requiring review |
+| **Long sampling interval threshold (seconds)** | Default: 600 seconds; longer valid cumulative-meter intervals are allocated by time and marked estimated |
 | **Automatic charging detection** | Available in modes with power; enabling it opens detection settings next |
 
 ### 4. Configure automatic detection (optional)
@@ -214,7 +214,7 @@ If necessary, open **Resources** from the **Settings → Dashboards** menu. Enab
 
 | Field | Value |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-9` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-10` |
 | Resource type | **JavaScript module** |
 
 Update an existing entry for that path rather than duplicating it. If you manage resources in YAML, register this URL and module type there; do not install a second card copy. See the [Home Assistant dashboard documentation](https://www.home-assistant.io/dashboards/dashboards/).
@@ -277,13 +277,23 @@ Only point and identity filters apply: **statistics dates do not filter this lis
 2. Verify **Manual recording in progress** and the current totals. An immediate manual start uses the currently selected identity and clears the automatic candidate.
 3. Click **End recording** to finish, then review the record in the list.
 
-These buttons only record boundaries; they do not control the charger. A manually started record must be ended explicitly from the card or an automation action. Automatic detection pauses throughout that record, even at zero power, and never ends it automatically. A valid energy baseline is required to start; an existing record can still be ended if measurements become unavailable.
+These buttons only record boundaries; they do not control the charger. Automatic charging detection pauses during a manually started record, even at zero power. End it from the card or an automation action, or let the source-unavailable rule below close it after a persistent measurement outage. A valid energy baseline is required to start; an existing record can still be ended if measurements become unavailable.
 
 ### Detect charging automatically
 
 With detection configured and enabled, detection can progress through **Confirming charging → Tracking an automatic record → Confirming end → Waiting for automatic detection**. If the power condition fails during confirmation, the pending start or end is canceled. Automatic confirmation uses the last successfully selected identity before confirmation completes, including **Unassigned**. You can end an automatic record early with **End recording manually**, or **End recording now** during end confirmation.
 
-After an explicit end, detection normally waits for power to fall below the end threshold. It can resume immediately only if the latest valid low-power observation is no later than the end command, its age does not exceed the duration set by **Maximum allocation interval (seconds)**, and neither unavailable data nor a restart has invalidated it. High, missing, future or stale readings do not release the block. After `unknown` or unavailable power, a subsequent valid low-power observation is required. While blocked, manual recording remains available.
+After an explicit end, detection normally waits for power to fall below the end threshold. It can resume immediately only if the latest valid low-power observation is no later than the end command, its age does not exceed the duration set by **Long sampling interval threshold (seconds)**, and neither unavailable data nor a restart has invalidated it. High, missing, future or stale readings do not release the block. After `unknown` or unavailable power, a subsequent valid low-power observation is required. While blocked, manual recording remains available. A source-unavailable timeout is different: after recovery and a fresh energy baseline, automatic detection may confirm a new high-power cycle without first seeing low power.
+
+### Temporary outages and automatic closure
+
+A required measurement source that becomes unavailable starts a fixed **5-minute (300-second)** waiting period. This duration is not configurable. If every required source recovers before the deadline, the same record continues. In cumulative-energy modes, a nondecreasing meter reading recovers the missing increment; time-based allocation across tariff, date or record boundaries is marked estimated. Power is not used to replace missing cumulative-meter readings.
+
+At 300 seconds, the record closes with its end time set to **the start of the outage**, not the timeout time. For example, an outage beginning at 10:01 is confirmed at 10:06, and the record ends at 10:01. Waiting-period amounts provisionally recorded while another required source was unavailable are removed. Recovery after timeout never backfills that bill or transfers the outage increment to a new record. The first fresh energy sample after recovery establishes the next billing baseline. A reload preserves the original deadline.
+
+Manual energy-plus-power records require the energy source; power loss alone does not end them. Automatic energy-plus-power records require both sources. Power-only records require raw power and the native Integral sensor. Missing tariff data does not trigger record closure. A valid sensor that simply has no new reports does not start the unavailable timer.
+
+Point cumulative energy and its Utility Meter helpers still reflect meter increments, including electricity outside recorded charges. Genuine meter resets, missing initial baselines and missing raw power cannot be reconstructed from invented readings. Unknown prices remain unknown; only already calculated amounts are included in the cost subtotal.
 
 Before pausing with the native **Detection** switch, finish active records and pending confirmation. If thresholds are not configured, open **Configure charging point** first.
 
@@ -340,7 +350,8 @@ Times use the displayed accounting timezone, not the browser timezone. For repea
 | **Provisional / Pending settlement** | Record or measurement boundaries are not final; later readings may update results |
 | **known subtotal · pending** | Only known cost, not a complete bill; unknown does not mean zero |
 | **Missing price / Unknown price** | No valid price; check currency, units, availability and retained history |
-| **Missing energy / Observation gap** | Insufficient data or overly long intervals; review and add manual values if needed |
+| **Missing energy** | Energy coverage cannot be established; review and add manual values if appropriate |
+| **Observation gap / Estimated** | A sampling interruption or long interval; a valid cumulative increment may still be allocated proportionally |
 | **Meter reset** | A falling reading made the affected interval incomplete |
 | **Manual override / Estimated** | Manual values or time allocation, not actual measurements at every instant |
 
@@ -356,12 +367,14 @@ Use integration data in HA entity pages, other cards and automations. Examples b
 | --- | --- |
 | **Garage Energy** | Cumulative point energy |
 | **Garage Status** | Charging or availability state |
-| **Garage Record energy / Garage Record cost** | Active record; no current value when idle, not the previous record |
+| **Garage Current/latest record energy / calculated cost** | Active record, or the latest non-void ended record when idle; attributes identify its status and end reason |
 | **Garage Identity** | Select the next identity, including via RFID or buttons |
 | **Garage Detection** | Detection switch in power modes; not charger power control |
 | **Family car daily energy / daily cost, monthly energy / monthly cost, yearly energy / yearly cost, total energy / total cost** | Identity record statistics; Unassigned also has these |
 
-Incomplete native cost entities may lack a complete value while the card shows the known subtotal. Daily/monthly/yearly energy helpers selected at setup have a different purpose from identity statistics. Do not manually remove or alter the integration’s managed helpers.
+Native cost entities publish the **calculated subtotal**, including when a bill is incomplete. Check `cost_complete`, `has_known_cost` and `quality`: a zero subtotal with `has_known_cost=false` is not proof of free charging, and an estimated amount need not be exact. Daily/monthly/yearly energy helpers selected at setup have a different purpose from identity statistics. Do not manually remove or alter the integration’s managed helpers.
+
+Existing entity IDs and statistics identities remain unchanged. Upgrades do not rewrite past Recorder unknown states or bulk-recalculate old bills. Late short-outage recovery can update the ledger's original calendar-day totals; the native HA graph records the time a sensor value was published. Use the card or PDF ledger report to reconcile charges by their actual accounting period.
 
 The automation action picker offers **Charge Tally: Start accounting / End accounting / Reassign record identity**. Start/end use server current time, not historical boundaries; use the card for history.
 
@@ -427,7 +440,7 @@ Local brand icons require **Home Assistant 2026.3 or newer**; older icon behavio
 | **Start recording manually** unavailable | Sources and point identity entity available; loading/repair completed |
 | Identity change did not affect this record | Selector prepares the next record; use **Change record identity** |
 | Today still shows older records | Dates filter statistics, not **Records · all dates** |
-| Known subtotal only or native cost unavailable | Review gaps, historical prices, currency and quality; do not assume free charging |
+| Calculated cost is incomplete or zero without known prices | Review `cost_complete`, `has_known_cost`, source coverage and historical prices; do not assume free charging |
 | Stale preview, changed record or overlap | Refresh, reopen and preview again; adjust overlaps, as validation cannot be skipped |
 | **Charging point helpers need repair** | Open HA repairs, choose **Repair managed helpers** and confirm; rebuild owned helpers while keeping history |
 | Currency locked after removing configuration | Archived data remains; inspect **Manage archived data** |

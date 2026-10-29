@@ -96,6 +96,11 @@ class Accounting:
             raise ValueError("Unknown or void record")
         if expected_revision is not None and record["revision"] != expected_revision:
             raise ValueError("Record revision conflict")
+        if "has_known_cost" not in record:
+            record["has_known_cost"] = any(
+                part["cost"] is not None
+                for part in self.ledger.list_segments(record_id)
+            )
         return record
 
     def _build(self, record):

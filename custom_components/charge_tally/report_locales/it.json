@@ -41,5 +41,6 @@
   "quality_estimated": "Stimato",
   "quality_manual": "Inserito manualmente",
   "quality_incomplete": "Costo incompleto: sono inclusi solo gli importi noti.",
-  "note": "Nota"
+  "note": "Nota",
+  "ended_source_unavailable": "Terminato dopo 5 minuti di indisponibilità della sorgente; la fine coincide con l’inizio dell’interruzione."
 }

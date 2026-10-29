@@ -1,4 +1,4 @@
-import {tr,locale} from './card-i18n.js?v=0.1.2-9';
+import {tr,locale} from './card-i18n.js?v=0.1.2-10';
 const numberFormats=new Map();
 export function formatDecimal(value,language='en',digits=3,minimum=0){
   if(value==null)return '—';

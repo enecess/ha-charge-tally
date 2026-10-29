@@ -230,3 +230,29 @@ def test_power_only_gap_is_not_recovered_from_integral_counter(store):
     assert Decimal(current["energy_kwh"]) == 1
     assert not current["cost_complete"]
     assert "missing_energy" in current["quality"]
+
+
+@pytest.mark.parametrize("price,known", [(None, False), (Decimal(0), True)])
+def test_legacy_zero_subtotal_projection_uses_actual_priced_segments(
+    store, price, known
+):
+    record = start(store)
+    store.accounting.add_interval(
+        "p", T, T + timedelta(seconds=60), Decimal(1), [(T, price)]
+    )
+    legacy = store.ledger.get_record(record["id"])
+    legacy.pop("has_known_cost")
+    store.ledger.save_record(
+        legacy, store.ledger.list_segments(record["id"]), audit=False
+    )
+    snapshot = store.snapshot()
+    assert snapshot["points"][0]["active_record"]["has_known_cost"] is known
+    assert snapshot["records"][0]["has_known_cost"] is known
+    assert store.query("records", {}, ["p"])["records"][0]["has_known_cost"] is known
+    assert (
+        store.query("record", {"record_id": record["id"]}, ["p"])["record"][
+            "has_known_cost"
+        ]
+        is known
+    )
+    assert "has_known_cost" not in store.ledger.get_record(record["id"])

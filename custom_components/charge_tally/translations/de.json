@@ -43,12 +43,12 @@
                 "energy_entity": "Sensor für kumulierte Energie",
                 "power_entity": "Leistungssensor",
                 "resetting": "Zähler kann zurückgesetzt werden",
-                "max_gap_seconds": "Maximales Zuordnungsintervall (Sekunden)",
+                "max_gap_seconds": "Schwelle für lange Abtastintervalle (Sekunden)",
                 "detection_enabled": "Automatische Ladeerkennung"
               },
               "data_description": {
                 "resetting": "Ein sinkender Zählerstand kennzeichnet ein unvollständiges Intervall mit Zählerrücksetzung.",
-                "max_gap_seconds": "Längere Intervalle werden zu Lücken, die geprüft werden müssen. Standard: 600 Sekunden."
+                "max_gap_seconds": "Längere gültige Zählerintervalle werden zeitanteilig verteilt und als geschätzt markiert. Standard: 600 Sekunden. Nicht verfügbare Quellen haben ein separates festes Zeitlimit von 5 Minuten."
               }
             }
           }
@@ -526,34 +526,34 @@
         "name": "{name} Status"
       },
       "record_energy": {
-        "name": "{name} Energie des Eintrags"
+        "name": "{name} Energie des aktuellen/letzten Eintrags"
       },
       "record_cost": {
-        "name": "{name} Kosten des Eintrags"
+        "name": "{name} Berechnete Kosten des aktuellen/letzten Eintrags"
       },
       "daily_energy": {
         "name": "{name} Tagesenergie"
       },
       "daily_cost": {
-        "name": "{name} Tageskosten"
+        "name": "{name} Berechnete Tageskosten"
       },
       "monthly_energy": {
         "name": "{name} Monatsenergie"
       },
       "monthly_cost": {
-        "name": "{name} Monatskosten"
+        "name": "{name} Berechnete Monatskosten"
       },
       "yearly_energy": {
         "name": "{name} Jahresenergie"
       },
       "yearly_cost": {
-        "name": "{name} Jahreskosten"
+        "name": "{name} Berechnete Jahreskosten"
       },
       "total_energy": {
         "name": "{name} Gesamtenergie"
       },
       "total_cost": {
-        "name": "{name} Gesamtkosten"
+        "name": "{name} Berechnete Gesamtkosten"
       }
     },
     "select": {

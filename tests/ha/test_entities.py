@@ -107,20 +107,20 @@ async def test_rename_repair_does_not_adopt_unowned_or_disabled_entity(
             [
                 "Garage Energie",
                 "Garage Status",
-                "Garage Energie des Eintrags",
-                "Garage Kosten des Eintrags",
+                "Garage Energie des aktuellen/letzten Eintrags",
+                "Garage Berechnete Kosten des aktuellen/letzten Eintrags",
                 "Garage Identität",
                 "Garage Ladeerkennung",
             ],
             [
                 "Tagesenergie",
-                "Tageskosten",
+                "Berechnete Tageskosten",
                 "Monatsenergie",
-                "Monatskosten",
+                "Berechnete Monatskosten",
                 "Jahresenergie",
-                "Jahreskosten",
+                "Berechnete Jahreskosten",
                 "Gesamtenergie",
-                "Gesamtkosten",
+                "Berechnete Gesamtkosten",
             ],
         ),
         (
@@ -128,20 +128,20 @@ async def test_rename_repair_does_not_adopt_unowned_or_disabled_entity(
             [
                 "Garage Énergie",
                 "Garage État",
-                "Garage Énergie de l’enregistrement",
-                "Garage Coût de l’enregistrement",
+                "Garage Énergie de l’enregistrement actuel/dernier",
+                "Garage Coût calculé de l’enregistrement actuel/dernier",
                 "Garage Identité",
                 "Garage Détection de la recharge",
             ],
             [
                 "Énergie du jour",
-                "Coût du jour",
+                "Coût calculé du jour",
                 "Énergie du mois",
-                "Coût du mois",
+                "Coût calculé du mois",
                 "Énergie de l’année",
-                "Coût de l’année",
+                "Coût calculé de l’année",
                 "Énergie totale",
-                "Coût total",
+                "Coût total calculé",
             ],
         ),
         (
@@ -149,20 +149,20 @@ async def test_rename_repair_does_not_adopt_unowned_or_disabled_entity(
             [
                 "Garage Energia",
                 "Garage Stan",
-                "Garage Energia wpisu",
-                "Garage Koszt wpisu",
+                "Garage Energia bieżącego/ostatniego wpisu",
+                "Garage Obliczony koszt bieżącego/ostatniego wpisu",
                 "Garage Tożsamość",
                 "Garage Wykrywanie ładowania",
             ],
             [
                 "Energia dzienna",
-                "Koszt dzienny",
+                "Obliczony koszt dzienny",
                 "Energia miesięczna",
-                "Koszt miesięczny",
+                "Obliczony koszt miesięczny",
                 "Energia roczna",
-                "Koszt roczny",
+                "Obliczony koszt roczny",
                 "Energia całkowita",
-                "Koszt całkowity",
+                "Obliczony koszt całkowity",
             ],
         ),
     ],
@@ -288,7 +288,8 @@ async def test_current_record_attributes_allow_automation_to_end_with_revision(
     assert ended["status"] == "ended"
     await hass.async_block_till_done()
     assert hass.states.get(status_id).attributes.get("record_id") is None
-    assert hass.states.get(energy_id).attributes.get("record_revision") is None
+    assert hass.states.get(energy_id).attributes["record_revision"] == ended["revision"]
+    assert hass.states.get(energy_id).attributes["record_status"] == "ended"
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -378,7 +379,7 @@ async def test_detection_switch_tracks_reconfigured_point_capabilities(hass, tmp
 
 
 @pytest.mark.parametrize("known_first", [False, True])
-async def test_incomplete_cost_entities_are_unknown_with_known_subtotal(
+async def test_incomplete_cost_entities_publish_known_subtotal(
     hass, tmp_path, freezer, known_first
 ):
     hass.states.async_set(
@@ -417,7 +418,8 @@ async def test_incomplete_cost_entities_are_unknown_with_known_subtotal(
             "sensor", "charge_tally", entry.entry_id + ":" + id_ + ":" + key
         )
         state = hass.states.get(entity_id)
-        assert state.state == "unknown"
+        assert Decimal(state.state) == (Decimal(".120") if known_first else Decimal(0))
+        assert state.attributes["has_known_cost"] is known_first
         assert state.attributes["cost_complete"] is False
         assert Decimal(state.attributes["known_cost"]) == (
             Decimal(".120") if known_first else Decimal(0)

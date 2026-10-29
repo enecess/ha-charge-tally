@@ -1,5 +1,6 @@
 // Frontend text. Keep keys and placeholders aligned across locales.
 export default {
+  "ended_source_unavailable": "Ended after the source remained unavailable for 5 minutes; the record ends at the start of the outage.",
   "recordingIdle": "Not recording",
   "recordingManual": "Manual recording in progress",
   "recordingAutomatic": "Automatic recording in progress",

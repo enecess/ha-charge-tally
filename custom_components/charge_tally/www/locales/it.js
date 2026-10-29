@@ -1,5 +1,6 @@
 // Frontend text. Keep keys and placeholders aligned across locales.
 export default {
+  "ended_source_unavailable": "Terminato dopo 5 minuti di indisponibilità della sorgente; la fine coincide con l’inizio dell’interruzione.",
   "recordingIdle": "Nessuna contabilizzazione in corso",
   "recordingManual": "Contabilizzazione manuale in corso",
   "recordingAutomatic": "Contabilizzazione automatica in corso",

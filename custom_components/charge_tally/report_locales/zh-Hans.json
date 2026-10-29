@@ -41,5 +41,6 @@
   "quality_estimated": "估算",
   "quality_manual": "人工录入",
   "quality_incomplete": "费用不完整：仅包含已知金额。",
-  "note": "备注"
+  "note": "备注",
+  "ended_source_unavailable": "设备持续离线5分钟，记账结束时间为离线起点。"
 }

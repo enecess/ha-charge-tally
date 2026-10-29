@@ -2,6 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createCardFixture} from './card-fixture.mjs';
 
+test('record details show the source outage end reason',async t=>{
+  const {page}=await createCardFixture(t);
+  await page.evaluate(()=>{
+    const record={id:'r',revision:2,point_id:'p',identity_id:'i',start:'2026-10-29T10:00:00Z',end:'2026-10-29T10:01:00Z',timezone:'UTC',status:'ended',source:'automatic',end_reason:'source_unavailable',energy_kwh:'1',known_cost:'0.5',cost_complete:false,quality:['missing_energy']};
+    fixture.card.openDialog('details',{record,segments:[],revisions:[]});
+  });
+  assert.match(await page.locator('dialog').innerText(),/Ended after the source remained unavailable for 5 minutes/);
+});
+
 test('custom date drafts query only the applied range across pushes and filters',async t=>{
   const {page}=await createCardFixture(t,{show_chart:false});
   await page.evaluate(()=>{fixture.card.setPeriod('custom');fixture.card.setExpanded('statistics',true);});
@@ -236,7 +245,7 @@ test('period and page versions independently reject late responses',async t=>{
 test('select protection clones the latest queued options and dispose drops pending changes',async t=>{
   const {page}=await createCardFixture(t);
   assert.deepEqual(await page.evaluate(async()=>{
-    const {SelectControl}=await import('/card-controls.js?v=0.1.2-9');const control=new SelectControl();document.body.append(control.node);control.update({options:[{id:'a',name:'A'}],value:'a'});const original=control.node.firstChild;control.update({options:[{id:'a',name:'A'}],value:'a'});const untouched=original===control.node.firstChild;control.node.focus();const options=[{id:'b',name:'B'}];control.update({options,value:'b'});options[0].name='Changed outside';control.node.blur();const name=control.node.firstChild.textContent;control.node.focus();control.update({options:[{id:'c',name:'C'}],value:'c'});control.dispose();control.node.blur();return {untouched,name,value:control.node.value,pending:control.pending,editing:control.editing};
+    const {SelectControl}=await import('/card-controls.js?v=0.1.2-10');const control=new SelectControl();document.body.append(control.node);control.update({options:[{id:'a',name:'A'}],value:'a'});const original=control.node.firstChild;control.update({options:[{id:'a',name:'A'}],value:'a'});const untouched=original===control.node.firstChild;control.node.focus();const options=[{id:'b',name:'B'}];control.update({options,value:'b'});options[0].name='Changed outside';control.node.blur();const name=control.node.firstChild.textContent;control.node.focus();control.update({options:[{id:'c',name:'C'}],value:'c'});control.dispose();control.node.blur();return {untouched,name,value:control.node.value,pending:control.pending,editing:control.editing};
   }),{untouched:true,name:'B',value:'b',pending:null,editing:false});
 });
 test('selection failure stays visible through a background push',async t=>{

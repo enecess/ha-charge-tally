@@ -41,5 +41,6 @@
   "quality_estimated": "Estimated",
   "quality_manual": "Manually entered",
   "quality_incomplete": "Incomplete cost: only known amounts are included.",
-  "note": "Note"
+  "note": "Note",
+  "ended_source_unavailable": "Ended after the source remained unavailable for 5 minutes; the record ends at the start of the outage."
 }

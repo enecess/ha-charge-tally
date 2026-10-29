@@ -43,12 +43,12 @@
                 "energy_entity": "Sensore di energia cumulativa",
                 "power_entity": "Sensore di potenza",
                 "resetting": "Il contatore può azzerarsi",
-                "max_gap_seconds": "Intervallo massimo di ripartizione (secondi)",
+                "max_gap_seconds": "Soglia degli intervalli di campionamento lunghi (secondi)",
                 "detection_enabled": "Rilevamento automatico della ricarica"
               },
               "data_description": {
                 "resetting": "Una diminuzione della lettura del contatore indica un intervallo di azzeramento incompleto.",
-                "max_gap_seconds": "Gli intervalli più lunghi diventano lacune da verificare. Valore predefinito: 600 secondi."
+                "max_gap_seconds": "Gli intervalli validi più lunghi sono ripartiti nel tempo e contrassegnati come stimati. Predefinito: 600 secondi. Le sorgenti non disponibili hanno un timeout separato e fisso di 5 minuti."
               }
             }
           }
@@ -526,34 +526,34 @@
         "name": "{name} Stato"
       },
       "record_energy": {
-        "name": "{name} Energia della registrazione"
+        "name": "{name} Energia della registrazione corrente/più recente"
       },
       "record_cost": {
-        "name": "{name} Costo della registrazione"
+        "name": "{name} Costo calcolato della registrazione corrente/più recente"
       },
       "daily_energy": {
         "name": "{name} energia giornaliera"
       },
       "daily_cost": {
-        "name": "{name} costo giornaliero"
+        "name": "{name} costo giornaliero calcolato"
       },
       "monthly_energy": {
         "name": "{name} energia mensile"
       },
       "monthly_cost": {
-        "name": "{name} costo mensile"
+        "name": "{name} costo mensile calcolato"
       },
       "yearly_energy": {
         "name": "{name} energia annuale"
       },
       "yearly_cost": {
-        "name": "{name} costo annuale"
+        "name": "{name} costo annuale calcolato"
       },
       "total_energy": {
         "name": "{name} energia totale"
       },
       "total_cost": {
-        "name": "{name} costo totale"
+        "name": "{name} costo totale calcolato"
       }
     },
     "select": {
