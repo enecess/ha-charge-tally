@@ -9,15 +9,26 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from . import reports
-from .accounting import Accounting, instant
+from .accounting import Accounting, allocatable, instant
 from .archive import archive_ids
 from .config_validation import BUILTIN_IDENTITY_NAME, validate_identity_name
+from .const import UNAVAILABLE_TIMEOUT_SECONDS
 from .core.detection import Detector
 from .core.tariffs import DailySchedule
 from .core.units import energy_kwh, power_w, price_per_kwh
 from .ledger import Ledger
 from .queries import summarize
 from .record_views import detail_view, record_view
+
+
+def required_roles(point, source):
+    """Only measurement and active automatic detection can expire a record."""
+    return (
+        ("energy", "power")
+        if point["input_mode"] == "power"
+        or (point["input_mode"] == "energy_power" and source == "automatic")
+        else ("energy",)
+    )
 
 
 class ScopedLedger:
@@ -258,6 +269,9 @@ class RuntimeStore:
                     detector=None,
                     detection_power_at=None,
                     input_epoch=at.isoformat(),
+                    outage=None,
+                    resume_sources=None,
+                    power_interrupted=False,
                 )
             if old and old.get("detection") != data.get("detection"):
                 state["detector"] = None
@@ -290,6 +304,8 @@ class RuntimeStore:
             if state["current_price"] is not None:
                 state["current_price"] = str(state["current_price"])
         self.points = deepcopy(points)
+        for point_id in points:
+            self.expire_unavailable(point_id, at)
 
     def put_price(self, data):
         sequence = (self.ledger.get_checkpoint("price_sequence") or 0) + 1
@@ -320,7 +336,7 @@ class RuntimeStore:
         for observation in self.ledger.list_intervals(
             point_id, start.isoformat(), end.isoformat()
         ):
-            if observation["gap"]:
+            if not allocatable(observation):
                 continue
             left, right = (
                 max(start, instant(observation["start"])),
@@ -382,6 +398,50 @@ class RuntimeStore:
             "candidate"
         )
 
+    def _update_unavailable(self, point_id, at):
+        state = self.states[point_id]
+        record = self.active(point_id)
+        if record is None:
+            state.pop("outage", None)
+            return
+        roles = required_roles(self.points[point_id], record["source"])
+        if state.get("available") and (
+            "power" not in roles or state.get("power_w") is not None
+        ):
+            state.pop("outage", None)
+        elif not state.get("outage") or state["outage"]["record_id"] != record["id"]:
+            state["outage"] = {"record_id": record["id"], "since": at.isoformat()}
+
+    def expire_unavailable(self, point_id, at):
+        state = self.states.get(point_id)
+        if state is None or not (outage := state.get("outage")):
+            return
+        record = self.active(point_id)
+        if record is None or record["id"] != outage["record_id"]:
+            state.pop("outage", None)
+            return
+        since = instant(outage["since"])
+        if at < since + timedelta(seconds=UNAVAILABLE_TIMEOUT_SECONDS):
+            return
+        self.accounting.end(
+            record["id"],
+            since,
+            "source_unavailable:" + record["id"] + ":" + outage["since"],
+            reason="source_unavailable",
+        )
+        state.pop("outage", None)
+        state["resume_sources"] = list(
+            required_roles(self.points[point_id], record["source"])
+        )
+        state["detection_power_at"] = None
+        state["detector"] = {
+            "state": "idle",
+            "candidate": None,
+            "identity_id": None,
+            "last_at": at.isoformat(),
+            "blocked": False,
+        }
+
     def observe(self, point_id, role, observation):
         if point_id not in self.points:
             return
@@ -440,8 +500,12 @@ class RuntimeStore:
                 }
             )
         elif role == "power":
+            self.expire_unavailable(point_id, at)
             state["power_w"] = None if value is None else str(value)
             state["power_at"] = at.isoformat()
+            if value is None and point["input_mode"] == "power":
+                state["power_interrupted"] = True
+            self._update_unavailable(point_id, at)
             self.detect(
                 point_id,
                 at,
@@ -453,8 +517,11 @@ class RuntimeStore:
 
     def energy(self, point_id, at, value):
         point, state = self.points[point_id], self.states[point_id]
+        self.expire_unavailable(point_id, at)
+        recovering = not state.get("available") or bool(state.get("resume_sources"))
         if value is None:
             state.update(available=False, interrupted=True, quality=["unavailable"])
+            self._update_unavailable(point_id, at)
             self.detect(point_id, at, None)
             return
         previous = state.get("reading")
@@ -462,6 +529,7 @@ class RuntimeStore:
         if previous is not None and at <= instant(state["reading_at"]):
             if at == instant(state["reading_at"]) and value == Decimal(previous):
                 state["available"] = True
+                self._update_unavailable(point_id, at)
             return
         if previous is not None and at > instant(state["reading_at"]):
             delta = value - Decimal(previous)
@@ -477,9 +545,10 @@ class RuntimeStore:
                         quality=["unexpected_reset"],
                     )
                     self.detect(point_id, at, None)
+                    self._update_unavailable(point_id, at)
                     return
                 delta = value
-            if state.get("interrupted"):
+            if state.get("interrupted") or state.get("power_interrupted"):
                 quality.append("unavailable")
             left = instant(state["reading_at"])
             if (at - left).total_seconds() > point.get("max_gap_seconds", 600):
@@ -499,6 +568,20 @@ class RuntimeStore:
             available=True,
             interrupted=False,
         )
+        if state.get("power_w") is not None:
+            state["power_interrupted"] = False
+        if state.get("resume_sources") and (
+            "power" not in state["resume_sources"] or state.get("power_w") is not None
+        ):
+            state.pop("resume_sources")
+        self._update_unavailable(point_id, at)
+        if recovering:
+            self.detect(
+                point_id,
+                at,
+                None if state.get("power_w") is None else Decimal(state["power_w"]),
+                evidence=False,
+            )
         return recovery
 
     def bind_sources(self, sources, errors, now):
@@ -539,6 +622,7 @@ class RuntimeStore:
             power
             if state.get("available")
             and not state.get("helper_error")
+            and not state.get("resume_sources")
             and (evidence or not detector.snapshot().get("blocked"))
             else None,
             state["selected_identity_id"],
@@ -628,7 +712,9 @@ class RuntimeStore:
             state = self.states[point_id]
             request_id = data["request_id"]
             if (
-                not source_available or not state.get("available")
+                not source_available
+                or not state.get("available")
+                or state.get("resume_sources")
             ) and self.ledger.get_request(request_id) is None:
                 raise ValueError(
                     "A valid measurement baseline is required; use historical entry"
@@ -657,6 +743,7 @@ class RuntimeStore:
                     "identity_id": None,
                     "last_at": max(now.isoformat(), detector.get("last_at") or ""),
                 }
+            self._update_unavailable(point_id, now)
             return result
         if command == "end":
             record = self.ledger.get_record(data["record_id"])
@@ -671,6 +758,7 @@ class RuntimeStore:
             self.ledger.put_checkpoint(key, at.isoformat())
             result = self.accounting.end(record["id"], at, data["request_id"])
             state = self.states[record["point_id"]]
+            state.pop("outage", None)
             config = self.points.get(record["point_id"], {}).get("detection", {})
             if config.get("enabled"):
                 observed = state.get("detection_power_at")
@@ -788,7 +876,15 @@ class RuntimeStore:
             if point_ids is not None and point_id not in point_ids:
                 continue
             state = self.states[point_id]
-            active = self.active(point_id)
+            records = self.ledger.list_records(point_id=point_id)
+            active = next(
+                (record for record in records if record["status"] == "active"), None
+            )
+            last_record = max(
+                (record for record in records if record["status"] == "ended"),
+                key=lambda record: (record["end"], record["id"]),
+                default=None,
+            )
             detector = state.get("detector") or {}
             recording_state = active["source"] if active else "idle"
             detection_state = (
@@ -812,6 +908,16 @@ class RuntimeStore:
                     "name": point["name"],
                     "selected_identity_id": state["selected_identity_id"],
                     "active_record": record_view(active) if active else None,
+                    "last_record": record_view(last_record) if last_record else None,
+                    "unavailable_since": state["outage"]["since"]
+                    if state.get("outage")
+                    else None,
+                    "unavailable_deadline": (
+                        instant(state["outage"]["since"])
+                        + timedelta(seconds=UNAVAILABLE_TIMEOUT_SECONDS)
+                    ).isoformat()
+                    if state.get("outage")
+                    else None,
                     "recording_state": recording_state,
                     "detection_state": detection_state,
                     "candidate_identity_id": detector.get("identity_id")
@@ -826,7 +932,8 @@ class RuntimeStore:
                         "state", "charging" if active else "idle"
                     ),
                     "quality": state.get("quality", []),
-                    "available": state.get("available", False),
+                    "available": state.get("available", False)
+                    and not state.get("resume_sources"),
                     "detection_enabled": point.get("detection", {}).get(
                         "enabled", False
                     ),
@@ -1072,7 +1179,18 @@ class RuntimeStore:
                         replacements,
                     )
             existing = self.ledger.list_intervals(point_id)
-            for interval in valid:
+            candidates = [
+                interval
+                for interval in intervals
+                if (epoch is None or interval["start"] >= epoch)
+                and (
+                    interval in valid
+                    or self.points[point_id]["input_mode"] in ("energy", "energy_power")
+                    and not set(interval.get("quality", ()))
+                    & {"reset", "missing_energy"}
+                )
+            ]
+            for interval in candidates:
                 if any(
                     old["start"] < interval["end"] and old["end"] > interval["start"]
                     for old in existing
@@ -1085,6 +1203,7 @@ class RuntimeStore:
                     right,
                     Decimal(interval["energy_kwh"]),
                     self.history_prices(point_id, left, right, historical_prices),
+                    interval.get("quality", ()),
                 )
                 existing.append(interval)
 
@@ -1126,6 +1245,7 @@ class RuntimeStore:
     def maintenance(self, now):
         for point_id, state in self.states.items():
             if point_id in self.points:
+                self.expire_unavailable(point_id, now)
                 price = self.prices(point_id, now, now + timedelta(microseconds=1))[-1][
                     1
                 ]

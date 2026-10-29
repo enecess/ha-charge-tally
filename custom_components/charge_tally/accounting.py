@@ -19,9 +19,12 @@ def instant(value):
 
 def allocatable(observation):
     """Read new allocation evidence without reinterpreting legacy gaps."""
-    return observation.get(
-        "allocation_basis", "missing" if observation.get("gap") else "measured"
-    ) != "missing"
+    return (
+        observation.get(
+            "allocation_basis", "missing" if observation.get("gap") else "measured"
+        )
+        != "missing"
+    )
 
 
 def totals(record, segments, quality=(), *, append=False):
@@ -386,7 +389,9 @@ class Accounting:
                 [at.isoformat(), None if price is None else str(price)]
                 for at, price in prices
             ],
-            quality=sorted(set(quality) | ({"estimated"} if basis == "estimated" else set())),
+            quality=sorted(
+                set(quality) | ({"estimated"} if basis == "estimated" else set())
+            ),
             gap=gap,
             allocation_basis=basis,
         )

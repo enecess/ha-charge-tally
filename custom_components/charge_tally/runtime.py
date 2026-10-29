@@ -28,7 +28,7 @@ from .archive import archive_ids
 from .core.units import energy_kwh, power_w
 from .history import HistorySource
 from .native_helpers import HelperSetupError, NativeHelpers
-from .runtime_store import RuntimeStore
+from .runtime_store import RuntimeStore, required_roles
 
 if TYPE_CHECKING:
     from . import ChargeTallyConfigEntry
@@ -453,6 +453,10 @@ class Runtime:
             return
         desired = {}
         for point in self.snapshot["points"]:
+            if point.get("unavailable_deadline"):
+                desired[("outage", point["id"])] = instant(
+                    point["unavailable_deadline"]
+                )
             if not point.get("candidate"):
                 continue
             config = self.points.get(point["id"], {}).get("detection", {})
@@ -473,6 +477,9 @@ class Runtime:
 
             @callback
             def timer(now, point_id=point_id):
+                if isinstance(point_id, tuple):
+                    self._queue(self._handle_unavailable_timeout(point_id[1], now))
+                    return
                 entity = self.points.get(point_id, {}).get("power_entity")
                 observation = self._observation(
                     self.hass.states.get(entity), now, entity
@@ -484,6 +491,36 @@ class Runtime:
                 self.hass, timer, deadline
             )
             self._timer_deadlines[point_id] = deadline
+
+    async def _handle_unavailable_timeout(self, point_id, now):
+        point = next(
+            (point for point in self.snapshot["points"] if point["id"] == point_id),
+            None,
+        )
+        if point is None or not point["active_record"]:
+            return
+        roles = required_roles(self.points[point_id], point["active_record"]["source"])
+        observations = []
+        for entity_id, bindings in self._sources().items():
+            for id_, role in bindings:
+                if id_ == point_id and role in roles:
+                    state = self.hass.states.get(entity_id)
+                    observations.append(
+                        (
+                            role,
+                            {
+                                **self._observation(
+                                    state,
+                                    state.last_reported if state else now,
+                                    entity_id,
+                                ),
+                                "detection_evidence": False,
+                            },
+                        )
+                    )
+        for role, observation in sorted(observations, key=lambda item: item[1]["at"]):
+            await self._handle_observation(point_id, role, observation)
+        await self._apply("expire_unavailable", point_id, now)
 
     async def async_config_guard(self, point_id, old_data, new_data):
         return await self._apply("guard", point_id)

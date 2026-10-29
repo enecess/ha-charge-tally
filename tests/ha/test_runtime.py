@@ -289,7 +289,7 @@ async def test_tariff_config_change_splits_interval_and_keeps_versions(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_long_gap_preserves_total_but_not_record_allocation(
+async def test_long_valid_meter_interval_is_allocated_as_estimated(
     hass, tmp_path, freezer
 ):
     entry, runtime = await setup_runtime(hass, tmp_path)
@@ -299,8 +299,11 @@ async def test_long_gap_preserves_total_but_not_record_allocation(
     await hass.async_block_till_done()
     point = (await runtime.async_snapshot())["points"][0]
     assert Decimal(point["normalized_energy_kwh"]) == 1
-    assert Decimal(point["active_record"]["energy_kwh"]) == 0
-    assert "missing_energy" in point["active_record"]["quality"]
+    assert Decimal(point["active_record"]["energy_kwh"]) == 1
+    assert Decimal(point["active_record"]["known_cost"]) == 2
+    assert point["active_record"]["cost_complete"]
+    assert "estimated" in point["active_record"]["quality"]
+    assert "missing_energy" not in point["active_record"]["quality"]
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
