@@ -371,6 +371,30 @@ class ArchiveTests(unittest.TestCase):
         self.assertIsNotNone(self.ledger.get_checkpoint("command_time:unrelated"))
         self.assertIsNone(self.ledger.get_preview("token"))
 
+    def test_archive_removes_consumed_standalone_accounting_preview(self):
+        from custom_components.charge_tally.accounting import Accounting
+
+        self.ledger.put_point(dict(id="oldpoint", name="Oldpoint", active=True))
+        self.ledger.put_identity(dict(id="old", name="Old", active=True))
+        accounting = Accounting(self.ledger)
+        preview = accounting.preview(
+            dict(
+                point_id="oldpoint",
+                identity_id="old",
+                start="2026-01-01T00:00:00+00:00",
+                end="2026-01-01T01:00:00+00:00",
+                energy_kwh="2",
+                cost="1",
+            )
+        )
+        record = accounting.commit_preview(preview["token"], "standalone")
+        self.assertNotIn("payload", self.ledger.get_preview(preview["token"]))
+        accounting.reassign(record["id"], "new", record["revision"])
+        self.ledger.put_identity(dict(id="old", name="Old", active=False))
+        self.delete(self.preview("identity", "old", "new"))
+        self.assertIsNone(self.ledger.get_preview(preview["token"]))
+        self.assertIsNone(self.ledger.get_request("standalone"))
+
     def test_point_purge_failure_restores_rows_and_caches(self):
         record = self.record()
         self.ledger.put_request("req", {"result": record})

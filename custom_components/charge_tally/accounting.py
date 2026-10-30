@@ -7,6 +7,7 @@ from hashlib import sha256
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
+from .const import PREVIEW_LIFETIME_SECONDS
 from .core.segments import split_interval
 from .core.tariffs import elapsed, utc
 from .core.units import decimal_value
@@ -108,7 +109,9 @@ class Accounting:
             record["point_id"], record["start"], record["end"]
         )
         boundaries = [start] + ([end] if end else [])
-        for other in self.ledger.list_records(point_id=record["point_id"]):
+        for other in self.ledger.list_records(
+            point_id=record["point_id"], start=record["start"], end=record["end"]
+        ):
             boundaries.append(instant(other["start"]))
             if other["end"]:
                 boundaries.append(instant(other["end"]))
@@ -260,7 +263,9 @@ class Accounting:
         return segments
 
     def _historical_prices(self, point_id, start, end):
-        versions = self.ledger.list_price_versions(point_id)
+        versions = self.ledger.list_price_versions(
+            point_id, start=start.isoformat(), end=end.isoformat()
+        )
         persistent = {
             p["at"]: p["price"]
             for p in versions
@@ -435,12 +440,8 @@ class Accounting:
             self.ledger.save_revision(record["id"])
 
     def _refresh(self, point_id, start, end, observation=None):
-        for record in self.ledger.list_records(point_id=point_id):
-            if (
-                record.get("manual_override")
-                or record["start"] >= end
-                or (record["end"] and record["end"] <= start)
-            ):
+        for record in self.ledger.list_records(point_id=point_id, start=start, end=end):
+            if record.get("manual_override"):
                 continue
             if self._refresh_pending is not None:
                 self._refresh_pending.add(record["id"])
@@ -685,6 +686,7 @@ class Accounting:
             )
             token = uuid4().hex
             stored = {
+                "created_at": datetime.now(UTC).isoformat(),
                 "payload": result,
                 "digest": sha256(encode(result).encode()).hexdigest(),
             }
@@ -694,8 +696,14 @@ class Accounting:
     def commit_preview(self, token: str, request_id: str):
         def operation():
             stored = self.ledger.get_preview(token)
-            if not stored:
-                raise ValueError("Unknown preview")
+            if (
+                not stored
+                or stored.get("consumed")
+                or not stored.get("created_at")
+                or (datetime.now(UTC) - instant(stored["created_at"])).total_seconds()
+                >= PREVIEW_LIFETIME_SECONDS
+            ):
+                raise ValueError("Preview is stale; refresh it")
             data = stored["payload"]
             if stored["digest"] != sha256(encode(data).encode()).hexdigest():
                 raise ValueError("Preview is stale; refresh it")
@@ -710,9 +718,17 @@ class Accounting:
             self._references(record["point_id"], record["identity_id"], original)
             if instant(record["end"]) > datetime.now(UTC):
                 raise ValueError("Historical end is in the future")
-            if original is not None and record == original:
-                return original
-            self.ledger.save_record(record, data["segments"])
+            if original is None or record != original:
+                self.ledger.save_record(record, data["segments"])
+            self.ledger.put_preview(
+                token,
+                {
+                    "consumed": True,
+                    "record_id": record["id"],
+                    "point_id": record["point_id"],
+                    "identity_id": record["identity_id"],
+                },
+            )
             return record
 
         return self._request(request_id, ["commit_preview", token], operation)

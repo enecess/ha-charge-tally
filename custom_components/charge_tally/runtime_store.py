@@ -43,11 +43,7 @@ class ScopedLedger:
         return self.ledger.transaction()
 
     def list_records(self, point_id=None, identity_id=None):
-        return [
-            r
-            for r in self.ledger.list_records(point_id, identity_id)
-            if r["point_id"] in self.point_ids
-        ]
+        return self.ledger.list_records(point_id, identity_id, point_ids=self.point_ids)
 
     def list_segments(self, record_id):
         if record_id in self._segment_cache:
@@ -325,7 +321,9 @@ class RuntimeStore:
         self.ledger.put_price_version({"id": f"runtime-price:{sequence:020d}", **data})
 
     def prices(self, point_id, start, end):
-        versions = self.ledger.list_price_versions(point_id)
+        versions = self.ledger.list_price_versions(
+            point_id, start=start.isoformat(), end=end.isoformat()
+        )
         result = {start: None}
         for index, version in enumerate(versions):
             left = max(start, instant(version["at"]))
@@ -380,27 +378,17 @@ class RuntimeStore:
         ]
 
     def preview_price_basis(self, point_id, start, end):
-        versions = self.ledger.list_price_versions(point_id)
-        relevant = [
-            version
-            for index, version in enumerate(versions)
-            if instant(version["at"]) < end
-            and (
-                index + 1 == len(versions) or instant(versions[index + 1]["at"]) > start
-            )
-        ]
+        versions = self.ledger.list_price_versions(
+            point_id, start=start.isoformat(), end=end.isoformat()
+        )
         return {
             "timeline": self.preview_prices(point_id, start, end),
-            "versions": relevant,
+            "versions": versions,
         }
 
     def active(self, point_id):
         return next(
-            (
-                r
-                for r in self.ledger.list_records(point_id=point_id)
-                if r["status"] == "active"
-            ),
+            iter(self.ledger.list_records(point_id=point_id, status="active")),
             None,
         )
 
@@ -1261,7 +1249,9 @@ class RuntimeStore:
         if not historical_prices:
             return sorted(own.items())
         epoch = self.states[point_id].get("price_epoch")
-        versions = self.ledger.list_price_versions(point_id)
+        versions = self.ledger.list_price_versions(
+            point_id, start=start.isoformat(), end=end.isoformat()
+        )
         boundaries = sorted(
             set(own) | {at for at, _ in historical_prices if start < at < end}
         )
@@ -1292,6 +1282,7 @@ class RuntimeStore:
         return result
 
     def maintenance(self, now):
+        self.ledger.prune_previews(now, limit=500)
         for point_id, state in self.states.items():
             if point_id in self.points:
                 self.expire_unavailable(point_id, now)
@@ -1301,5 +1292,6 @@ class RuntimeStore:
                 state["current_price"] = None if price is None else str(price)
         date = now.date().isoformat()
         if self.ledger.get_checkpoint("pruned_on") != date:
-            if self.ledger.prune(before=now - timedelta(days=90), limit=500) < 500:
+            self.ledger.prune(before=now - timedelta(days=90), limit=500)
+            if not self.ledger.prune_pending():
                 self.ledger.put_checkpoint("pruned_on", date)

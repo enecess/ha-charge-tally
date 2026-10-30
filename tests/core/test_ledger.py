@@ -6,11 +6,311 @@ import unittest
 from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
+from unittest.mock import patch
 
 from custom_components.charge_tally.ledger import Ledger
 
 
 class LedgerTests(unittest.TestCase):
+    def test_narrow_queries_decode_only_matching_ordered_evidence(self):
+        import json
+
+        with closing(Ledger(":memory:")) as ledger:
+            for point in ("p", "other"):
+                ledger.put_point({"id": point})
+                for id_, at in (("z", "01"), ("a", "02"), ("b", "02"), ("c", "03")):
+                    ledger.put_price_version(
+                        {
+                            "id": point + id_,
+                            "point_id": point,
+                            "at": f"2026-01-0{at[-1]}T00:00:00+00:00",
+                            "price": id_,
+                        }
+                    )
+                for day in (1, 2, 3):
+                    ledger.put_interval(
+                        {
+                            "id": point + str(day),
+                            "point_id": point,
+                            "start": f"2026-01-0{day}T00:00:00+00:00",
+                            "end": f"2026-01-0{day}T01:00:00+00:00",
+                        }
+                    )
+            start, end = "2026-01-02T00:30:00+00:00", "2026-01-03T00:00:00+00:00"
+            with patch(
+                "custom_components.charge_tally.ledger.json.loads", wraps=json.loads
+            ) as loads:
+                self.assertEqual(
+                    [
+                        v["id"]
+                        for v in ledger.list_price_versions("p", start=start, end=end)
+                    ],
+                    ["pb"],
+                )
+                self.assertEqual(loads.call_count, 1)
+            with patch(
+                "custom_components.charge_tally.ledger.json.loads", wraps=json.loads
+            ) as loads:
+                self.assertEqual(
+                    [v["id"] for v in ledger.list_intervals("p", start, end)], ["p2"]
+                )
+                self.assertEqual(loads.call_count, 1)
+            self.assertEqual(
+                [v["id"] for v in ledger.list_price_versions("p")],
+                ["pz", "pa", "pb", "pc"],
+            )
+            self.assertEqual(
+                [
+                    v["id"]
+                    for v in ledger.list_price_versions(
+                        "p",
+                        start="2025-12-31T00:00:00+00:00",
+                        end="2026-01-03T00:00:00+00:00",
+                    )
+                ],
+                ["pz", "pa", "pb"],
+            )
+            self.assertEqual(
+                [
+                    v["id"]
+                    for v in ledger.list_price_versions(
+                        "p",
+                        start="2026-01-02T00:00:00+00:00",
+                        end="2026-01-04T00:00:00+00:00",
+                    )
+                ],
+                ["pb", "pc"],
+            )
+            statements = []
+            ledger._db.set_trace_callback(statements.append)
+            ledger.list_price_versions("p", start=start, end=end)
+            ledger.list_intervals("p", start, end)
+            ledger._db.set_trace_callback(None)
+            for table, index in (
+                ("price_versions", "price_time"),
+                ("observations", "observation_end"),
+            ):
+                query = next(
+                    sql
+                    for sql in statements
+                    if sql.startswith(f"SELECT data FROM {table}")
+                )
+                plan = ledger._db.execute("EXPLAIN QUERY PLAN " + query).fetchall()
+                self.assertTrue(
+                    any(
+                        "SEARCH" in row[-1]
+                        and index in row[-1]
+                        and "<expr>>?" in row[-1]
+                        for row in plan
+                    ),
+                    plan,
+                )
+
+    def test_record_filters_exclude_history_and_unauthorized_points_before_decode(self):
+        import json
+
+        with closing(Ledger(":memory:")) as ledger:
+            ledger.put_identity({"id": "i", "name": "Identity"})
+            for point in ("p", "other"):
+                ledger.put_point({"id": point})
+                for day, status in ((1, "ended"), (2, "active")):
+                    ledger.save_record(
+                        dict(
+                            id=point + str(day),
+                            point_id=point,
+                            identity_id="i",
+                            start=f"2026-01-0{day}T00:00:00+00:00",
+                            end=None
+                            if status == "active"
+                            else "2026-01-01T01:00:00+00:00",
+                            status=status,
+                            revision=1,
+                        ),
+                        [],
+                    )
+            with patch(
+                "custom_components.charge_tally.ledger.json.loads", wraps=json.loads
+            ) as loads:
+                self.assertEqual(
+                    [
+                        r["id"]
+                        for r in ledger.list_records(point_ids={"p"}, status="active")
+                    ],
+                    ["p2"],
+                )
+                self.assertEqual(loads.call_count, 1)
+            self.assertEqual(
+                [
+                    r["id"]
+                    for r in ledger.list_records(
+                        point_id="p",
+                        start="2026-01-01T01:00:00+00:00",
+                        end="2026-01-03T00:00:00+00:00",
+                    )
+                ],
+                ["p2"],
+            )
+            self.assertEqual(ledger.list_records(point_ids=set()), [])
+
+    def test_prune_recent_observations_does_no_candidate_reference_work(self):
+        from datetime import timedelta
+
+        with closing(Ledger(":memory:")) as ledger:
+            ledger.put_point({"id": "p"})
+            for index in range(1000):
+                left = datetime(2026, 10, 1, tzinfo=UTC) + timedelta(seconds=index * 5)
+                ledger._put(
+                    "observations",
+                    str(index),
+                    {
+                        "id": str(index),
+                        "point_id": "p",
+                        "start": left.isoformat(),
+                        "end": (left + timedelta(seconds=5)).isoformat(),
+                    },
+                )
+            statements = []
+            ledger._db.set_trace_callback(statements.append)
+            self.assertEqual(ledger.prune(datetime(2026, 1, 1, tzinfo=UTC)), 0)
+            ledger._db.set_trace_callback(None)
+            self.assertFalse(
+                any("FROM segments WHERE observation_id=" in sql for sql in statements)
+            )
+            candidate_query = next(
+                sql
+                for sql in statements
+                if sql.startswith("SELECT data FROM observations")
+            )
+            candidate_plan = ledger._db.execute(
+                "EXPLAIN QUERY PLAN " + candidate_query
+            ).fetchall()
+            self.assertTrue(
+                any(
+                    "SEARCH" in row[-1] and "observation_end" in row[-1]
+                    for row in candidate_plan
+                )
+            )
+            self.assertFalse(
+                any(
+                    sql == "SELECT data FROM observations ORDER BY id"
+                    for sql in statements
+                )
+            )
+            plan = ledger._db.execute(
+                "EXPLAIN QUERY PLAN SELECT 1 FROM segments WHERE observation_id=? LIMIT 1",
+                ("absent",),
+            ).fetchall()
+            self.assertTrue(
+                any("SEARCH" in row[-1] and "observation" in row[-1] for row in plan)
+            )
+
+    def test_prune_candidate_budget_advances_past_protected_rows(self):
+        with closing(Ledger(":memory:")) as ledger:
+            ledger.put_point({"id": "p"})
+            for index in range(5):
+                ledger.put_interval(
+                    {
+                        "id": str(index),
+                        "point_id": "p",
+                        "start": f"2025-01-0{index + 1}T00:00:00+00:00",
+                        "end": f"2025-01-0{index + 1}T01:00:00+00:00",
+                        "gap": index < 3,
+                    }
+                )
+            cutoff = datetime(2026, 1, 1, tzinfo=UTC)
+            self.assertEqual(ledger.prune(cutoff, limit=2), 0)
+            self.assertTrue(ledger.prune_pending())
+            statements = []
+            ledger._db.set_trace_callback(statements.append)
+            self.assertEqual(ledger.prune(cutoff, limit=2), 1)
+            ledger._db.set_trace_callback(None)
+            query = next(
+                sql
+                for sql in statements
+                if sql.startswith("SELECT data FROM observations")
+            )
+            plan = ledger._db.execute("EXPLAIN QUERY PLAN " + query).fetchall()
+            self.assertTrue(
+                any(
+                    "SEARCH" in row[-1]
+                    and "observation_end" in row[-1]
+                    and "<expr>>?" in row[-1]
+                    for row in plan
+                ),
+                plan,
+            )
+            self.assertTrue(ledger.prune_pending())
+            self.assertEqual(ledger.prune(cutoff, limit=2), 1)
+            self.assertFalse(ledger.prune_pending())
+            self.assertEqual(
+                [v["id"] for v in ledger.list_intervals("p")], ["0", "1", "2"]
+            )
+
+    def test_prune_seeks_only_old_prices_before_reference_work(self):
+        with closing(Ledger(":memory:")) as ledger:
+            ledger.put_point({"id": "p"})
+            for index in range(1000):
+                ledger._put(
+                    "price_versions",
+                    str(index),
+                    {
+                        "id": str(index),
+                        "point_id": "p",
+                        "at": "2026-10-30T00:00:00+00:00",
+                        "price": "2",
+                    },
+                )
+            statements = []
+            ledger._db.set_trace_callback(statements.append)
+            self.assertEqual(ledger.prune(datetime(2026, 1, 1, tzinfo=UTC)), 0)
+            ledger._db.set_trace_callback(None)
+            query = next(
+                sql
+                for sql in statements
+                if sql.startswith("SELECT data FROM price_versions")
+            )
+            plan = ledger._db.execute("EXPLAIN QUERY PLAN " + query).fetchall()
+            self.assertTrue(
+                any(
+                    "SEARCH" in row[-1]
+                    and "price_" in row[-1]
+                    and "<expr><?" in row[-1]
+                    for row in plan
+                ),
+                plan,
+            )
+
+    def test_price_candidate_budget_advances_past_a_protected_anchor(self):
+        with closing(Ledger(":memory:")) as ledger:
+            for point in ("protected", "idle"):
+                ledger.put_point({"id": point})
+            for id_, point, day in (
+                ("keep", "protected", 1),
+                ("old", "idle", 2),
+                ("anchor", "idle", 3),
+            ):
+                ledger.put_price_version(
+                    {
+                        "id": id_,
+                        "point_id": point,
+                        "at": f"2025-01-0{day}T00:00:00+00:00",
+                        "price": "2",
+                    }
+                )
+            cutoff = datetime(2026, 1, 1, tzinfo=UTC)
+            self.assertEqual(ledger.prune(cutoff, limit=1), 0)
+            self.assertTrue(ledger.prune_pending())
+            self.assertEqual(ledger.prune(cutoff, limit=1), 1)
+            self.assertTrue(ledger.prune_pending())
+            self.assertEqual(ledger.prune(cutoff, limit=1), 0)
+            self.assertFalse(ledger.prune_pending())
+            self.assertEqual(
+                [p["id"] for p in ledger.list_price_versions("protected")], ["keep"]
+            )
+            self.assertEqual(
+                [p["id"] for p in ledger.list_price_versions("idle")], ["anchor"]
+            )
+
     def test_commit_failure_rolls_back_and_next_write_is_durable(self):
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "ledger.db")
@@ -77,7 +377,9 @@ class LedgerTests(unittest.TestCase):
                 if "SELECT EXISTS(SELECT 1 FROM observations" in statement
             )
             plan = ledger._db.execute("EXPLAIN QUERY PLAN " + query).fetchall()
-            self.assertTrue(any("observation_time" in row[-1] for row in plan))
+            self.assertTrue(
+                any("SEARCH" in row[-1] and "observation_" in row[-1] for row in plan)
+            )
             self.assertFalse(
                 any(
                     statement.startswith(

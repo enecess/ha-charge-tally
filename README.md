@@ -337,6 +337,8 @@ On an ended record choose **Void record**, review, then **Confirm void**. It lea
 
 Records at the same point cannot overlap. Overlapping previews cannot be saved. If a preview is stale or a record changed, refresh and preview again.
 
+Previews expire 30 minutes after creation. After upgrading, create a new preview for any draft opened before the upgrade. Successful saves remain safe to retry with the same request ID.
+
 Reconstruction depends on data retained by Home Assistant and the ledger; arbitrary old dates cannot be guaranteed. With missing data, enter total energy and cost from the charger’s bill. Allocating manual totals over time produces **Manual override / Estimated** notices explaining the basis.
 
 Times use the displayed accounting timezone, not the browser timezone. For repeated local times at daylight-saving transitions, choose **Repeated local time: select UTC instant**. Nonexistent local times cannot be submitted.

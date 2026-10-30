@@ -254,19 +254,74 @@ async def test_preview_commit_idempotence_and_cross_user_token(
     assert results[0]["success"] is True
     assert results[0]["result"] == results[1]["result"]
     assert results[0]["result"]["known_cost"] == "-3"
+    stored = await runtime._read(runtime._store.ledger.get_preview, preview["token"])
+    assert "payload" not in stored
+    assert stored["consumed"] is True
+    await client.send_json(
+        {
+            "id": 4,
+            "type": "charge_tally/commit",
+            "token": preview["token"],
+            "request_id": "fresh",
+        }
+    )
+    assert (await client.receive_json())["error"]["code"] == "stale_preview"
     assert (await runtime.async_query("records", {}))["total"] == 1
     hass_read_only_user.permissions = PolicyPermissions(
         {"entities": {"entity_ids": {}}}, None
     )
     await client.send_json(
         {
-            "id": 4,
+            "id": 5,
             "type": "charge_tally/commit",
             "token": preview["token"],
             "request_id": "commit",
         }
     )
     assert (await client.receive_json())["error"]["code"] == "unauthorized"
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_cleaned_preview_token_returns_stale_before_record_access(
+    hass, tmp_path, hass_ws_client, monkeypatch
+):
+    from datetime import UTC, datetime, timedelta
+
+    entry, runtime = await setup_runtime(hass, tmp_path)
+    client = await hass_ws_client(hass)
+    await client.send_json(
+        {
+            "id": 1,
+            "type": "charge_tally/preview",
+            "point_id": "point",
+            "identity_id": "car",
+            "start": "2025-01-01T00:00:00Z",
+            "end": "2025-01-01T01:00:00Z",
+            "energy_kwh": "2",
+            "cost": "3",
+        }
+    )
+    token = (await client.receive_json())["result"]["token"]
+    stored = await runtime._read(runtime._store.ledger.get_preview, token)
+    stored["created_at"] = (datetime.now(UTC) - timedelta(seconds=1800)).isoformat()
+    await runtime._read(runtime._store.ledger.put_preview, token, stored)
+    assert await runtime._read(runtime._store.ledger.prune_previews) == 1
+    assert await runtime.async_api_metadata("preview", token) is None
+
+    def no_record_access(*args):
+        raise AssertionError("Cleaned preview must fail before accessing records")
+
+    monkeypatch.setattr(runtime._store.ledger, "get_record", no_record_access)
+    await client.send_json(
+        {
+            "id": 2,
+            "type": "charge_tally/commit",
+            "token": token,
+            "request_id": "missing",
+        }
+    )
+    assert (await client.receive_json())["error"]["code"] == "stale_preview"
+    assert (await runtime.async_query("records", {}))["total"] == 0
     await hass.config_entries.async_unload(entry.entry_id)
 
 

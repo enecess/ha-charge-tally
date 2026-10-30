@@ -16,6 +16,115 @@ T = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 class AccountingTests(unittest.TestCase):
+    def test_preview_expires_at_thirty_minutes_without_touching_records(self):
+        for age, succeeds in ((1799, True), (1800, False)):
+            with self.subTest(age=age):
+                preview = self.app.preview(self.manual())
+                stored = self.ledger.get_preview(preview["token"])
+                stored["created_at"] = (
+                    datetime.now(UTC) - timedelta(seconds=age)
+                ).isoformat()
+                self.ledger.put_preview(preview["token"], stored)
+                if succeeds:
+                    result = self.app.commit_preview(preview["token"], "boundary")
+                    self.app.void(result["id"], result["revision"])
+                else:
+                    with patch.object(
+                        self.ledger,
+                        "get_record",
+                        side_effect=AssertionError("expired preview read a record"),
+                    ):
+                        with self.assertRaisesRegex(ValueError, "stale"):
+                            self.app.commit_preview(preview["token"], "expired")
+
+    def test_consumed_preview_compacts_payload_but_retains_retry_receipt(self):
+        preview = self.app.preview(self.manual())
+        self.ledger.put_checkpoint(
+            "api_preview:" + preview["token"], {"principal": "user", "point_id": "home"}
+        )
+        result = self.app.commit_preview(preview["token"], "save")
+        stored = self.ledger.get_preview(preview["token"])
+        self.assertNotIn("payload", stored)
+        self.assertTrue(stored["consumed"])
+        self.assertEqual(stored["record_id"], result["id"])
+        self.assertEqual(stored["point_id"], "home")
+        self.assertEqual(stored["identity_id"], "personal")
+        self.assertEqual(
+            self.ledger.prune_previews(datetime.now(UTC) + timedelta(days=1)), 0
+        )
+        self.assertIsNotNone(
+            self.ledger.get_checkpoint("api_preview:" + preview["token"])
+        )
+        self.assertEqual(self.app.commit_preview(preview["token"], "save"), result)
+        with self.assertRaisesRegex(ValueError, "stale"):
+            self.app.commit_preview(preview["token"], "new-request")
+
+    def test_preview_cleanup_removes_expired_and_legacy_payloads_and_bindings(self):
+        now = datetime.now(UTC)
+        for token, age in (("expired", 1800), ("fresh", 1799), ("legacy", None)):
+            data = {"payload": {"record": {"point_id": "home"}}}
+            if age is not None:
+                data["created_at"] = (now - timedelta(seconds=age)).isoformat()
+            self.ledger.put_preview(token, data)
+            self.ledger.put_checkpoint(
+                "api_preview:" + token, {"principal": "user", "point_id": "home"}
+            )
+        statements = []
+        self.ledger._db.set_trace_callback(statements.append)
+        self.assertEqual(self.ledger.prune_previews(now, limit=1), 1)
+        self.ledger._db.set_trace_callback(None)
+        query = next(
+            sql
+            for sql in statements
+            if "FROM previews WHERE" in sql or sql.startswith("SELECT id,json_extract")
+        )
+        plan = self.ledger._db.execute("EXPLAIN QUERY PLAN " + query).fetchall()
+        self.assertTrue(
+            any("SEARCH" in row[-1] and "preview_expiry" in row[-1] for row in plan)
+        )
+        self.assertEqual(self.ledger.prune_previews(now, limit=1), 1)
+        self.assertIsNotNone(self.ledger.get_preview("fresh"))
+        self.assertIsNotNone(self.ledger.get_checkpoint("api_preview:fresh"))
+        for token in ("expired", "legacy"):
+            self.assertIsNone(self.ledger.get_preview(token))
+            self.assertIsNone(self.ledger.get_checkpoint("api_preview:" + token))
+            with patch.object(
+                self.ledger,
+                "get_record",
+                side_effect=AssertionError("missing preview read a record"),
+            ):
+                with self.assertRaisesRegex(ValueError, "stale"):
+                    self.app.commit_preview(token, token)
+
+    def test_legacy_success_cleanup_preserves_binding_and_original_retry(self):
+        preview = self.app.preview(self.manual())
+        legacy = self.ledger.get_preview(preview["token"])
+        legacy.pop("created_at")
+        binding_key = "api_preview:" + preview["token"]
+        self.ledger.put_checkpoint(
+            binding_key, {"principal": "user", "point_id": "home"}
+        )
+        original = self.app.commit_preview(preview["token"], "old-success")
+        self.ledger.put_preview(preview["token"], legacy)
+        statements = []
+        self.ledger._db.set_trace_callback(statements.append)
+        self.assertEqual(self.ledger.prune_previews(datetime.now(UTC)), 0)
+        self.ledger._db.set_trace_callback(None)
+        query = next(
+            sql for sql in statements if " FROM requests WHERE json_extract" in sql
+        )
+        plan = self.ledger._db.execute("EXPLAIN QUERY PLAN " + query).fetchall()
+        self.assertTrue(any("SEARCH requests" in row[-1] for row in plan), plan)
+        self.assertIsNotNone(self.ledger.get_checkpoint(binding_key))
+        stored = self.ledger.get_preview(preview["token"])
+        self.assertNotIn("payload", stored)
+        self.assertTrue(stored["consumed"])
+        self.assertEqual(
+            self.app.commit_preview(preview["token"], "old-success"), original
+        )
+        with self.assertRaisesRegex(ValueError, "stale"):
+            self.app.commit_preview(preview["token"], "fresh-attempt")
+
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.ledger = Ledger(str(Path(self.directory.name) / "db"))

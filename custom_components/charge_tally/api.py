@@ -264,7 +264,9 @@ async def execute(
             raise Unauthorized()
     elif command == "commit":
         binding = await runtime.async_api_metadata("preview", data["token"])
-        if not binding or binding["principal"] != principal:
+        if not binding:
+            raise ValueError("Preview is stale; refresh it")
+        if binding["principal"] != principal:
             raise Unauthorized()
         point_id = binding["point_id"]
         if data.get("expected_revision") != binding.get("expected_revision"):

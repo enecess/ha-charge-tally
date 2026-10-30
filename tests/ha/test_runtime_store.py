@@ -9,6 +9,49 @@ import pytest
 from custom_components.charge_tally.runtime_store import RuntimeStore
 
 
+def test_maintenance_continues_after_protected_candidate_batch(tmp_path):
+    store = RuntimeStore(str(tmp_path / "ledger.db"), "CNY", "UTC")
+    store.ledger.put_point({"id": "p"})
+    with store.ledger.transaction():
+        for index in range(501):
+            left = datetime(2025, 1, 1, tzinfo=UTC) + timedelta(seconds=index * 5)
+            store.ledger._put(
+                "observations",
+                str(index),
+                {
+                    "id": str(index),
+                    "point_id": "p",
+                    "start": left.isoformat(),
+                    "end": (left + timedelta(seconds=5)).isoformat(),
+                    "gap": index < 500,
+                },
+            )
+    now = datetime(2026, 10, 30, tzinfo=UTC)
+    store.maintenance(now)
+    assert store.ledger.get_checkpoint("pruned_on") is None
+    store.maintenance(now + timedelta(minutes=1))
+    assert store.ledger.get_checkpoint("pruned_on") == "2026-10-30"
+    assert len(store.ledger.list_intervals("p")) == 500
+    store.ledger.close()
+
+
+def test_preview_cleanup_continues_after_daily_raw_pruning(tmp_path):
+    store = RuntimeStore(str(tmp_path / "ledger.db"), "CNY", "UTC")
+    now = datetime(2026, 10, 30, tzinfo=UTC)
+    store.ledger.put_preview("draft", {"created_at": now.isoformat(), "payload": {}})
+    store.ledger.put_checkpoint(
+        "api_preview:draft", {"principal": "user", "point_id": "p"}
+    )
+    store.maintenance(now)
+    assert store.ledger.get_checkpoint("pruned_on") == "2026-10-30"
+    store.maintenance(now + timedelta(seconds=1799))
+    assert store.ledger.get_preview("draft") is not None
+    store.maintenance(now + timedelta(seconds=1800))
+    assert store.ledger.get_preview("draft") is None
+    assert store.ledger.get_checkpoint("api_preview:draft") is None
+    store.ledger.close()
+
+
 def configured(tmp_path, at, price=None):
     store = RuntimeStore(str(tmp_path / "ledger.sqlite3"), "CNY", "UTC")
     point = {

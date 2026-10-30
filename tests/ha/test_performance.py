@@ -296,3 +296,62 @@ def test_record_metadata_and_lean_detail_do_not_load_revision_evidence(
     with pytest.raises(ValueError, match="authorized"):
         store.query("record_metadata", {"record_id": record["id"]}, [])
     store.ledger.close()
+
+
+def test_scoped_ledger_excludes_other_points_before_decoding(tmp_path, monkeypatch):
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    store, point = configured(tmp_path, at)
+    store.configure({"p": point, "other": point}, {"i": {"name": "Car"}}, at, "UTC")
+    own = save_report_record(store)
+    save_report_record(store, point_id="other", request="other")
+    loads = json.loads
+    decoded = []
+
+    def observed_loads(value, *args, **kwargs):
+        result = loads(value, *args, **kwargs)
+        if isinstance(result, dict) and "revision" in result and "point_id" in result:
+            decoded.append(result["id"])
+        return result
+
+    monkeypatch.setattr(
+        "custom_components.charge_tally.ledger.json.loads", observed_loads
+    )
+    assert [
+        record["id"] for record in ScopedLedger(store.ledger, ["p"]).list_records()
+    ] == [own["id"]]
+    assert decoded == [own["id"]]
+    store.ledger.close()
+
+
+def test_active_and_interval_refresh_do_not_decode_ended_records(tmp_path, monkeypatch):
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    store, _ = configured(tmp_path, at)
+    save_report_record(store)
+    start = at + timedelta(hours=2)
+    active = store.accounting.start("p", "i", start, "active")
+    loads = json.loads
+    decoded = []
+
+    def observed_loads(value, *args, **kwargs):
+        result = loads(value, *args, **kwargs)
+        if isinstance(result, dict) and "revision" in result and "point_id" in result:
+            decoded.append(result["id"])
+        return result
+
+    monkeypatch.setattr(
+        "custom_components.charge_tally.ledger.json.loads", observed_loads
+    )
+    assert store.active("p")["id"] == active["id"]
+    store.accounting.add_interval(
+        "p",
+        start,
+        start + timedelta(seconds=5),
+        Decimal("0.001"),
+        [(start, Decimal(2))],
+    )
+    assert decoded
+    assert set(decoded) == {active["id"]}
+    assert Decimal(store.ledger.get_record(active["id"])["energy_kwh"]) == Decimal(
+        "0.001"
+    )
+    store.ledger.close()

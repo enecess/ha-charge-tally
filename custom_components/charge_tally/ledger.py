@@ -4,9 +4,11 @@ import json
 import sqlite3
 from contextlib import closing, contextmanager
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from pathlib import Path
 
 from .config_validation import identity_name_key
+from .const import PREVIEW_LIFETIME_SECONDS
 
 SCHEMA_VERSION = 2
 
@@ -76,7 +78,19 @@ class Ledger:
                 "CREATE INDEX IF NOT EXISTS observation_time ON observations(json_extract(data,'$.point_id'),json_extract(data,'$.start'),json_extract(data,'$.end'))"
             )
             self._db.execute(
+                "CREATE INDEX IF NOT EXISTS observation_end ON observations(json_extract(data,'$.end'),id)"
+            )
+            self._db.execute(
                 "CREATE INDEX IF NOT EXISTS price_time ON price_versions(json_extract(data,'$.point_id'),json_extract(data,'$.at'))"
+            )
+            self._db.execute(
+                "CREATE INDEX IF NOT EXISTS price_age ON price_versions(json_extract(data,'$.at'),id)"
+            )
+            self._db.execute(
+                "CREATE INDEX IF NOT EXISTS preview_expiry ON previews(COALESCE(json_extract(data,'$.created_at'),''),id) WHERE json_extract(data,'$.consumed') IS NOT 1"
+            )
+            self._db.execute(
+                "CREATE INDEX IF NOT EXISTS request_digest ON requests(json_extract(data,'$.digest'))"
             )
             self._db.execute(
                 "CREATE TABLE IF NOT EXISTS records (id TEXT PRIMARY KEY, point_id TEXT NOT NULL REFERENCES points(id), identity_id TEXT NOT NULL REFERENCES identities(id), start TEXT NOT NULL, end TEXT, status TEXT NOT NULL, data TEXT NOT NULL)"
@@ -86,6 +100,9 @@ class Ledger:
             )
             self._db.execute(
                 "CREATE TABLE IF NOT EXISTS segments (record_id TEXT NOT NULL REFERENCES records(id), position INTEGER NOT NULL, observation_id TEXT REFERENCES observations(id), data TEXT NOT NULL, PRIMARY KEY(record_id,position))"
+            )
+            self._db.execute(
+                "CREATE INDEX IF NOT EXISTS segment_observation ON segments(observation_id)"
             )
             self._db.execute(
                 "CREATE TABLE IF NOT EXISTS revisions (record_id TEXT NOT NULL REFERENCES records(id), revision INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY(record_id,revision))"
@@ -256,11 +273,33 @@ class Ledger:
                 self._put("price_versions", data["id"], data)
                 self._bump()
 
-    def list_price_versions(self, point_id: str):
-        return sorted(
-            (p for p in self._list("price_versions") if p["point_id"] == point_id),
-            key=lambda p: p["at"],
-        )
+    def list_price_versions(self, point_id: str, start=None, end=None):
+        clauses, parameters = ["json_extract(data,'$.point_id')=?"], [point_id]
+        if start is not None:
+            anchor = self._db.execute(
+                "SELECT json_extract(data,'$.at'),id FROM price_versions "
+                "WHERE json_extract(data,'$.point_id')=? AND json_extract(data,'$.at')<=? "
+                "ORDER BY json_extract(data,'$.at') DESC,id DESC LIMIT 1",
+                (point_id, start),
+            ).fetchone()
+            if anchor:
+                # SQLite needs the scalar bound to seek before the ID tie-break.
+                clauses.append(
+                    "json_extract(data,'$.at')>=? AND (json_extract(data,'$.at'),id)>=(?,?)"
+                )
+                parameters.extend([anchor[0], *anchor])
+        if end is not None:
+            clauses.append("json_extract(data,'$.at')<?")
+            parameters.append(end)
+        return [
+            json.loads(row[0])
+            for row in self._db.execute(
+                "SELECT data FROM price_versions WHERE "
+                + " AND ".join(clauses)
+                + " ORDER BY json_extract(data,'$.at'),id",
+                parameters,
+            )
+        ]
 
     def put_interval(self, data: dict):
         with self.transaction():
@@ -272,7 +311,7 @@ class Ledger:
             if not self.get_point(data["point_id"]):
                 raise ValueError("Unknown point")
             overlap = self._db.execute(
-                "SELECT EXISTS(SELECT 1 FROM observations WHERE json_extract(data,'$.point_id')=? "
+                "SELECT EXISTS(SELECT 1 FROM observations INDEXED BY observation_end WHERE json_extract(data,'$.point_id')=? "
                 "AND json_extract(data,'$.start')<? AND json_extract(data,'$.end')>? "
                 "AND id NOT IN (SELECT id FROM observation_resolutions))",
                 (data["point_id"], data["end"], data["start"]),
@@ -286,9 +325,21 @@ class Ledger:
     def list_intervals(
         self, point_id: str, start=None, end=None, include_superseded=False
     ):
+        clauses, parameters = ["json_extract(data,'$.point_id')=?"], [point_id]
+        if start is not None:
+            clauses.append("json_extract(data,'$.end')>?")
+            parameters.append(start)
+        if end is not None:
+            clauses.append("json_extract(data,'$.start')<?")
+            parameters.append(end)
+        if not include_superseded:
+            clauses.append("id NOT IN (SELECT id FROM observation_resolutions)")
+        index = "observation_end" if start is not None else "observation_time"
         rows = self._db.execute(
-            "SELECT data FROM observations WHERE json_extract(data,'$.point_id')=? AND (? IS NULL OR json_extract(data,'$.end')>?) AND (? IS NULL OR json_extract(data,'$.start')<?) AND (? OR id NOT IN (SELECT id FROM observation_resolutions)) ORDER BY json_extract(data,'$.start')",
-            (point_id, start, start, end, end, include_superseded),
+            f"SELECT data FROM observations INDEXED BY {index} WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY json_extract(data,'$.start'),id",
+            parameters,
         )
         return [json.loads(row[0]) for row in rows]
 
@@ -337,8 +388,20 @@ class Ledger:
     def get_record(self, id: str):
         return self._get("records", id)
 
-    def list_records(self, point_id=None, identity_id=None, include_void=False):
-        where, parameters = self._record_filter(point_id, identity_id, include_void)
+    def list_records(
+        self,
+        point_id=None,
+        identity_id=None,
+        include_void=False,
+        *,
+        point_ids=None,
+        start=None,
+        end=None,
+        status=None,
+    ):
+        where, parameters = self._record_filter(
+            point_id, identity_id, include_void, point_ids, start, end, status
+        )
         return [
             json.loads(row[0])
             for row in self._db.execute(
@@ -347,7 +410,14 @@ class Ledger:
         ]
 
     def _record_filter(
-        self, point_id, identity_id, include_void, point_ids=None, start=None, end=None
+        self,
+        point_id,
+        identity_id,
+        include_void,
+        point_ids=None,
+        start=None,
+        end=None,
+        status=None,
     ):
         clauses, parameters = [], []
         for field, value in (("point_id", point_id), ("identity_id", identity_id)):
@@ -356,6 +426,9 @@ class Ledger:
                 parameters.append(value)
         if not include_void:
             clauses.append("status!='void'")
+        if status is not None:
+            clauses.append("status=?")
+            parameters.append(status)
         if point_ids is not None:
             clauses.append("point_id IN (" + ",".join("?" for _ in point_ids) + ")")
             parameters.extend(point_ids)
@@ -544,80 +617,167 @@ class Ledger:
     def get_preview(self, token: str):
         return self._get("previews", token)
 
+    def prune_previews(self, now=None, limit=500):
+        """Discard bounded abandoned drafts; receipts and consumed bindings are durable."""
+        if limit < 1:
+            raise ValueError("Prune limit must be positive")
+        cutoff = (
+            (now or datetime.now(UTC)) - timedelta(seconds=PREVIEW_LIFETIME_SECONDS)
+        ).isoformat()
+        with self.transaction():
+            candidates = self._db.execute(
+                "SELECT id,json_extract(data,'$.created_at') IS NULL FROM previews "
+                "WHERE json_extract(data,'$.consumed') IS NOT 1 "
+                "AND COALESCE(json_extract(data,'$.created_at'),'')<=? "
+                "ORDER BY COALESCE(json_extract(data,'$.created_at'),''),id LIMIT ?",
+                (cutoff, limit),
+            ).fetchall()
+            removed = 0
+            for token, legacy in candidates:
+                if legacy:
+                    receipt = self._db.execute(
+                        "SELECT json_extract(data,'$.result.id'),json_extract(data,'$.result.point_id'),"
+                        "json_extract(data,'$.result.identity_id') FROM requests "
+                        "WHERE json_extract(data,'$.digest')=? LIMIT 1",
+                        (
+                            sha256(
+                                encode(["commit_preview", token]).encode()
+                            ).hexdigest(),
+                        ),
+                    ).fetchone()
+                    if receipt:
+                        self._put(
+                            "previews",
+                            token,
+                            {
+                                "consumed": True,
+                                "record_id": receipt[0],
+                                "point_id": receipt[1],
+                                "identity_id": receipt[2],
+                            },
+                        )
+                        continue
+                self._db.execute("DELETE FROM previews WHERE id=?", (token,))
+                self._db.execute(
+                    "DELETE FROM checkpoints WHERE id=?", ("api_preview:" + token,)
+                )
+                removed += 1
+        return removed
+
+    def prune_pending(self):
+        """Report candidate progress independently of the public deletion count."""
+        return self.get_checkpoint("_prune_progress") is not None
+
     def prune(self, before: datetime | None = None, limit: int = 500):
         from .core.tariffs import utc
 
-        cutoff = utc(before or datetime.now(UTC) - timedelta(days=90)).isoformat()
-        removed = 0
+        if limit < 1:
+            raise ValueError("Prune limit must be positive")
+        removed, remaining = 0, limit
         with self.transaction():
-            revision_references = set()
-            retained_ranges = {}
-            for row in self._db.execute("SELECT data FROM revisions"):
-                revision = json.loads(row[0])
-                revision_references.update(
-                    s.get("observation_id") for s in revision["segments"]
+            progress = self.get_checkpoint("_prune_progress") or {
+                "cutoff": utc(
+                    before or datetime.now(UTC) - timedelta(days=90)
+                ).isoformat(),
+                "phase": "observations",
+                "after": None,
+            }
+            cutoff = progress["cutoff"]
+            for phase in ("observations", "price_versions"):
+                if progress["phase"] != phase:
+                    continue
+                after = progress["after"]
+                field = "end" if phase == "observations" else "at"
+                # Seek the time index before applying the tied-ID cursor.
+                cursor = (
+                    f" AND json_extract(data,'$.{field}')>=? AND (json_extract(data,'$.{field}'),id)>(?,?)"
+                    if after
+                    else ""
                 )
-                record = revision["record"]
-                if record["end"]:
-                    retained_ranges.setdefault(record["point_id"], []).append(
-                        (record["start"], record["end"])
-                    )
-            for record in self.list_records():
-                if record["status"] == "active":
-                    retained_ranges.setdefault(record["point_id"], []).append(
-                        (record["start"], None)
-                    )
-            for item in self._list("observations"):
-                if removed >= limit:
+                rows = self._db.execute(
+                    f"SELECT data FROM {phase} WHERE json_extract(data,'$.{field}')<?"
+                    + cursor
+                    + f" ORDER BY json_extract(data,'$.{field}'),id LIMIT ?",
+                    [cutoff, *([after[0], *after] if after else []), remaining + 1],
+                ).fetchall()
+                for row in rows[:remaining]:
+                    item = json.loads(row[0])
+                    progress["after"] = [item[field], item["id"]]
+                    if phase == "observations":
+                        if (
+                            item.get("gap")
+                            or self._db.execute(
+                                "SELECT 1 FROM segments WHERE observation_id=? LIMIT 1",
+                                (item["id"],),
+                            ).fetchone()
+                            or self.overlaps(
+                                item["point_id"], item["start"], item["end"]
+                            )
+                            or self._db.execute(
+                                "SELECT 1 FROM revisions,json_each(revisions.data,'$.segments') AS segment "
+                                "WHERE json_extract(segment.value,'$.observation_id')=? LIMIT 1",
+                                (item["id"],),
+                            ).fetchone()
+                        ):
+                            continue
+                    else:
+                        anchor = self._db.execute(
+                            "SELECT id FROM price_versions WHERE json_extract(data,'$.point_id')=? "
+                            "AND json_extract(data,'$.at')<? ORDER BY json_extract(data,'$.at') DESC,id DESC LIMIT 1",
+                            (item["point_id"], cutoff),
+                        ).fetchone()
+                        if anchor[0] == item["id"]:
+                            continue
+                        following = self._db.execute(
+                            "SELECT json_extract(data,'$.at') FROM price_versions WHERE json_extract(data,'$.point_id')=? "
+                            "AND json_extract(data,'$.at')>=? AND (json_extract(data,'$.at'),id)>(?,?) ORDER BY json_extract(data,'$.at'),id LIMIT 1",
+                            (item["point_id"], item["at"], item["at"], item["id"]),
+                        ).fetchone()
+                        right = following[0] if following else None
+                        if (
+                            self._db.execute(
+                                "SELECT 1 FROM observations WHERE json_extract(data,'$.point_id')=? "
+                                "AND json_extract(data,'$.start')<COALESCE(?,'9999') AND json_extract(data,'$.end')>? LIMIT 1",
+                                (item["point_id"], right, item["at"]),
+                            ).fetchone()
+                            or self._db.execute(
+                                "SELECT 1 FROM records WHERE point_id=? AND status='active' "
+                                "AND start<COALESCE(?,'9999') LIMIT 1",
+                                (item["point_id"], right),
+                            ).fetchone()
+                            or self._db.execute(
+                                "SELECT 1 FROM revisions WHERE json_extract(data,'$.record.point_id')=? "
+                                "AND json_extract(data,'$.record.end') IS NOT NULL "
+                                "AND json_extract(data,'$.record.start')<COALESCE(?,'9999') "
+                                "AND json_extract(data,'$.record.end')>? LIMIT 1",
+                                (item["point_id"], right, item["at"]),
+                            ).fetchone()
+                        ):
+                            continue
+                        key = "_price_gaps:" + item["point_id"]
+                        spans = sorted(
+                            [
+                                *(self.get_checkpoint(key) or []),
+                                {"start": item["at"], "end": right},
+                            ],
+                            key=lambda span: span["start"],
+                        )
+                        merged = []
+                        for span in spans:
+                            if merged and merged[-1]["end"] == span["start"]:
+                                merged[-1]["end"] = span["end"]
+                            else:
+                                merged.append(span)
+                        self._put("checkpoints", key, merged)
+                    self._db.execute(f"DELETE FROM {phase} WHERE id=?", (item["id"],))
+                    removed += 1
+                if len(rows) > remaining:
+                    self._put("checkpoints", "_prune_progress", progress)
                     break
-                referenced = self._db.execute(
-                    "SELECT 1 FROM segments WHERE observation_id=? LIMIT 1",
-                    (item["id"],),
-                ).fetchone()
-                if (
-                    item["end"] < cutoff
-                    and not referenced
-                    and item["id"] not in revision_references
-                    and not item.get("gap")
-                    and not self.overlaps(item["point_id"], item["start"], item["end"])
-                ):
-                    self._db.execute(
-                        "DELETE FROM observations WHERE id=?", (item["id"],)
-                    )
-                    removed += 1
-            for point in self.list_points():
-                ranges = retained_ranges.get(point["id"], []) + [
-                    (i["start"], i["end"])
-                    for i in self.list_intervals(point["id"], include_superseded=True)
-                ]
-                prices = self.list_price_versions(point["id"])
-                old_prices = [p for p in prices if p["at"] < cutoff]
-                anchor = old_prices[-1]["id"] if old_prices else None
-                pruned = self.get_checkpoint("_price_gaps:" + point["id"]) or []
-                for index, price in enumerate(prices):
-                    if removed >= limit:
-                        break
-                    right = prices[index + 1]["at"] if index + 1 < len(prices) else None
-                    referenced = any(
-                        (end is None or price["at"] < end)
-                        and (right is None or right > start)
-                        for start, end in ranges
-                    )
-                    if price["at"] >= cutoff or price["id"] == anchor or referenced:
-                        continue
-                    self._db.execute(
-                        "DELETE FROM price_versions WHERE id=?", (price["id"],)
-                    )
-                    pruned.append({"start": price["at"], "end": right})
-                    removed += 1
-                if pruned:
-                    merged = []
-                    for span in sorted(pruned, key=lambda s: s["start"]):
-                        if merged and merged[-1]["end"] == span["start"]:
-                            merged[-1]["end"] = span["end"]
-                        else:
-                            merged.append(span)
-                    self._put("checkpoints", "_price_gaps:" + point["id"], merged)
+                remaining -= len(rows)
+                progress.update(phase="price_versions", after=None)
+            else:
+                self._db.execute("DELETE FROM checkpoints WHERE id='_prune_progress'")
             if removed:
                 self._bump()
         return removed
