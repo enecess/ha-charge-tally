@@ -238,7 +238,8 @@ class LedgerOptionsFlow(OptionsFlow):
                 errors["base"] = "confirm_required"
             else:
                 try:
-                    self._archive_result = await self._runtime().async_archive_delete(
+                    runtime = self._runtime()
+                    self._archive_result = await runtime.async_archive_delete(
                         preview["kind"],
                         preview["id"],
                         preview["fingerprint"],

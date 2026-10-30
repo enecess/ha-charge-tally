@@ -18,6 +18,22 @@ for(const width of [736,320])test(`compact details keep chronological periods an
   const {mkdir}=await import('node:fs/promises');await mkdir('.superpowers/card-qa',{recursive:true});
   await page.screenshot({path:`.superpowers/card-qa/task3-${width}-periods.png`,fullPage:true});
 });
+test('billing details render exponent fallback amounts without losing ordinary rounding checks',async t=>{
+  const {page}=await createCardFixture(t);await openCompactDetails(page);
+  await page.evaluate(()=>{
+    const d=fixture.compact;d.record.known_cost='1e309';d.record.energy_kwh='17.674';
+    d.billing_periods=d.billing_periods.map(part=>({...part,cost:'1e309',unit_price:'1e309'}));
+    fixture.card.dialog.render();
+  });
+  await page.locator('dialog details').first().locator('summary').click();
+  assert.equal(await page.locator('dialog .billing-period').count(),3);
+  assert.match(await page.locator('dialog .billing-details').innerText(),/1e309/);
+  assert.doesNotMatch(await page.locator('dialog .billing-details').innerText(),/rounded/);
+  await page.evaluate(()=>{fixture.compact.record.energy_kwh='17.675';fixture.card.dialog.render();});
+  await page.locator('dialog details').first().locator('summary').click();
+  assert.match(await page.locator('dialog .billing-details').innerText(),/rounded/);
+});
+
 test('history loads once, survives pending translation, and retries permission and service failures',async t=>{
   const {page}=await createCardFixture(t);await openCompactDetails(page);
   assert.equal(await page.evaluate(()=>fixture.pending.length),0);

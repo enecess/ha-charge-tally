@@ -17,7 +17,7 @@ from homeassistant.helpers.collection import CHANGE_REMOVED
 from homeassistant.helpers.storage import Store
 from homeassistant.util.json import load_json
 
-from .nfc_rules import compile_automation, execution_config, validate_draft
+from .nfc_rules import Catalog, compile_automation, execution_config, validate_draft
 
 
 def same_config(left, right):
@@ -92,7 +92,7 @@ class NfcManager:
         if self._closed:
             raise ValueError("runtime_unavailable")
 
-    def _catalog(self):
+    def _catalog(self) -> Catalog:
         self._check_open()
         self._attach_tags()
         registry = er.async_get(self.hass)
@@ -143,7 +143,7 @@ class NfcManager:
             ],
         }
 
-    async def async_catalog(self):
+    async def async_catalog(self) -> Catalog:
         return self._catalog()
 
     def _validate_version(self, version):

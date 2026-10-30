@@ -77,8 +77,11 @@ export function billingDetails(detail,language,currency){
   if((record.quality||[]).some(flag=>['estimated','unavailable'].includes(flag)))explanations.push(tr('samplingExplanation',language));
   if((record.quality||[]).some(flag=>['missing_price','price_unknown'].includes(flag))&&!manual)explanations.push(tr('priceMissing',language));
   if(record.end_reason==='source_unavailable'&&recordCostState(record,currency,language).issue)explanations.push(tr('ended_source_unavailable',language));
-  const rounded=(value,digits)=>BigInt(formatDecimal(value,'en',digits,digits).replace(/[,.]/g,''));
-  if(periods.length&&[['energy_kwh',3],...(!manual&&periods.every(part=>part.cost!=null)?[['cost',2]]:[])].some(([key,digits])=>periods.reduce((sum,part)=>sum+rounded(part[key],digits),0n)!==rounded(record[key==='cost'?'known_cost':key],digits)))explanations.push(tr('roundingExplanation',language));
+  const rounded=(value,digits)=>{const text=formatDecimal(value,'en',digits,digits).replace(/[,.]/g,'');return /^-?\d+$/.test(text)?BigInt(text):null;};
+  if(periods.length&&[['energy_kwh',3],...(!manual&&periods.every(part=>part.cost!=null)?[['cost',2]]:[])].some(([key,digits])=>{
+    const values=[record[key==='cost'?'known_cost':key],...periods.map(part=>part[key])].map(value=>rounded(value,digits));
+    return values.every(value=>value!==null)&&values.slice(1).reduce((sum,value)=>sum+value,0n)!==values[0];
+  }))explanations.push(tr('roundingExplanation',language));
   if(explanations.length)body.append(el('p',explanations.join(' '),{class:'quality'}));
   return section;
 }

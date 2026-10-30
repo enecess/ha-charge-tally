@@ -25,7 +25,7 @@ def identity_name_key(value):
 
 def validate_identity_name(value):
     name = validate_name(value)
-    if identity_name_key(name) == identity_name_key(BUILTIN_IDENTITY_NAME):
+    if name.casefold() == BUILTIN_IDENTITY_NAME.casefold():
         raise ValueError("duplicate_name")
     return name
 

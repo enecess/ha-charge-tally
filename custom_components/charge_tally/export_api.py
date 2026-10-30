@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
     from .runtime import Runtime
 
 MAX_PDF_BYTES = 20 * 1024 * 1024
+_LOGGER = logging.getLogger(__name__)
 _REGISTERED = "charge_tally_export_registered"
 _TASK = "charge_tally_export_task"
 _HEADERS = {"Cache-Control": "no-store"}
@@ -85,6 +87,8 @@ async def _generate(hass, runtime, user, data, language):
         if len(pdf) > MAX_PDF_BYTES:
             raise PdfReportError("export_too_large")
     except Exception as err:
+        if not isinstance(err, PdfReportError):
+            _LOGGER.exception("Unexpected PDF rendering failure")
         return report, read_ids, None, err
     return report, read_ids, pdf, None
 
@@ -169,8 +173,10 @@ class ExportPdfView(HomeAssistantView):
                 _runtime(hass, runtime)
             except ServiceValidationError:
                 return _error("export_unavailable", 503)
+            _LOGGER.exception("Unexpected PDF export failure")
             return _error("export_failed", 500)
         except Exception:
+            _LOGGER.exception("Unexpected PDF export failure")
             return _error("export_failed", 500)
         filename = datetime.now(UTC).strftime("charge-tally-%Y%m%dT%H%M%SZ.pdf")
         return web.Response(

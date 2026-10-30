@@ -127,3 +127,31 @@ Run `tests/ha/test_performance.py`, `tests/core/test_query_performance.py`,
 work-count, accounting-equivalence, bounded-cache, and real cold-import checks.
 Timing comparisons use synthetic local ledgers and do not establish device-side
 latency.
+
+## Record detail and export regressions
+
+Run all checks from an rsynced WSL `/dev-tmp` checkout, including focused Python,
+frontend, browser, formatting, and performance checks. Before reusing cached HA
+environments, verify the installed HA and test-plugin versions against
+`scripts/ha-test-matrix.json`.
+
+```sh
+python -m pytest -q tests/ha/test_export_api.py tests/core/test_nfc_rules.py tests/ha/test_nfc_manager.py tests/ha/test_config_flow.py
+node --test --test-name-pattern='billing details render exponent fallback' tests/browser/card.test.mjs
+```
+
+The export regressions require a controlled HTTP error and exactly one integration
+traceback for unexpected renderer failures, including a renderer that finishes
+after its HTTP handler is cancelled. Expected PDF size, glyph, and content errors
+keep their existing client responses. Access is rechecked after rendering.
+
+The browser regression uses real billing details with finite decimal strings such
+as `1e309`. If Intl returns the original exponent text, the amount remains visible
+and only that optional rounding-note comparison is skipped. Ordinary displayed
+amounts still use exact integer comparisons for rounding explanations.
+
+HA tests set only the `sqlalchemy.engine` logger to WARNING to avoid the test
+plugin's SQL INFO chatter; warnings, errors, tracebacks, and test failures remain
+available. Final delivery checks include the full Python suite on all six pinned
+HA versions, full frontend/browser suites, Ruff, and LF/staging checks. Keep
+designs and local verification evidence in ignored Superpowers directories.

@@ -1,8 +1,16 @@
 """Fixtures exercise the real Home Assistant runtime."""
 
+import logging
+
 import pytest
 
 import custom_components.charge_tally  # noqa: F401  # Load this checkout before HA changes paths.
+
+
+@pytest.fixture(autouse=True)
+def sqlalchemy_warning_logs(caplog):
+    """Keep Recorder warnings and errors without the plugin's SQL INFO chatter."""
+    caplog.set_level(logging.WARNING, logger="sqlalchemy.engine")
 
 
 @pytest.fixture(autouse=True)

@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 import re
 import threading
 from decimal import Decimal
@@ -385,7 +386,7 @@ async def test_export_worker_is_separate_and_single_slot_keeps_ledger_live(
 
 
 async def test_cancelling_handler_keeps_slot_until_real_worker_finishes(
-    hass, tmp_path, hass_admin_user, hass_client, monkeypatch
+    hass, tmp_path, hass_admin_user, hass_client, monkeypatch, caplog
 ):
     entry, _ = await setup_runtime(hass, tmp_path)
     from custom_components.charge_tally import export_api
@@ -412,8 +413,42 @@ async def test_cancelling_handler_keeps_slot_until_real_worker_finishes(
         gate.release.set()
     await hass.async_block_till_done(wait_background_tasks=True)
     assert gate.finished.is_set()
+    errors = [
+        record
+        for record in caplog.records
+        if record.name == export_api.__name__ and record.levelno == logging.ERROR
+    ]
+    assert len(errors) == 1
+    assert errors[0].exc_info[1] is gate.error
+    assert "Private exception after cancellation" in caplog.text
     monkeypatch.setattr(export_api, "render_pdf", lambda report, language: b"%PDF-next")
     assert (await client.post(URL, json=SCOPE)).status == 200
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_unexpected_render_failure_logs_one_traceback_and_controlled_response(
+    hass, tmp_path, hass_client, monkeypatch, caplog
+):
+    entry, _ = await setup_runtime(hass, tmp_path)
+    from custom_components.charge_tally import export_api
+
+    error = RuntimeError("Unexpected report layout defect")
+
+    def fail(report, language):
+        raise error
+
+    monkeypatch.setattr(export_api, "render_pdf", fail)
+    client = await hass_client()
+    await assert_error(await client.post(URL, json=SCOPE), 500, "export_failed")
+    errors = [
+        record
+        for record in caplog.records
+        if record.name == export_api.__name__ and record.levelno == logging.ERROR
+    ]
+    assert len(errors) == 1
+    assert errors[0].exc_info[1] is error
+    assert "Traceback (most recent call last)" in caplog.text
+    assert "Unexpected report layout defect" in caplog.text
     await hass.config_entries.async_unload(entry.entry_id)
 
 

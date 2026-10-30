@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any, TypedDict
+from typing import Any, NotRequired, TypedDict, cast
 
 
 class DeviceBinding(TypedDict):
@@ -18,50 +18,20 @@ class RuleDraft(TypedDict):
     default_identity_id: str | None
 
 
+class CatalogItem(TypedDict):
+    id: str
+    name: str
+    active: NotRequired[bool]
+
+
 class Catalog(TypedDict):
-    points: list[dict[str, Any]]
-    identities: list[dict[str, Any]]
-    tags: list[dict[str, Any]]
-    devices: list[dict[str, Any]]
+    points: list[CatalogItem]
+    identities: list[CatalogItem]
+    tags: list[CatalogItem]
+    devices: list[CatalogItem]
 
 
-class RuleVersion(TypedDict):
-    version: int
-    draft: RuleDraft
-    automation_config: dict[str, Any]
-    tag_epoch: int
-
-
-class PreparedChange(TypedDict):
-    operation_id: str
-    rule_id: str
-    revision: int
-    automation_id: str
-    kind: str
-    expected_config: dict[str, Any] | None
-    desired_config: dict[str, Any] | None
-    draft: RuleDraft | None
-    version: int
-    tag_epoch: int
-
-
-class ManagedRule(TypedDict):
-    rule_id: str
-    automation_id: str
-    revision: int
-    applied: RuleVersion | None
-    pending: PreparedChange | None
-    deleting: bool
-
-
-class Inspection(TypedDict):
-    config_status: str
-    runtime_status: str
-    automation_entity_id: str | None
-    pending_state: str | None
-
-
-def validate_draft(draft: RuleDraft, catalog: Catalog) -> RuleDraft:
+def validate_draft(draft: object, catalog: Catalog) -> RuleDraft:
     """Require current, unambiguous references before persisting a rule."""
     if not isinstance(draft, dict) or set(draft) != {
         "point_id",
@@ -105,7 +75,7 @@ def validate_draft(draft: RuleDraft, catalog: Catalog) -> RuleDraft:
         seen.add(device)
     if not bindings and default is None:
         raise ValueError("empty_rule")
-    return deepcopy(draft)
+    return cast(RuleDraft, deepcopy(draft))
 
 
 def compile_automation(

@@ -165,12 +165,13 @@ class Runtime:
 
     def _decorate(self, snapshot):
         snapshot["revision"] = self._revision
+        registry = er.async_get(self.hass)
         for point in snapshot["points"]:
             point["utility_entities"] = self._helper_results.get(point["id"], {}).get(
                 "utility_entities", {}
             )
             point["error"] = self._errors.get(point["id"])
-            point["entity_id"] = er.async_get(self.hass).async_get_entity_id(
+            point["entity_id"] = registry.async_get_entity_id(
                 "sensor",
                 "charge_tally",
                 self.entry.entry_id + ":" + point["id"] + ":energy",
