@@ -97,13 +97,14 @@ def reconcile_display_totals(parts: list[dict], *projections: list[dict]) -> Non
                     continue
                 prefix = sum(values[:last], Decimal(0))
                 with localcontext() as exact:
-                    exact.prec = (
-                        max(total.adjusted(), prefix.adjusted())
+                    exact.prec = max(
+                        36,
+                        max(value.adjusted() for value in (total, prefix, *values))
                         - min(
                             value.as_tuple().exponent
                             for value in (total, prefix, *values)
                         )
-                        + 2
+                        + 2,
                     )
                     # A tiny final value cannot absorb an opposite-sign remainder.
                     # Adjust earlier nonzero values without reversing row signs.

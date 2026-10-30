@@ -112,6 +112,95 @@ class BillingTests(unittest.TestCase):
 
 
 class BillingPeriodTests(unittest.TestCase):
+    def test_merged_display_cancellation_preserves_raw_cost_across_signed_scales(self):
+        start = datetime(2026, 1, 1, 23, 59, 59, tzinfo=UTC)
+        samples = (
+            ("2", "1.4", "0.7"),
+            (
+                "0.333333333333333333333333333333333333",
+                "0.233333333333333333333333333333333333",
+                "0.7",
+            ),
+            ("0.001", "0.001", "1"),
+            (
+                "1.63433333333333333333333333333333333",
+                "-1.63433333333333333333333333333333333",
+                "-1",
+            ),
+            ("1E-50", "1E-50", "1"),
+        )
+        for negative in (False, True):
+            for scale in (-12, 0, 12):
+                with self.subTest(negative=negative, scale=scale):
+                    with localcontext() as exact:
+                        exact.prec = 100
+                        parts = [
+                            sample(
+                                index,
+                                start=(
+                                    start + timedelta(seconds=index * 3)
+                                ).isoformat(),
+                                end=(
+                                    start + timedelta(seconds=(index + 1) * 3)
+                                ).isoformat(),
+                                local_date="2026-01-02",
+                                energy_kwh=str(Decimal(energy).scaleb(scale)),
+                                cost=str(
+                                    (
+                                        Decimal(cost).copy_negate()
+                                        if negative
+                                        else Decimal(cost)
+                                    ).scaleb(scale)
+                                ),
+                                unit_price=str(
+                                    Decimal(price).copy_negate()
+                                    if negative
+                                    else Decimal(price)
+                                ),
+                            )
+                            for index, (energy, cost, price) in enumerate(samples)
+                        ]
+                    record = {"timezone": "Asia/Shanghai"}
+                    revisions = [
+                        {"record": dict(record), "segments": copy.deepcopy(parts)}
+                    ]
+                    before = copy.deepcopy((record, parts, revisions))
+                    legacy = detail_view(record, parts, revisions)
+                    result = detail_view(
+                        record, parts, revisions, display_timezone=ZoneInfo("UTC")
+                    )
+                    self.assertEqual(result["segments"], legacy["segments"])
+                    self.assertEqual(result["revisions"], legacy["revisions"])
+                    with localcontext() as context:
+                        context.prec = 36
+                        raw_cost = sum(Decimal(part["cost"]) for part in parts)
+                        raw_energy = sum(Decimal(part["energy_kwh"]) for part in parts)
+                        self.assertEqual(
+                            raw_cost,
+                            Decimal(f"{'-' if negative else ''}1E{scale - 50}"),
+                        )
+                        for projection in ("display_segments", "billing_periods"):
+                            rows = result[projection]
+                            self.assertEqual(
+                                sum(Decimal(row["cost"]) for row in rows), raw_cost
+                            )
+                            self.assertEqual(
+                                sum(Decimal(row["energy_kwh"]) for row in rows),
+                                raw_energy,
+                            )
+                            self.assertTrue(
+                                all(Decimal(row["energy_kwh"]) >= 0 for row in rows)
+                            )
+                            self.assertTrue(
+                                all(
+                                    Decimal(row["cost"]) >= 0
+                                    if Decimal(row["unit_price"]) > 0
+                                    else Decimal(row["cost"]) <= 0
+                                    for row in rows
+                                )
+                            )
+                    self.assertEqual((record, parts, revisions), before)
+
     def test_merged_display_rows_conserve_reported_multisample_rounding_case(self):
         start = datetime(2026, 1, 1, 23, 59, 59, tzinfo=UTC)
         for sign, basis, price in (
