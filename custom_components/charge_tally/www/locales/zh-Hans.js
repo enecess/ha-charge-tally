@@ -1,5 +1,9 @@
 // Frontend text. Keep keys and placeholders aligned across locales.
 export default {
+  "displayTimezone": "显示时区",
+  "statisticsTimezone": "统计时区",
+  "inputTimezone": "输入时区",
+  "error.timezoneChanged": "时区已更改。请复制草稿并重新打开表单后继续。",
   "manualEnergyLabel": "手工电量",
   "settling": "结算中",
   "currentCost": "当前费用",

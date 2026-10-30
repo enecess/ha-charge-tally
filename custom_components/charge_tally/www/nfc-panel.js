@@ -1,6 +1,6 @@
-import {NfcClient} from './nfc-api.js?v=0.1.2-13';
-import {NfcView} from './nfc-view.js?v=0.1.2-13';
-import {newRequestId} from './request-id.js?v=0.1.2-13';
+import {NfcClient} from './nfc-api.js?v=0.1.2-14';
+import {NfcView} from './nfc-view.js?v=0.1.2-14';
+import {newRequestId} from './request-id.js?v=0.1.2-14';
 
 const errorKey=error=>({
   conflict:'nfcErrorConflict',pending:'nfcErrorConflict',duplicate_rule:'nfcErrorDuplicate',

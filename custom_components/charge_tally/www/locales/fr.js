@@ -1,5 +1,9 @@
 // Frontend text. Keep keys and placeholders aligned across locales.
 export default {
+  "displayTimezone": "Fuseau horaire d’affichage",
+  "statisticsTimezone": "Fuseau horaire des statistiques",
+  "inputTimezone": "Fuseau horaire de saisie",
+  "error.timezoneChanged": "Le fuseau horaire a changé. Copiez votre brouillon et rouvrez ce formulaire pour continuer.",
   "manualEnergyLabel": "Énergie saisie manuellement",
   "settling": "Calcul en cours",
   "currentCost": "Coût actuel",

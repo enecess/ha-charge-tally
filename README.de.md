@@ -20,7 +20,9 @@ Erfasse Ladeenergie und Kosten in Home Assistant nach Ladepunkt und Identität u
 
 Beim Öffnen sind nur die Ladesteuerungen aufgeklappt. Statistik und Datensätze bleiben zunächst eingeklappt. Live-Aktualisierungen erhalten geöffnete Bereiche und Bedienelemente; ein Neuladen setzt die Ansicht zurück. Diagramm und Verlauf werden beim Aufklappen des jeweiligen Bereichs geladen.
 
-Diagramme gruppieren Heute nach Stunden, Diesen Monat nach Tagen, Dieses Jahr nach Monaten und Gesamt nach Jahren. Bei einem eigenen Zeitraum zählt die Differenz der lokalen Kalendertage: bis 2 Tage stündlich, bis 90 Tage täglich, bis 730 Tage monatlich, darüber jährlich. Es gelten die Zeitzone des Kontobuchs und Sommerzeitwechsel. Diagramme und Summen verwenden denselben Zeitraum; unbekannte Kosten bleiben unbekannt.
+Diagramme gruppieren Heute nach Stunden, Diesen Monat nach Tagen, Dieses Jahr nach Monaten und Gesamt nach Jahren. Bei einem eigenen Zeitraum zählt die Differenz der Systemkalendertage: bis 2 Tage stündlich, bis 90 Tage täglich, bis 730 Tage monatlich, darüber jährlich. Es gelten die Home-Assistant-Systemzeitzone und Sommerzeitwechsel. Diagramme und Summen verwenden denselben Zeitraum; unbekannte Kosten bleiben unbekannt.
+
+Eintragszeiten und Datumseingaben folgen deiner persönlichen Home-Assistant-Zeitzoneneinstellung: Server verwendet die aktuelle Systemzeitzone, Lokal die Gerätezeitzone. Bei Abweichungen zeigt die Karte **Anzeigezeitzone** und **Statistikzeitzone**. Heute, Monat, Jahr, eigene Datumsbereiche und gemeinsame Summen verwenden immer die Systemzeitzone. PDF-Berichte verwenden deine Sprache und nennen die Systemzeitzone ausdrücklich. Die Punktkonfiguration kennzeichnet Tageszeitregeln mit **Zeitzone der Preisberechnung**. Ein Systemzeitzonenwechsel wendet diese Regeln künftig in der neuen Zone an und erzeugt eine native Home-Assistant-Benachrichtigung für betroffene Punkte; bereits verbuchte Kosten bleiben unverändert. Persönliche Einstellungen, Sprache und normale Sommerzeitwechsel erzeugen weder Tarifversionen noch diese Meldung.
 
 Kostendetails in Vorschau und Details fassen benachbarte Zeiträume mit gleicher Abrechnungsgrundlage und gleichem Preis zusammen. Änderungen der Messqualität teilen einen Preiszeitraum nicht auf; tatsächliche Energielücken werden gesondert angezeigt. Zeitraumstatistiken verwenden weiterhin die ursprünglichen Messintervalle. Das Kontobuch speichert intern Prüfschnappschüsse beim Start, Ende und bei ausdrücklichen Änderungen, einschließlich Zuordnung und Stornierung. Laufende Messwerte aktualisieren den Datensatz ohne weiteren Schnappschuss; interne Revisionsnummern können Lücken haben.
 
@@ -289,7 +291,7 @@ Beende vor dem Pausieren mit **Ladeerkennung** aktive Einträge und offene Best�
 
 ### Eintragsdetails ansehen
 
-Details zeigen Zuordnung, Energie, Kosten, einen kompakten Datums- und Zeitbereich mit Dauer, Abrechnungszeitzone, Status, Quelle und Notiz. Hinweise nennen fehlende Energie oder Preise. Unbekannte Kosten erscheinen nicht als null; manuelle Kosten behalten auch bei unvollständiger Messabdeckung den eingegebenen Gesamtbetrag.
+Details zeigen Zuordnung, Energie, Kosten, einen kompakten Datums- und Zeitbereich mit Dauer, Anzeigezeitzone, Status, Quelle und Notiz. Hinweise nennen fehlende Energie oder Preise. Unbekannte Kosten erscheinen nicht als null; manuelle Kosten behalten auch bei unvollständiger Messabdeckung den eingegebenen Gesamtbetrag.
 
 - **Kostendetails** sind zunächst eingeklappt. Aufgeklappt zeigen sie Preiszeiträume chronologisch mit Zeit, Preis, Energie und Kosten sowie gesonderte Energielücken. Datumsangaben sind gruppiert; bei mehr als 12 Zeiträumen lassen sich die übrigen aufklappen.
 - Normales Warten auf die letzte Messung zeigt **Abrechnung läuft** ohne Warnung; vor der ersten Messung stehen **Aktuelle Kosten** und **—**. Fehlende Energie, Preise und ein Ausfall als Endgrund bleiben getrennte Hinweise, jeweils einmal. **Manuelle Energie** behält ohne feste Gebühr die Preiszeiträume. Eine manuelle Gebühr steht einmal in der Übersicht; vollständig manuelle Energie und Kosten erzeugen keinen leeren Detailbereich. **Vorher / Nachher** behalten jeweils ihren Betrag.
@@ -309,7 +311,7 @@ Wähle beim beendeten Eintrag **Eintrag stornieren**, prüfe und wähle **Storni
 
 **Historischen Eintrag hinzufügen** öffnet **Neuer historischer Eintrag**. Zum Ändern öffne einen beendeten Eintrag und **Eintrag bearbeiten**.
 
-1. Prüfe **Zeitzone der Abrechnung**, **Ladepunkt** und **Zugeordnete Identität**. Neue Einträge benötigen aktuelle Punkte und aktivierte Identitäten. Auch wenn archivierte Punkte in der Auswahl erscheinen, sind dort keine neuen Einträge möglich. Beim Bearbeiten ist der Punkt fest.
+1. Prüfe **Eingabezeitzone**, **Ladepunkt** und **Zugeordnete Identität**. Neue Einträge benötigen aktuelle Punkte und aktivierte Identitäten. Auch wenn archivierte Punkte in der Auswahl erscheinen, sind dort keine neuen Einträge möglich. Beim Bearbeiten ist der Punkt fest.
 2. Gib Datum und Uhrzeit für **Beginn** und **Ende (ausschließlich)** ein; das Ende muss später liegen.
 3. Gib manuelle Energie ein oder lasse sie leer und wähle die Kostengrundlage.
 4. Ergänze bei Bedarf **Notiz**, maximal 2000 Zeichen.
@@ -329,7 +331,7 @@ Einträge desselben Punkts dürfen sich nicht überschneiden. Überschneidungen 
 
 Historische Ergänzung hängt von erhaltenen HA- und Buchdaten ab; beliebig alte Zeiträume sind nicht garantiert wiederherstellbar. Fehlende Energie und Kosten können anhand einer Laderabrechnung ergänzt werden. Manuelle Werte tragen kurze Quellenbezeichnungen; normale Verteilung, Rundung und behobene historische Ausfälle erzeugen keine zusätzlichen Hinweise.
 
-Zeiten gelten in der angezeigten Abrechnungszeitzone, nicht der Browserzeitzone. Bei Sommerzeit-Dopplungen wähle unter **Doppelte Ortszeit: UTC-Zeitpunkt auswählen** den passenden Zeitpunkt. Nicht existierende Ortszeiten sind unzulässig.
+Zeiten gelten in der Eingabezeitzone deiner persönlichen Einstellung. Bei Sommerzeit-Dopplungen wähle unter **Doppelte Ortszeit: UTC-Zeitpunkt auswählen** den passenden Zeitpunkt. Nicht existierende Ortszeiten sind unzulässig. Ändert sich die System- oder effektive Anzeigezeitzone bei geöffnetem Formular, kopiere den Entwurf und öffne das Formular vor Vorschau und Speichern erneut. Unveränderte Zeiten behalten ihre ursprüngliche UTC-Präzision.
 
 > Screenshot-Platzhalter 13: Historisches Hinzufügen/Bearbeiten, Kostengrundlage und Vorschau mit Messabdeckung.
 
@@ -344,7 +346,7 @@ Zeiten gelten in der angezeigten Abrechnungszeitzone, nicht der Browserzeitzone.
 | **Zähler zurückgesetzt** | Fallender Zählerstand macht das Intervall unvollständig |
 | **Manuelle Energie / Manuelle Gesamtkosten** | Manuelle Werte; eine feste Gebühr bleibt auch bei ausstehenden Messungen fest |
 
-Energie wird auf Tage, Monate und Jahre verteilt; Mitternacht überschreitende Ladung gehört nicht komplett zum Starttag. Historische Einträge behalten ihre Abrechnungszeitzone. Die Anzahl abgeschlossener Einträge folgt dem Beginn: Ein Eintrag kann Energie zum Bereich beitragen, ohne dessen Anzahl abgeschlossener Einträge zu erhöhen.
+Energie wird auf Tage, Monate und Jahre der aktuellen Systemzeitzone verteilt; Mitternacht überschreitende Ladung gehört nicht komplett zum Starttag. Ursprüngliche Eintragszeitzonen und Prüfnachweise bleiben gespeichert; historische Zeiten folgen der persönlichen Anzeigeeinstellung, gemeinsame Kalenderauswertungen der aktuellen Systemzone. Die Anzahl abgeschlossener Einträge folgt dem Beginn: Ein Eintrag kann Energie zum Bereich beitragen, ohne dessen Anzahl abgeschlossener Einträge zu erhöhen.
 
 Karte und Identitätsstatistik summieren nur Ladeeinträge. Native Energiezähler können auch Standby außerhalb von Einträgen enthalten. Änderungen aktualisieren Buchstatistiken, nicht die native HA-Zählerhistorie. Kostendiagramme zeigen bekannte Beträge; die angezeigten Dezimalstellen ändern keine gespeicherte Genauigkeit.
 

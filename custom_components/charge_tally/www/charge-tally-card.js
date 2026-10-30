@@ -1,12 +1,12 @@
-import {exportRequest,fetchReport} from './card-export.js?v=0.1.2-13';
-import {CardView} from './card-view.js?v=0.1.2-13';
-import {newRequestId} from './request-id.js?v=0.1.2-13';
-import {tr} from './card-i18n.js?v=0.1.2-13';
-import {styles} from './card-styles.js?v=0.1.2-13';
-import {Latest,Subscription,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.2-13';
-import {el} from './card-ui.js?v=0.1.2-13';
-import {RecordDialog} from './card-dialog.js?v=0.1.2-13';
-import './card-editor.js?v=0.1.2-13';
+import {exportRequest,fetchReport} from './card-export.js?v=0.1.2-14';
+import {CardView} from './card-view.js?v=0.1.2-14';
+import {newRequestId} from './request-id.js?v=0.1.2-14';
+import {tr} from './card-i18n.js?v=0.1.2-14';
+import {styles} from './card-styles.js?v=0.1.2-14';
+import {Latest,Subscription,displayTimezone,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.2-14';
+import {el} from './card-ui.js?v=0.1.2-14';
+import {RecordDialog} from './card-dialog.js?v=0.1.2-14';
+import './card-editor.js?v=0.1.2-14';
 
 export class ChargeTallyCard extends HTMLElement {
   static getConfigElement(){return document.createElement('charge-tally-card-editor');}
@@ -24,11 +24,12 @@ export class ChargeTallyCard extends HTMLElement {
   }
   set hass(hass){
     this._hass=hass;const language=hass.language||'en';
+    const timezoneChanged=this.syncTimezone();
     if(language!==this.language){
       this.language=language;this.render();this.dialog?.setLanguage(language);
       const metadata=window.customCards?.find(card=>card.type==='charge-tally-card');
       if(metadata)metadata.description=this.t('cardDescription');
-    }
+    }else if(timezoneChanged)this.render();
     if(this.isConnected)this.subscription.connect(hass.connection);
   }
   getCardSize(){return this.config.show_records===false?6:10;}
@@ -37,10 +38,32 @@ export class ChargeTallyCard extends HTMLElement {
   t(key){return tr(key,this.language||'en');}
   onSnapshot(snapshot){
     this.snapshotVersion=(this.snapshotVersion||0)+1;
+    const previousTimezone=this.snapshot?.timezone;
     if(!this.snapshot)this.error=null;this.snapshot=snapshot;this.summaryDirty=true;this.recordsDirty=true;
+    if(snapshot)this.syncTimezone(previousTimezone);
     // Keep loaded content during background refresh so the page does not collapse.
-    if(!snapshot){this.cancelExport();this.latest.invalidate();this.queryVersion++;this.summaryPending=false;this.recordsPending=false;this.pendingSelections.clear();this.summary=null;this.page=null;this.dialogEpoch++;this.actions.invalidate();this.busy=false;this.notice=null;this.dialog?.close();}
+    if(!snapshot){this.cancelExport();this.latest.invalidate();this.queryVersion++;this.summaryPending=false;this.recordsPending=false;this.pendingSelections.clear();this.summary=null;this.page=null;this.dialogEpoch++;this.pendingDetail=null;this.actions.invalidate();this.busy=false;this.notice=null;this.dialog?.close();}
     this.render();if(snapshot)this.refresh();
+  }
+  syncTimezone(previousTimezone){
+    const accounting=this.snapshot?.timezone||this._hass?.config?.time_zone||'UTC',display=displayTimezone(this._hass,accounting);
+    const oldAccounting=this.accountingTimezone||previousTimezone,systemChanged=!!oldAccounting&&oldAccounting!==accounting;
+    const displayChanged=!!this.displayTimezone&&this.displayTimezone!==display;
+    this.accountingTimezone=accounting;this.displayTimezone=display;
+    if(systemChanged){
+      this.summaryVersion=(this.summaryVersion||0)+1;this.summaryPending=false;this.summaryDirty=true;this.summary=null;
+      if(this.appliedDates){
+        try{this.appliedRange={start:resolveLocal(this.appliedDates.start+'T00:00',accounting),end:resolveLocal(this.appliedDates.end+'T00:00',accounting)};}
+        catch(error){this.appliedRange=null;this.error=error;}
+      }
+    }
+    if(systemChanged||displayChanged){
+      this.dialog?.setTimezone(display,accounting);
+      if(this.dialog?.form){this.dialogEpoch++;this.pendingDetail=null;}
+      else if(this.pendingDetail)this.details(this.pendingDetail,this.dialog?.mode==='details'&&this.dialog.record.id===this.pendingDetail.id);
+      else if(this.dialog?.mode==='details')this.details(this.dialog.record,true);
+    }
+    return systemChanged||displayChanged;
   }
   call(request){if(!this.snapshot||this._hass.connection.connected===false)throw Object.assign(new Error('unavailable'),{code:'unavailable'});return this._hass.callWS(request);}
   pointName(id){return [...(this.snapshot?.points||[]),...(this.snapshot?.archived_points||[])].find(p=>p.id===id)?.name||id;}
@@ -52,7 +75,7 @@ export class ChargeTallyCard extends HTMLElement {
     try{
       const range={start:resolveLocal(this.rangeStart+'T00:00',this.snapshot.timezone),end:resolveLocal(this.rangeEnd+'T00:00',this.snapshot.timezone)};
       queryRequest(this.filters,range);
-      this.appliedRange=range;
+      this.appliedRange=range;this.appliedDates={start:this.rangeStart,end:this.rangeEnd};
     }catch(error){this.error=error;this.render();return;}
     this.error=null;this.summaryVersion=(this.summaryVersion||0)+1;this.summaryDirty=true;this.summaryPending=false;this.summary=null;this.render();this.refresh();
   }
@@ -138,16 +161,18 @@ export class ChargeTallyCard extends HTMLElement {
     }catch(error){this.error=error;this.render();}
   }
   openDialog(mode,detail){
-    this.dialogEpoch++;
+    this.dialogEpoch++;this.pendingDetail=null;
     if(!this.snapshot)return;this.dialog?.close();
-    this.dialog=new RecordDialog(this.shadowRoot,{mode,detail,record:detail?.record,language:this.language,currency:this.snapshot.currency,timezone:this.snapshot.timezone,points:[...this.snapshot.points,...this.snapshot.archived_points],identities:this.snapshot.identities,defaultPoint:this.filters.point_id,defaultIdentity:this.filters.identity_id,
-      call:request=>this.call(request),pointName:id=>this.pointName(id),identityName:id=>this.identityName(id),onSaved:()=>{this.notice=this.t('saved');this.summaryDirty=true;this.recordsDirty=true;this.refresh();},onClose:()=>{this.dialogEpoch++;this.dialog=null;}});
+    this.syncTimezone();
+    this.dialog=new RecordDialog(this.shadowRoot,{mode,detail,record:detail?.record,language:this.language,currency:this.snapshot.currency,timezone:this.displayTimezone,accountingTimezone:this.accountingTimezone,points:[...this.snapshot.points,...this.snapshot.archived_points],identities:this.snapshot.identities,defaultPoint:this.filters.point_id,defaultIdentity:this.filters.identity_id,
+      call:request=>this.call(request),pointName:id=>this.pointName(id),identityName:id=>this.identityName(id),onSaved:()=>{this.notice=this.t('saved');this.summaryDirty=true;this.recordsDirty=true;this.refresh();},onClose:()=>{this.dialogEpoch++;this.pendingDetail=null;this.dialog=null;}});
   }
-  details(record){
+  details(record,refresh=false){
+    this.syncTimezone();this.pendingDetail=record;
     const epoch=++this.dialogEpoch;
-    return this.latest.run('detail',()=>this.call({type:'charge_tally/records',record_id:record.id,include_history:false}),
-      detail=>{if(epoch===this.dialogEpoch)this.openDialog('details',detail);},
-      error=>{if(epoch===this.dialogEpoch){this.error=error;this.render();}});
+    return this.latest.run('detail',()=>this.call({type:'charge_tally/records',record_id:record.id,include_history:false,display_timezone:this.displayTimezone}),
+      detail=>{if(epoch!==this.dialogEpoch)return;this.pendingDetail=null;if(refresh){if(this.dialog?.mode==='details'&&this.dialog.record.id===record.id)this.dialog.setDetail(detail);}else this.openDialog('details',detail);},
+      error=>{if(epoch===this.dialogEpoch){this.pendingDetail=null;this.error=error;this.render();}});
   }
   render(){if(!this.body)return;this.view??=new CardView(this);this.view.update();}
 

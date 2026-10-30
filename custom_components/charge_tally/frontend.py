@@ -25,8 +25,8 @@ class CardResource(TypedDict):
     manual: bool
 
 
-CARD_URL = "/charge_tally/charge-tally-card.js?v=0.1.2-13"
-NFC_URL = "/charge_tally/nfc-panel.js?v=0.1.2-13"
+CARD_URL = "/charge_tally/charge-tally-card.js?v=0.1.2-14"
+NFC_URL = "/charge_tally/nfc-panel.js?v=0.1.2-14"
 
 
 async def async_register(hass: HomeAssistant) -> CardResource:

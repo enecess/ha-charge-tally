@@ -15,7 +15,7 @@ export async function openCompactDetails(page,overrides={}){
     fixture.card.snapshot={...fixture.card.snapshot,currency:'EUR'};fixture.card.openDialog('details',fixture.compact);
   },overrides);
 }
-export async function createCardFixture(t,config={},{insecure=false}={}){
+export async function createCardFixture(t,config={},{insecure=false,timezoneId}={}){
   const server=createServer(async(req,res)=>{
     try{
       const url=new URL(req.url,'http://localhost');
@@ -31,7 +31,7 @@ export async function createCardFixture(t,config={},{insecure=false}={}){
     args:insecure?['--host-resolver-rules=MAP charge-tally.test 127.0.0.1','--no-proxy-server']:[],
   });
   t.after(()=>browser.close());
-  const page=await browser.newPage();t.after(()=>page.close());
+  const page=await browser.newPage({timezoneId});t.after(()=>page.close());
   const errors=[];page.on('pageerror',error=>errors.push(error.message));t.after(()=>assert.deepEqual(errors,[], 'No uncaught browser errors'));
   await page.goto(`http://${insecure?'charge-tally.test':'127.0.0.1'}:${server.address().port}`);
   await page.waitForFunction(()=>customElements.get('charge-tally-card'));

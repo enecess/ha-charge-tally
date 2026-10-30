@@ -20,7 +20,9 @@ Usa **Impostazioni → Dispositivi e servizi → Charge Tally** per la configura
 
 All’apertura sono espansi solo i controlli di ricarica. Statistiche e registrazioni sono inizialmente chiuse. Gli aggiornamenti conservano le sezioni aperte e lo stato dei controlli; ricaricare la pagina ripristina la vista iniziale. Grafico e cronologia vengono caricati aprendo la rispettiva sezione.
 
-I grafici raggruppano Oggi per ora, Questo mese per giorno, Quest’anno per mese e Totale per anno. Per un intervallo personalizzato conta la differenza tra le date del calendario locale: fino a 2 giorni per ora, fino a 90 giorni per giorno, fino a 730 giorni per mese e oltre per anno. Si applicano il fuso del registro e i cambi dell’ora legale. Grafici e riepilogo coprono lo stesso intervallo; un costo sconosciuto resta sconosciuto.
+I grafici raggruppano Oggi per ora, Questo mese per giorno, Quest’anno per mese e Totale per anno. Per un intervallo personalizzato conta la differenza tra le date del calendario di sistema: fino a 2 giorni per ora, fino a 90 giorni per giorno, fino a 730 giorni per mese e oltre per anno. Si applicano il fuso di sistema di Home Assistant e i cambi dell’ora legale. Grafici e riepilogo coprono lo stesso intervallo; un costo sconosciuto resta sconosciuto.
+
+Orari e campi data/ora seguono la preferenza personale di Home Assistant: Server usa il fuso di sistema corrente, Locale quello del dispositivo. Se diversi, la scheda indica **Fuso orario di visualizzazione** e **Fuso orario delle statistiche**. Oggi, mese, anno, intervalli di date personalizzati e totali condivisi usano sempre il fuso di sistema. I PDF usano la tua lingua e indicano esplicitamente il fuso di sistema. La configurazione del punto indica **Fuso orario della tariffa** per le regole giornaliere. Un cambio del fuso di sistema applica le regole nel nuovo fuso solo per la contabilizzazione futura e crea una notifica nativa di Home Assistant per i punti interessati; i costi già contabilizzati restano invariati. Preferenze personali, lingua e normale ora legale non creano versioni tariffarie né questa notifica.
 
 Il dettaglio dei costi nelle anteprime e nelle registrazioni unisce periodi adiacenti con la stessa base di calcolo e tariffa. Le variazioni della qualità delle misure non dividono un periodo tariffario; le effettive lacune energetiche sono indicate separatamente. Le statistiche temporali continuano a usare gli intervalli di misura originali. Il registro conserva internamente un’istantanea di audit all’avvio, alla fine e per modifiche esplicite, comprese riassegnazione e annullamento. I campioni correnti aggiornano la registrazione senza altre istantanee; i numeri di revisione interni possono quindi avere salti.
 
@@ -289,7 +291,7 @@ Prima di sospendere con **Rilevamento**, termina le registrazioni attive e le co
 
 ### Consultare i dettagli della registrazione
 
-I dettagli mostrano attribuzione, energia, costo, un intervallo compatto di date e orari con durata, fuso contabile, stato, origine e nota. Gli avvisi indicano energia o tariffe mancanti. Un costo sconosciuto non viene mostrato come zero; un costo manuale conserva il totale inserito anche con copertura delle misure incompleta.
+I dettagli mostrano attribuzione, energia, costo, un intervallo compatto di date e orari con durata, fuso di visualizzazione, stato, origine e nota. Gli avvisi indicano energia o tariffe mancanti. Un costo sconosciuto non viene mostrato come zero; un costo manuale conserva il totale inserito anche con copertura delle misure incompleta.
 
 - **Dettaglio dei costi** è inizialmente chiuso. Aprilo per vedere i periodi tariffari in ordine cronologico con orari, tariffa, energia, costo e indicazioni separate delle lacune energetiche. Le date sono raggruppate; oltre 12 periodi è possibile espandere i rimanenti.
 - L’attesa normale dell’ultimo campione mostra **Calcolo in corso** senza avvisi; prima della prima misura **Costo attuale** mostra **—**. Energia mancante, tariffe mancanti e chiusura per fonte indisponibile restano problemi distinti, ciascuno indicato una volta. **Energia inserita manualmente** conserva i periodi tariffari senza un costo fisso. Un costo manuale appare una volta nel riepilogo; energia e costo interamente manuali non creano una sezione vuota. **Prima / Dopo** conservano ciascuno il proprio importo.
@@ -309,7 +311,7 @@ Su una registrazione terminata scegli **Annulla registrazione**, verifica e prem
 
 **Aggiungi registrazione passata** apre **Nuova registrazione passata**. Per modificare, apri una registrazione terminata e scegli **Modifica registrazione**.
 
-1. Verifica **Fuso orario contabile**, **Punto di ricarica** e **Identità assegnata**. Per nuove registrazioni servono un punto corrente e un’identità abilitata. Un punto archiviato non può riceverne di nuove anche se appare nell’elenco. In modifica il punto originale non può essere cambiato.
+1. Verifica **Fuso orario di inserimento**, **Punto di ricarica** e **Identità assegnata**. Per nuove registrazioni servono un punto corrente e un’identità abilitata. Un punto archiviato non può riceverne di nuove anche se appare nell’elenco. In modifica il punto originale non può essere cambiato.
 2. Inserisci data e ora di **Inizio** e **Fine (esclusa)**; la fine deve essere successiva all’inizio.
 3. Compila o lascia vuota l’energia manuale e scegli la base di costo descritta sotto.
 4. Aggiungi eventualmente una **Nota**, fino a 2000 caratteri.
@@ -329,7 +331,7 @@ Le registrazioni dello stesso punto non possono sovrapporsi. Un’anteprima con 
 
 La ricostruzione dipende dai dati conservati da HA e dal registro: non è garantita per qualunque data passata. Se mancano dati, puoi inserire energia e costo totali dalla ricevuta del caricatore. I valori manuali hanno etichette brevi; ripartizione normale, arrotondamento e interruzioni storiche risolte non aggiungono spiegazioni.
 
-Gli orari usano il fuso contabile indicato, non quello del browser. Per ore locali ripetute al cambio dell’ora legale, scegli **Ora locale ripetuta: seleziona l’istante UTC**. Ore locali inesistenti non possono essere inviate.
+Gli orari usano il fuso di inserimento indicato dalla preferenza personale. Per ore locali ripetute al cambio dell’ora legale, scegli **Ora locale ripetuta: seleziona l’istante UTC**. Ore locali inesistenti non possono essere inviate. Se cambia il fuso di sistema o quello effettivo di visualizzazione con il modulo aperto, copia la bozza e riapri il modulo prima di anteprima e salvataggio. Gli orari non modificati conservano la precisione UTC originale.
 
 > Segnaposto immagine 13: Nuova registrazione passata / Modifica registrazione, base di costo, anteprima e copertura.
 
@@ -344,7 +346,7 @@ Gli orari usano il fuso contabile indicato, non quello del browser. Per ore loca
 | **Azzeramento del contatore** | Una lettura in calo ha reso incompleto l’intervallo |
 | **Energia inserita manualmente / Costo totale inserito manualmente** | Valori manuali; un costo fisso resta tale durante l’attesa delle misure |
 
-L’energia viene ripartita nei giorni, mesi e anni in cui si consuma: una ricarica oltre mezzanotte non ricade interamente sul giorno iniziale. Le registrazioni conservano il proprio fuso contabile. Il numero di completate in **Attive / completate** segue l’orario iniziale: una registrazione può contribuire energia a un intervallo senza aumentarne il conteggio delle completate.
+L’energia viene ripartita nei giorni, mesi e anni del fuso di sistema corrente: una ricarica oltre mezzanotte non ricade interamente sul giorno iniziale. Fusi originali e prove di audit restano conservati; gli orari storici seguono la preferenza personale, la contabilità di calendario condivisa il fuso di sistema corrente. Il numero di completate in **Attive / completate** segue l’orario iniziale: una registrazione può contribuire energia a un intervallo senza aumentarne il conteggio delle completate.
 
 Scheda e identità sommano le registrazioni. Le statistiche energetiche native possono includere standby esterno alle registrazioni, quindi i totali possono differire. Modificare aggiorna il registro, non riscrive lo storico del contatore nativo. I grafici dei costi mostrano importi noti; l’arrotondamento visualizzato non cambia la precisione salvata.
 

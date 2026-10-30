@@ -3,6 +3,193 @@ import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {createCardFixture,openCompactDetails} from './card-fixture.mjs';
 
+for(const timezoneId of ['UTC','Europe/Berlin'])test(`personal record timezone keeps shared calendar queries in ${timezoneId}`,async t=>{
+  const {page}=await createCardFixture(t,{}, {timezoneId});
+  await page.evaluate(()=>{
+    const c=fixture.card;c.hass={...fixture.hass,locale:undefined,config:{time_zone:'Asia/Shanghai'}};
+    c.onSnapshot({...fixture.snapshot,timezone:'Asia/Shanghai'});
+    c.expanded={controls:true,statistics:true,records:true};
+    fixture.record={id:'tz',revision:2,point_id:'p',identity_id:'i',timezone:'America/New_York',start:'2026-10-29T08:57:00.123456Z',end:'2026-10-29T09:57:00.987654Z',status:'ended',source:'automatic',energy_kwh:'2',known_cost:'1',cost_complete:true,note:'Keep my note',quality:[]};
+    c.snapshot.points[0].active_record={...fixture.record,status:'active',end:null};
+    c.page={records:[fixture.record],total:1,limit:25};c.recordsDirty=false;c.summary={energy_kwh:'2',known_cost:'1',cost_complete:true,buckets:[]};c.summaryDirty=false;c.render();
+  });
+  assert.match(await page.locator('[data-record-id=tz]').innerText(),/2026-10-29 16:57:00/);
+  assert.match(await page.locator('[data-point-id]').innerText(),/Started: 2026-10-29 16:57:00/);
+  assert.equal(await page.locator('[data-timezone=display]:visible').count(),0);
+  await page.evaluate(()=>{const c=fixture.card;c.summaryDirty=true;c.refresh();c.period='custom';c.rangeStart='2026-10-29';c.rangeEnd='2026-10-30';c.applyRange();});
+  const accountingRequests=await page.evaluate(()=>fixture.pending.map(p=>p.request));
+  assert.deepEqual(accountingRequests,[{type:'charge_tally/query',calendar_period:'daily'},{type:'charge_tally/query',start:'2026-10-28T16:00:00.000Z',end:'2026-10-29T16:00:00.000Z'}]);
+  await page.evaluate(()=>{const c=fixture.card;c.hass={...fixture.hass,locale:{time_zone:'local'}};});
+  assert.match(await page.locator('[data-record-id=tz]').innerText(),timezoneId==='UTC'?/2026-10-29 08:57:00/:/2026-10-29 09:57:00/);
+  assert.match(await page.locator('[data-point-id]').innerText(),timezoneId==='UTC'?/Started: 2026-10-29 08:57:00/:/Started: 2026-10-29 09:57:00/);
+  assert.match(await page.locator('[data-timezone=display]').innerText(),new RegExp(`Display timezone: ${timezoneId}`));
+  assert.match(await page.locator('[data-timezone=statistics]').innerText(),/Statistics timezone: Asia\/Shanghai/);
+  assert.deepEqual(await page.evaluate(()=>fixture.pending.map(p=>p.request)),accountingRequests);
+  assert.equal(await page.evaluate(()=>fixture.card.snapshot.timezone),'Asia/Shanghai');
+  await page.evaluate(()=>{fixture.pending[0].resolve({energy_kwh:'old',buckets:[]});fixture.pending[1].resolve({energy_kwh:'2',known_cost:'1',cost_complete:true,buckets:[]});});
+  await page.waitForFunction(()=>fixture.card.summary?.energy_kwh==='2');
+  assert.match(await page.locator('[data-section=statistics] .metric').first().innerText(),/2 kWh/);
+  await page.evaluate(()=>{fixture.card.details(fixture.record);});
+  assert.equal(await page.evaluate(()=>fixture.pending.at(-1).request.display_timezone),timezoneId);
+  await page.evaluate(()=>fixture.pending.at(-1).resolve({record:fixture.record,display_timezone:fixture.card.displayTimezone,display_segments:[],billing_periods:[],revisions:[]}));
+  await page.waitForSelector('dialog');
+  assert.match(await page.locator('dialog').innerText(),/Keep my note/);
+  assert.match(await page.locator('dialog [data-timezone=display]').innerText(),new RegExp(timezoneId));
+  await page.getByRole('button',{name:'Edit record',exact:true}).click();
+  assert.equal(await page.locator('dialog input[type=datetime-local]').first().inputValue(),timezoneId==='UTC'?'2026-10-29T08:57':'2026-10-29T09:57');
+  await page.getByRole('button',{name:'Preview changes',exact:true}).click();
+  const request=await page.evaluate(()=>fixture.pending.at(-1).request);
+  assert.equal(request.display_timezone,timezoneId);assert.equal('start'in request,false);assert.equal('end'in request,false);
+  await page.evaluate(()=>fixture.pending.at(-1).resolve({record:fixture.record,token:'personal-preview',display_timezone:fixture.card.displayTimezone,billing_periods:[],display_segments:[],coverage:[{start:fixture.record.start,end:fixture.record.end}],overlaps:[]}));
+  await page.waitForFunction(()=>!!fixture.card.dialog.preview);
+  assert.match(await page.locator('dialog .preview').innerText(),timezoneId==='UTC'?/2026-10-29 08:57:00 → 2026-10-29 09:57:00/:/2026-10-29 09:57:00 → 2026-10-29 10:57:00/);
+});
+
+test('personal timezone leaves PDF request language and system date scope intact',async t=>{
+  const {page}=await createCardFixture(t,{}, {timezoneId:'UTC'});
+  await page.evaluate(()=>{
+    const c=fixture.card;c.onSnapshot({...fixture.snapshot,timezone:'Asia/Shanghai'});c.hass={...fixture.hass,locale:{time_zone:'local'},language:'de-DE'};
+    c.period='custom';c.rangeStart='2026-10-29';c.rangeEnd='2026-10-30';c.applyRange();c.exportPdf();
+  });
+  assert.deepEqual(await page.evaluate(()=>fixture.exports[0].payload),{language:'de-DE',start:'2026-10-28T16:00:00.000Z',end:'2026-10-29T16:00:00.000Z'});
+  await page.evaluate(()=>fixture.card.cancelExport());
+});
+
+for(const change of ['personal','system'])test(`${change} timezone change retains editable draft and rejects a pending preview`,async t=>{
+  const {page}=await createCardFixture(t,{}, {timezoneId:'UTC'});
+  await page.evaluate(()=>{const c=fixture.card;c.onSnapshot({...fixture.snapshot,timezone:'Asia/Shanghai'});c.openDialog('create');});
+  await page.locator('dialog input[type=datetime-local]').first().fill('2026-10-29T16:57:01');
+  await page.locator('dialog input[type=datetime-local]').nth(1).fill('2026-10-29T17:57:01');
+  await page.locator('dialog textarea').fill('Copyable draft');
+  await page.getByRole('button',{name:'Preview changes',exact:true}).click();
+  await page.evaluate(change=>{const c=fixture.card;fixture.draft=c.dialog.node.querySelector('textarea');if(change==='personal')c.hass={...fixture.hass,locale:{time_zone:'local'}};else c.onSnapshot({...c.snapshot,timezone:'Europe/Berlin'});},change);
+  assert.equal(await page.locator('dialog textarea').inputValue(),'Copyable draft');
+  assert.equal(await page.evaluate(()=>fixture.draft===fixture.card.dialog.node.querySelector('textarea')),true);
+  assert.equal(await page.locator('dialog textarea').isDisabled(),false);
+  assert.match(await page.locator('dialog [data-timezone=display]').innerText(),/Asia\/Shanghai/);
+  assert.match(await page.locator('dialog [role=alert]').innerText(),/Timezone changed.*reopen/i);
+  assert.equal(await page.getByRole('button',{name:'Preview changes',exact:true}).isDisabled(),true);
+  assert.equal(await page.locator('dialog button[data-write]').last().isDisabled(),true);
+  await page.evaluate(()=>fixture.pending[0].resolve({token:'stale'}));
+  await page.waitForTimeout(30);
+  assert.equal(await page.evaluate(()=>fixture.card.dialog.preview),null);
+});
+
+test('detail timezone changes replace pending projections and keep fee expansion',async t=>{
+  const {page}=await createCardFixture(t,{}, {timezoneId:'UTC'});
+  await page.evaluate(()=>{const c=fixture.card;c.onSnapshot({...fixture.snapshot,timezone:'Asia/Shanghai'});c.details({id:'r'});c.hass={...fixture.hass,locale:{time_zone:'local'}};});
+  assert.deepEqual(await page.evaluate(()=>fixture.pending.map(p=>p.request.display_timezone)),['Asia/Shanghai','UTC']);
+  await page.evaluate(()=>fixture.pending[0].resolve({record:{id:'old'}}));
+  await page.waitForTimeout(20);assert.equal(await page.locator('dialog').count(),0);
+  await page.evaluate(()=>{const record={id:'r',revision:1,point_id:'p',identity_id:'i',timezone:'Asia/Shanghai',start:'2026-10-29T08:57:00Z',end:'2026-10-29T09:57:00Z',status:'ended',source:'automatic',energy_kwh:'2',known_cost:'1',cost_complete:true,quality:[]};fixture.detail={record,display_timezone:'UTC',display_segments:[],billing_periods:[],revisions:[]};fixture.pending[1].resolve(fixture.detail);});
+  await page.waitForSelector('dialog');await page.locator('dialog details summary').click();
+  await page.evaluate(()=>fixture.card.hass={...fixture.hass,locale:{time_zone:'server'}});
+  assert.equal(await page.evaluate(()=>fixture.pending.at(-1).request.display_timezone),'Asia/Shanghai');
+  await page.evaluate(()=>fixture.pending.at(-1).resolve({...fixture.detail,display_timezone:'Asia/Shanghai'}));
+  await page.waitForFunction(()=>fixture.card.dialog.detail.display_timezone==='Asia/Shanghai');
+  assert.equal(await page.locator('dialog details').evaluate(node=>node.open),true);
+  assert.match(await page.locator('dialog .record-overview').innerText(),/16:57–17:57/);
+});
+
+test('system timezone replaces a pending summary using applied calendar dates',async t=>{
+  const {page}=await createCardFixture(t,{}, {timezoneId:'UTC'});
+  await page.evaluate(()=>{
+    const c=fixture.card;c.onSnapshot({...fixture.snapshot,timezone:'Asia/Shanghai'});c.period='custom';c.rangeStart='2026-10-29';c.rangeEnd='2026-10-30';c.applyRange();c.setExpanded('statistics',true);
+    c.rangeStart='2026-11-05';c.rangeEnd='2026-11-09';c.onSnapshot({...c.snapshot,timezone:'America/New_York'});
+  });
+  assert.deepEqual(await page.evaluate(()=>fixture.pending.map(p=>p.request)),[
+    {type:'charge_tally/query',start:'2026-10-28T16:00:00.000Z',end:'2026-10-29T16:00:00.000Z'},
+    {type:'charge_tally/query',start:'2026-10-29T04:00:00.000Z',end:'2026-10-30T04:00:00.000Z'},
+  ]);
+  await page.evaluate(()=>{fixture.pending[1].resolve({energy_kwh:'2',known_cost:'1',cost_complete:true,buckets:[]});fixture.pending[0].resolve({energy_kwh:'old',buckets:[]});});
+  await page.waitForFunction(()=>fixture.card.summary?.energy_kwh==='2');
+  assert.equal(await page.evaluate(()=>fixture.card.rangeStart),'2026-11-05');
+});
+
+test('editing retains its draft when another timezone change supersedes a detail refresh',async t=>{
+  const {page}=await createCardFixture(t,{}, {timezoneId:'UTC'});
+  await openCompactDetails(page);
+  await page.evaluate(()=>fixture.card.onSnapshot({...fixture.card.snapshot,timezone:'Asia/Shanghai'}));
+  await page.getByRole('button',{name:'Edit record',exact:true}).click();await page.locator('dialog textarea').fill('Keep after two changes');
+  await page.evaluate(()=>{const c=fixture.card;c.hass={...fixture.hass,locale:{time_zone:'local'}};fixture.pending.forEach(p=>p.resolve(fixture.compact));});
+  await page.waitForTimeout(30);
+  assert.equal(await page.locator('dialog textarea').inputValue(),'Keep after two changes');
+  assert.equal(await page.getByRole('button',{name:'Preview changes',exact:true}).isDisabled(),true);
+});
+
+test('timezone changes do not cancel an already submitted historical write',async t=>{
+  const {page}=await createCardFixture(t,{}, {timezoneId:'UTC'});await openCompactDetails(page);
+  await page.getByRole('button',{name:'Edit record',exact:true}).click();await page.getByRole('button',{name:'Preview changes',exact:true}).click();
+  await page.evaluate(()=>fixture.pending[0].resolve({...fixture.compact,token:'token',expected_revision:1797,overlaps:[],coverage:[]}));
+  await page.waitForFunction(()=>!!fixture.card.dialog.preview);
+  await page.locator('dialog button[data-write]').last().click();
+  await page.evaluate(()=>{fixture.card.onSnapshot({...fixture.card.snapshot,timezone:'Asia/Shanghai'});fixture.pending[1].resolve(fixture.compact.record);});
+  await page.waitForFunction(()=>!fixture.card.dialog);
+  assert.equal(await page.evaluate(()=>fixture.pending[1].request.type),'charge_tally/commit');
+  assert.equal(await page.evaluate(()=>fixture.card.notice),'Saved');
+});
+
+test('timezone labels follow six languages without replacing a focused draft',async t=>{
+  const {page}=await createCardFixture(t,{}, {timezoneId:'UTC'});
+  await page.evaluate(()=>{const c=fixture.card;c.hass={...fixture.hass,language:'invalid_locale_!'};c.onSnapshot({...fixture.snapshot,timezone:'Asia/Shanghai'});c.hass={...c._hass,locale:{time_zone:'local'}};c.expanded={controls:false,statistics:true,records:true};c.render();c.openDialog('create');});
+  await page.locator('dialog textarea').fill('My draft');await page.locator('dialog textarea').focus();
+  assert.match(await page.locator('dialog [data-timezone=display]').innerText(),/Input timezone: UTC/);
+  for(const [language,display,statistics,input]of [['en','Display timezone','Statistics timezone','Input timezone'],['zh-Hans','显示时区','统计时区','输入时区'],['de','Anzeigezeitzone','Statistikzeitzone','Eingabezeitzone'],['fr','Fuseau horaire d’affichage','Fuseau horaire des statistiques','Fuseau horaire de saisie'],['it','Fuso orario di visualizzazione','Fuso orario delle statistiche','Fuso orario di inserimento'],['pl','Strefa czasowa wyświetlania','Strefa czasowa statystyk','Strefa czasowa wprowadzania']]){
+    await page.evaluate(language=>fixture.card.hass={...fixture.card._hass,language},language);
+    assert.equal(await page.locator('[data-section=records] [data-timezone=display]').innerText(),`${display}: UTC`);
+    assert.equal(await page.locator('[data-timezone=statistics]').innerText(),`${statistics}: Asia/Shanghai`);
+    assert.equal(await page.locator('dialog [data-timezone=display]').innerText(),`${input}: UTC`);
+    assert.equal(await page.locator('dialog textarea').inputValue(),'My draft');assert.equal(await page.locator('dialog textarea').evaluate(node=>node.getRootNode().activeElement===node),true);
+  }
+});
+
+for(const width of [900,320])test(`backend personal projections keep midnight fees and manual coverage bounded at ${width}px`,async t=>{
+  const projections=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',`
+import json
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+from zoneinfo import ZoneInfo
+from custom_components.charge_tally.ledger import Ledger
+from custom_components.charge_tally.accounting import Accounting
+from custom_components.charge_tally.record_views import detail_view
+ledger = Ledger(':memory:')
+ledger.put_point({'id': 'p'})
+ledger.put_identity({'id': 'i', 'name': 'Family'})
+app = Accounting(ledger)
+start = datetime(2026, 10, 29, 23, 59, tzinfo=UTC)
+record = app.start('p', 'i', start, 'start', source='automatic', timezone='Asia/Shanghai')
+app.add_interval('p', start, start + timedelta(minutes=2), Decimal('2'), [(start, Decimal('0.5'))])
+app.add_interval('p', start + timedelta(minutes=2), start + timedelta(minutes=2, seconds=5), Decimal('0'), [(start, Decimal('0.5'))], ('reset',))
+record = app.end(record['id'], start + timedelta(minutes=2, seconds=10), 'end')
+parts = ledger.list_segments(record['id'])
+normal = detail_view(record, parts, [], include_history=False, display_timezone=ZoneInfo('UTC'))
+fee_preview = app.preview({'record_id': record['id'], 'expected_revision': record['revision'], 'cost': '12.00'})
+manual_fee = detail_view(fee_preview['record'], fee_preview['segments'], [], include_history=False, display_timezone=ZoneInfo('UTC'))
+preview = app.preview({'point_id': 'p', 'identity_id': 'i', 'start': start - timedelta(days=1), 'end': start - timedelta(days=1) + timedelta(hours=2), 'timezone': 'Asia/Shanghai', 'energy_kwh': '6', 'prices': [(start - timedelta(days=1), '0.25')]})
+manual_energy = detail_view(preview['record'], preview['segments'], [], include_history=False, display_timezone=ZoneInfo('UTC'))
+print(json.dumps({'normal': normal, 'manual_fee': manual_fee, 'manual_energy': manual_energy}))
+ledger.close()
+`],{encoding:'utf8'}));
+  const {page}=await createCardFixture(t,{}, {timezoneId:'UTC'});await page.setViewportSize({width,height:900});
+  await page.evaluate(detail=>{const c=fixture.card;c.onSnapshot({...fixture.snapshot,timezone:'Asia/Shanghai'});c.hass={...fixture.hass,locale:{time_zone:'local'}};c.openDialog('details',detail);},projections.normal);
+  await page.locator('dialog details summary').click();
+  assert.match(await page.locator('dialog .billing-details').innerText(),/23:59:00–2026-10-30 00:00:00/);
+  assert.equal(await page.locator('dialog .billing-period').count(),2);assert.equal(await page.locator('dialog .billing-gap').count(),1);
+  assert.match(await page.locator('dialog .billing-gap').innerText(),/00:01:00–00:01:10.*10 s/);
+  assert.match(await page.locator('dialog .record-overview').innerText(),/A meter reset caused missing energy data/);
+  assert.equal(await page.evaluate(()=>{const d=fixture.card.dialog.node;return d.scrollWidth<=d.clientWidth&&d.getBoundingClientRect().width<=innerWidth;}),true);
+  const {mkdir}=await import('node:fs/promises');await mkdir('.superpowers/timezone-qa',{recursive:true});
+  await page.screenshot({path:`.superpowers/timezone-qa/task-3-${width}-details.png`,fullPage:true});
+  if(width===320){await page.locator('dialog').evaluate(node=>{node.scrollTop=node.scrollHeight;});await page.screenshot({path:'.superpowers/timezone-qa/task-3-320-details-bottom.png',fullPage:true});}
+  await page.evaluate(detail=>fixture.card.openDialog('details',detail),projections.manual_fee);await page.locator('dialog details summary').click();
+  assert.equal(await page.locator('dialog .measurement-period').count(),2);assert.equal(await page.locator('dialog .billing-gap').count(),1);
+  assert.doesNotMatch(await page.locator('dialog .billing-details').innerText(),/CNY\/kWh|CNY 12/);
+  await page.evaluate(detail=>fixture.card.openDialog('details',detail),projections.manual_energy);await page.locator('dialog details summary').click();
+  assert.match(await page.locator('dialog .record-metrics').innerText(),/Manual energy\s+6/);
+  assert.equal(await page.locator('dialog .billing-period').count(),2);assert.match(await page.locator('dialog .billing-details').innerText(),/0.25/);
+  assert.deepEqual(projections.normal.record.timezone,'Asia/Shanghai');
+});
+
 test('backend mixed reset and pending span keeps its real loss in details and record rows',async t=>{
   const detail=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',`
 import json
@@ -430,7 +617,7 @@ test('period and page versions independently reject late responses',async t=>{
 test('select protection clones the latest queued options and dispose drops pending changes',async t=>{
   const {page}=await createCardFixture(t);
   assert.deepEqual(await page.evaluate(async()=>{
-    const {SelectControl}=await import('/card-controls.js?v=0.1.2-13');const control=new SelectControl();document.body.append(control.node);control.update({options:[{id:'a',name:'A'}],value:'a'});const original=control.node.firstChild;control.update({options:[{id:'a',name:'A'}],value:'a'});const untouched=original===control.node.firstChild;control.node.focus();const options=[{id:'b',name:'B'}];control.update({options,value:'b'});options[0].name='Changed outside';control.node.blur();const name=control.node.firstChild.textContent;control.node.focus();control.update({options:[{id:'c',name:'C'}],value:'c'});control.dispose();control.node.blur();return {untouched,name,value:control.node.value,pending:control.pending,editing:control.editing};
+    const {SelectControl}=await import('/card-controls.js?v=0.1.2-14');const control=new SelectControl();document.body.append(control.node);control.update({options:[{id:'a',name:'A'}],value:'a'});const original=control.node.firstChild;control.update({options:[{id:'a',name:'A'}],value:'a'});const untouched=original===control.node.firstChild;control.node.focus();const options=[{id:'b',name:'B'}];control.update({options,value:'b'});options[0].name='Changed outside';control.node.blur();const name=control.node.firstChild.textContent;control.node.focus();control.update({options:[{id:'c',name:'C'}],value:'c'});control.dispose();control.node.blur();return {untouched,name,value:control.node.value,pending:control.pending,editing:control.editing};
   }),{untouched:true,name:'B',value:'b',pending:null,editing:false});
 });
 test('selection failure stays visible through a background push',async t=>{

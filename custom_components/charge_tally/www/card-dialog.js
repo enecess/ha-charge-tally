@@ -1,7 +1,7 @@
-import {tr} from './card-i18n.js?v=0.1.2-13';
-import {newRequestId} from './request-id.js?v=0.1.2-13';
-import {Latest,localInput,localCandidates,errorMessage,previewRequest,commitRequest} from './card-state.js?v=0.1.2-13';
-import {el,button,field,select,input,summaryView,recordOverview,billingDetails,dateText,updateLabels} from './card-ui.js?v=0.1.2-13';
+import {tr} from './card-i18n.js?v=0.1.2-14';
+import {newRequestId} from './request-id.js?v=0.1.2-14';
+import {Latest,localInput,localCandidates,errorMessage,previewRequest,commitRequest} from './card-state.js?v=0.1.2-14';
+import {el,button,field,select,input,summaryView,recordOverview,billingDetails,dateText,updateLabels} from './card-ui.js?v=0.1.2-14';
 
 export class RecordDialog {
   constructor(host,options){
@@ -20,15 +20,31 @@ export class RecordDialog {
     for(const key of ['content','error','previewBox','saveButton'])if(mapping.has(this[key]))this[key]=mapping.get(this[key]);
     this.updateButtons();
   }
+  setTimezone(timezone,accountingTimezone){
+    if(this.closed||this.timezone===timezone&&this.accountingTimezone===accountingTimezone)return;
+    if(this.form){
+      this.timezoneChanged=true;
+      // A pending preview loses its context; an already submitted write still owns its response.
+      if(!this.submittedWrite){this.latest.invalidate();this.busy=false;}
+      this.invalidatePreview();this.fail({code:'timezoneChanged'});return;
+    }
+    this.timezone=timezone;this.accountingTimezone=accountingTimezone;
+    if(this.mode!=='details')this.render();
+  }
+  setDetail(detail){
+    const expanded=Array.from(this.node.querySelectorAll('details'),node=>node.open),scroll=this.node.scrollTop;
+    this.detail=detail;this.render();
+    Array.from(this.node.querySelectorAll('details')).forEach((node,index)=>{node.open=expanded[index]||false;});this.node.scrollTop=scroll;
+  }
   fail(error){this.lastError=error;this.error.textContent=errorMessage(error,this.language);this.error.hidden=false;}
   async run(request,accept){
-    if(this.busy||this.closed)return;this.busy=true;this.lastError=null;this.error.hidden=true;this.updateButtons();
+    if(this.busy||this.closed||this.timezoneChanged)return;this.busy=true;this.submittedWrite=request.type!=='charge_tally/preview';this.lastError=null;this.error.hidden=true;this.updateButtons();
     await this.latest.run('dialog',()=>this.call(request),value=>{this.busy=false;if(!this.closed){accept(value);this.updateButtons();}},error=>{this.busy=false;if(!this.closed){this.fail(error);this.updateButtons();}});
   }
   updateButtons(){
-    for(const b of this.node.querySelectorAll('button[data-write]'))b.disabled=this.busy;
+    for(const b of this.node.querySelectorAll('button[data-write]'))b.disabled=this.busy||this.timezoneChanged;
     for(const control of this.node.querySelectorAll('input,select,textarea'))control.disabled=this.busy||control.dataset.locked==='true';
-    if(this.saveButton)this.saveButton.disabled=this.busy||!this.preview||!!this.preview.overlaps?.length;
+    if(this.saveButton)this.saveButton.disabled=this.busy||this.timezoneChanged||!this.preview||!!this.preview.overlaps?.length;
   }
   action(label,fn,kind=''){const b=button(this.t(label),fn,false,kind);b.dataset.write='';return b;}
   render(){
@@ -41,15 +57,15 @@ export class RecordDialog {
     this.node.scrollTop=0;
   }
   renderDetails(){
-    const {record}=this.detail,fees=billingDetails(this.detail,this.language,this.currency);this.record=record;
-    this.content.append(el('p',`${this.pointName(record.point_id)} · ${this.identityName(record.identity_id)}`,{class:'muted'}),recordOverview(record,this.currency,this.language),...(fees?[fees]:[]));
+    const {record}=this.detail,fees=billingDetails(this.detail,this.language,this.currency,this.timezone);this.record=record;
+    this.content.append(el('p',`${this.pointName(record.point_id)} · ${this.identityName(record.identity_id)}`,{class:'muted'}),el('p',`${this.t('displayTimezone')}: ${this.timezone}`,{class:'muted','data-timezone':'display'}),recordOverview(record,this.currency,this.language,this.timezone),...(fees?[fees]:[]));
     const actions=el('div',null,{class:'row dialog-actions'});
     if(record.status!=='void')actions.append(button(this.t('reassign'),()=>{this.mode='reassign';this.render();}));
     if(record.status==='ended')actions.append(button(this.t('edit'),()=>{this.mode='edit';this.render();}),button(this.t('void'),()=>{this.mode='void';this.render();},false,'danger'));this.content.append(actions);
   }
   identityOptions(){const available=this.identities.filter(i=>i.active!==false);if(this.record&&!available.some(i=>i.id===this.record.identity_id)){const old=this.identities.find(i=>i.id===this.record.identity_id);available.push(old||{id:this.record.identity_id,name:this.identityName(this.record.identity_id)});}return available;}
   renderAction(){
-    this.content.append(summaryView(this.record,this.currency,this.language),el('p',`${this.identityName(this.record.identity_id)} · ${dateText(this.record.start,this.record.timezone)}`));
+    this.content.append(summaryView(this.record,this.currency,this.language),el('p',`${this.identityName(this.record.identity_id)} · ${dateText(this.record.start,this.timezone)}`),el('p',`${this.t('displayTimezone')}: ${this.timezone}`,{class:'muted','data-timezone':'display'}));
     let target;
     if(this.mode==='reassign'){target=select(this.identityOptions(),this.targetIdentityId??this.record.identity_id);this.content.append(field(this.t('assignedIdentity'),target));}
     else this.content.append(el('p',this.t('voidHint')));
@@ -61,12 +77,12 @@ export class RecordDialog {
     target?.addEventListener('change',()=>{this.targetIdentityId=target.value;this.requestId=newRequestId();});
   }
   renderForm(){
-    const record=this.record,timezone=record?.timezone||this.timezone;
+    const record=this.record,timezone=this.timezone;
     if(!this.form){
       this.form={point_id:record?.point_id||this.defaultPoint||this.points[0]?.id||'',identity_id:record?.identity_id||this.defaultIdentity||this.identities.find(i=>i.active!==false)?.id||'',start:record?localInput(record.start,timezone):'',end:record?localInput(record.end,timezone):'',energy_kwh:record?.manual_energy??'',cost:record?.manual_cost??'',cost_mode:'auto',note:record?.note||''};
       for(const key of ['start','end'])if(record?.[key])this.form[key+'_choice']=new Date(Math.floor(Date.parse(record[key])/1000)*1000).toISOString();
     }
-    this.content.append(el('p',`${this.t('timezone')}: ${timezone}`,{class:'badge'}));
+    this.content.append(el('p',`${this.t('inputTimezone')}: ${timezone}`,{class:'badge','data-timezone':'display'}));
     const fields=el('div',null,{class:'grid'});
     const pointSelect=select(this.points,this.form.point_id,value=>{this.form.point_id=value;this.invalidatePreview();});pointSelect.disabled=!!record;pointSelect.dataset.locked=record?'true':'false';
     fields.append(field(this.t('point'),pointSelect),field(this.t('assignedIdentity'),select(this.identityOptions(),this.form.identity_id,value=>{this.form.identity_id=value;this.invalidatePreview();})));
@@ -90,11 +106,11 @@ export class RecordDialog {
   }
   invalidatePreview(){this.preview=null;this.previewBox?.replaceChildren();this.updateButtons();}
   renderPreview(){
-    const p=this.preview,box=el('div',null,{class:'preview stack'}),fees=billingDetails(p,this.language,this.currency);box.append(el('h3',this.t('impact')));
-    if(this.record)box.append(el('p',this.t('before')),summaryView(this.record,this.currency,this.language));
-    box.append(el('p',this.t('after')),el('p',`${this.pointName(p.record.point_id)} · ${this.identityName(p.record.identity_id)}`),recordOverview(p.record,this.currency,this.language),...(fees?[fees]:[]));
+    const p=this.preview,box=el('div',null,{class:'preview stack'}),fees=billingDetails(p,this.language,this.currency,this.timezone);box.append(el('h3',this.t('impact')));
+    if(this.record)box.append(el('p',this.t('before')),summaryView(this.record,this.currency,this.language),el('p',`${dateText(this.record.start,this.timezone)} → ${dateText(this.record.end,this.timezone)}`));
+    box.append(el('p',this.t('after')),el('p',`${this.pointName(p.record.point_id)} · ${this.identityName(p.record.identity_id)}`),recordOverview(p.record,this.currency,this.language,this.timezone),...(fees?[fees]:[]));
     box.append(el('h3',this.t('coverage')));
-    if(p.coverage?.length)for(const span of p.coverage)box.append(el('p',`${span.start} → ${span.end}`));else box.append(el('p',this.t('noCoverage')));
+    if(p.coverage?.length)for(const span of p.coverage)box.append(el('p',`${dateText(span.start,this.timezone)} → ${dateText(span.end,this.timezone)}`));else box.append(el('p',this.t('noCoverage')));
     box.append(el('p',`${this.t('overlaps')}: ${p.overlaps?.join(', ')||this.t('none')}`));if(p.overlaps?.length)this.fail({code:'overlap'});
     this.previewBox.replaceChildren(box);
   }

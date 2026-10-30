@@ -1,5 +1,9 @@
 // Frontend text. Keep keys and placeholders aligned across locales.
 export default {
+  "displayTimezone": "Fuso orario di visualizzazione",
+  "statisticsTimezone": "Fuso orario delle statistiche",
+  "inputTimezone": "Fuso orario di inserimento",
+  "error.timezoneChanged": "Il fuso orario è cambiato. Copia la bozza e riapri il modulo per continuare.",
   "manualEnergyLabel": "Energia inserita manualmente",
   "settling": "Calcolo in corso",
   "currentCost": "Costo attuale",

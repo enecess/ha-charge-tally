@@ -1,8 +1,8 @@
-import {exportErrorMessage} from './card-export.js?v=0.1.2-13';
-import {ChartView} from './card-chart.js?v=0.1.2-13';
-import {SelectControl} from './card-controls.js?v=0.1.2-13';
-import {el,button,field,input,summaryView,quality,dateText} from './card-ui.js?v=0.1.2-13';
-import {formatDecimal,recordCostState,errorMessage} from './card-state.js?v=0.1.2-13';
+import {exportErrorMessage} from './card-export.js?v=0.1.2-14';
+import {ChartView} from './card-chart.js?v=0.1.2-14';
+import {SelectControl} from './card-controls.js?v=0.1.2-14';
+import {el,button,field,input,summaryView,quality,dateText} from './card-ui.js?v=0.1.2-14';
+import {formatDecimal,recordCostState,errorMessage} from './card-state.js?v=0.1.2-14';
 
 const text=(node,value)=>{if(node.textContent!==String(value))node.textContent=value;};
 const label=(control,value)=>text(control.label.firstChild,value);
@@ -21,8 +21,8 @@ export class CardView {
     this.period=this.select(value=>card.setPeriod(value));this.refresh=button('',()=>{card.summaryDirty=true;card.recordsDirty=true;card.refresh(true);});
     this.from=input('date');this.to=input('date');this.from.addEventListener('input',()=>{card.rangeStart=this.from.value;});this.to.addEventListener('input',()=>{card.rangeEnd=this.to.value;});this.fromLabel=field('',this.from);this.toLabel=field('',this.to);this.range=el('div',null,{class:'stack'});const dates=el('div',null,{class:'grid'});dates.append(this.fromLabel,this.toLabel);this.rangeHint=el('small');this.apply=button('',()=>card.applyRange());this.range.append(dates,this.rangeHint,this.apply);
     this.export=button('',()=>card.exportPdf());this.export.setAttribute('data-export-pdf','');this.exportError=el('p',null,{class:'alert',role:'alert'});this.statisticsActions=el('div',null,{class:'row'});this.statisticsActions.append(this.refresh,this.export);
-    this.scope=el('small');this.summary=el('div');this.chartView=new ChartView({onMetricChange:value=>{card.chartMetric=value;this.updateChart();}});this.chart=this.chartView.node;this.metric=this.chartView.metric;this.sections.statistics.body.append(this.statisticsActions,this.exportError,this.period.label,this.range,this.scope,this.summary,this.chart);
-    this.add=button('',()=>card.openDialog('create'));this.historyHint=el('small');this.loading=el('p',null,{role:'status'});this.list=el('ul',null,{class:'records'});this.noRecords=el('p');this.pager=el('div',null,{class:'row spread'});this.previous=button('',()=>card.setOffset(Math.max(0,card.offset-25)));this.next=button('',()=>card.setOffset(card.offset+25));this.pageText=el('small');this.pager.append(this.previous,this.pageText,this.next);this.sections.records.body.append(this.add,this.historyHint,this.loading,this.list,this.noRecords,this.pager);
+    this.statisticsTimezone=el('small',null,{'data-timezone':'statistics'});this.scope=el('small');this.summary=el('div');this.chartView=new ChartView({onMetricChange:value=>{card.chartMetric=value;this.updateChart();}});this.chart=this.chartView.node;this.metric=this.chartView.metric;this.sections.statistics.body.append(this.statisticsActions,this.exportError,this.period.label,this.range,this.statisticsTimezone,this.scope,this.summary,this.chart);
+    this.displayTimezone=el('small',null,{'data-timezone':'display'});this.add=button('',()=>card.openDialog('create'));this.historyHint=el('small');this.loading=el('p',null,{role:'status'});this.list=el('ul',null,{class:'records'});this.noRecords=el('p');this.pager=el('div',null,{class:'row spread'});this.previous=button('',()=>card.setOffset(Math.max(0,card.offset-25)));this.next=button('',()=>card.setOffset(card.offset+25));this.pageText=el('small');this.pager.append(this.previous,this.pageText,this.next);this.sections.records.body.append(this.add,this.displayTimezone,this.historyHint,this.loading,this.list,this.noRecords,this.pager);
   }
   select(onChange){const control=selector(onChange);this.selects.push(control);return control;}
   setExpanded(id,expanded){const section=this.sections[id];section.toggle.setAttribute('aria-expanded',String(expanded));section.body.hidden=!expanded;}
@@ -30,6 +30,7 @@ export class CardView {
     const c=this.card,s=c.snapshot,t=key=>c.t(key),online=!!s&&c._hass?.connection?.connected!==false;
     text(this.title,c.config.title||'Charge Tally');text(this.status,t(online?'connected':'offline'));this.error.hidden=!c.error;text(this.error,c.error?errorMessage(c.error,c.language):'');this.notice.hidden=!c.notice||!!c.error;text(this.notice,t('saved'));this.retry.hidden=online;this.retry.disabled=!c._hass?.connection||c._hass.connection.connected===false;text(this.retry,t('retry'));this.empty.hidden=!s||!!s.points.length||!!s.archived_points.length;text(this.empty,t('noPoints'));
     for(const [id,key]of [['controls','controls'],['statistics','statistics'],['records','history']]){text(this.sections[id].toggle,t(key));this.sections[id].node.hidden=id==='records'&&c.config.show_records===false;this.setExpanded(id,c.expanded[id]);}
+    this.statisticsTimezone.hidden=this.displayTimezone.hidden=!s||c.displayTimezone===c.accountingTimezone;text(this.statisticsTimezone,`${t('statisticsTimezone')}: ${c.accountingTimezone}`);text(this.displayTimezone,`${t('displayTimezone')}: ${c.displayTimezone}`);
     const points=[...(s?.points||[]),...(s?.archived_points||[])],identities=s?.identities||[];
     const options=items=>[{id:'',name:t('all')},...items.map(i=>({id:i.id,name:i.name+(i.active===false?` (${t('archived')})`:'' )}))];
     const po=options(points);if(c.filters.point_id&&!points.some(p=>p.id===c.filters.point_id))po.push({id:c.filters.point_id,name:t('invalidPoint')});
@@ -39,7 +40,7 @@ export class CardView {
     this.period.update({options:['daily','monthly','yearly','total','custom'].map(id=>({id,name:t(id)})),value:c.period,disabled:!online});label(this.period,t('period'));text(this.refresh,t('refresh'));this.refresh.disabled=!online;this.range.hidden=c.period!=='custom';text(this.fromLabel.firstChild,t('from'));text(this.toLabel.firstChild,t('to'));text(this.rangeHint,`${s?.timezone||''} · ${t('rangeHint')}`);text(this.apply,t('apply'));this.apply.disabled=!online;this.from.disabled=!online;this.to.disabled=!online;text(this.scope,t('scope'));
     text(this.export,t(c.exportBusy?'exportingPdf':'exportPdf'));this.export.disabled=!!c.exportBusy||!c.canExport();this.exportError.hidden=!c.exportError;text(this.exportError,c.exportError?exportErrorMessage(c.exportError,c.language):'');
     if(c.expanded.statistics||!s){
-      const key=JSON.stringify([c.summary,s?.currency,c.language]);
+      const key=JSON.stringify([c.summary,s?.currency,c.language,c.accountingTimezone]);
       if(this.summaryKey!==key){this.summaryKey=key;if(c.summary&&s)this.summary.replaceChildren(summaryView(c.summary,s.currency,c.language),el('p',`${t('count')}: ${c.summary.active_count??'—'} / ${c.summary.completed_count??'—'}`,{class:'muted'}));else text(this.summary,t(online?'loading':'offline'));}
       this.updateChart();
     }
@@ -62,8 +63,8 @@ export class CardView {
     v.hint.hidden=recording!=='manual'&&!pending;text(v.hint,recording==='manual'?t('manualEndRequired'):pending?t('candidateHint'):'');text(v.measurements,`${t('power')}: ${formatDecimal(p.power_w,c.language)} W · ${t('price')}: ${formatDecimal(p.current_price,c.language,4)} ${c.snapshot.currency}/kWh`);text(v.message,[p.error,quality(p.quality,c.language)].filter(Boolean).join(' · '));v.message.hidden=!v.message.textContent;
     const selected=c.pendingSelections.get(p.id)?.identityId??p.selected_identity_id;
     v.select.update({options:c.snapshot.identities.filter(i=>i.active!==false),value:selected,disabled:!online||!!c.busy||!c.canSelect(p)||!!c.pendingSelections.get(p.id)});label(v.select,t(pending?'nextManualIdentity':active?'next':'selected'));
-    const minutes=active?Math.max(0,Math.floor((Date.now()-Date.parse(active.start))/60000)):0,summaryKey=JSON.stringify([active,c.snapshot.currency,c.language,active?c.identityName(active.identity_id):null,minutes]);
-    if(v.summaryKey!==summaryKey){v.summaryKey=summaryKey;if(active)v.summary.replaceChildren(el('strong',`${t('current')}: ${c.identityName(active.identity_id)}`),summaryView(active,c.snapshot.currency,c.language),el('small',`${t('began')}: ${dateText(active.start,active.timezone)} (${active.timezone}) · ${t('duration')}: ${minutes} min`));else text(v.summary,'');}
+    const minutes=active?Math.max(0,Math.floor((Date.now()-Date.parse(active.start))/60000)):0,summaryKey=JSON.stringify([active,c.snapshot.currency,c.language,c.displayTimezone,active?c.identityName(active.identity_id):null,minutes]);
+    if(v.summaryKey!==summaryKey){v.summaryKey=summaryKey;if(active)v.summary.replaceChildren(el('strong',`${t('current')}: ${c.identityName(active.identity_id)}`),summaryView(active,c.snapshot.currency,c.language),el('small',`${t('began')}: ${dateText(active.start,c.displayTimezone)} (${c.displayTimezone}) · ${t('duration')}: ${minutes} min`));else text(v.summary,'');}
     v.details.hidden=v.reassign.hidden=!active;text(v.details,t('details'));text(v.reassign,t('reassign'));text(v.live,t(active?(recording==='manual'?'end':detection==='pending_end'?'endNow':'endAutomatic'):pending?'startNow':'startManual'));v.details.disabled=v.reassign.disabled=!online||!!c.busy;v.live.disabled=!online||!!c.busy||!p.identity_entity_id||(!active&&(!p.available||c.pendingSelections.has(p.id)));
   }
   updateChart(){
@@ -73,7 +74,7 @@ export class CardView {
 
   updateRecords(online){
     const c=this.card,t=key=>c.t(key);text(this.add,t('add'));this.add.disabled=!online||!!c.busy;text(this.historyHint,t('historyHint'));text(this.loading,t(online?'loading':'offline'));this.loading.hidden=!!c.page;this.pager.hidden=!c.page;this.noRecords.hidden=!c.page||!!c.page.records.length;text(this.noRecords,t('empty'));
-    const ids=new Set();for(const record of c.page?.records||[]){ids.add(record.id);let v=this.records.get(record.id);if(!v){const node=el('li',null,{class:'row','data-record-id':record.id}),open=button('',()=>{const current=c.page?.records.find(r=>r.id===record.id);if(current)c.details(current);},false,'record-open');node.append(open);v={node,open};this.records.set(record.id,v);this.list.append(node);}const key=JSON.stringify([record,c.pointName(record.point_id),c.identityName(record.identity_id),c.language,c.snapshot.currency]);if(v.key!==key){v.key=key;const cost=recordCostState(record,c.snapshot.currency,c.language);v.open.replaceChildren(el('strong',`${c.pointName(record.point_id)} · ${c.identityName(record.identity_id)}`),el('small',`${dateText(record.start,record.timezone)} · ${t(record.status)}`),el('span',`${record.manual_override?`${t('manualEnergyLabel')}: `:''}${formatDecimal(record.energy_kwh,c.language)} kWh · ${t(cost.label)}: ${cost.value}`),...cost.issues.map(issue=>el('small',t(issue))));}}
+    const ids=new Set();for(const record of c.page?.records||[]){ids.add(record.id);let v=this.records.get(record.id);if(!v){const node=el('li',null,{class:'row','data-record-id':record.id}),open=button('',()=>{const current=c.page?.records.find(r=>r.id===record.id);if(current)c.details(current);},false,'record-open');node.append(open);v={node,open};this.records.set(record.id,v);this.list.append(node);}const key=JSON.stringify([record,c.pointName(record.point_id),c.identityName(record.identity_id),c.language,c.snapshot.currency,c.displayTimezone]);if(v.key!==key){v.key=key;const cost=recordCostState(record,c.snapshot.currency,c.language);v.open.replaceChildren(el('strong',`${c.pointName(record.point_id)} · ${c.identityName(record.identity_id)}`),el('small',`${dateText(record.start,c.displayTimezone)} · ${t(record.status)}`),el('span',`${record.manual_override?`${t('manualEnergyLabel')}: `:''}${formatDecimal(record.energy_kwh,c.language)} kWh · ${t(cost.label)}: ${cost.value}`),...cost.issues.map(issue=>el('small',t(issue))));}}
     for(const [id,v]of this.records)if(!ids.has(id)){v.node.remove();this.records.delete(id);}
     const focused=c.shadowRoot.activeElement;
     (c.page?.records||[]).forEach((record,index)=>{const node=this.records.get(record.id).node;if(this.list.children[index]!==node)this.list.insertBefore(node,this.list.children[index]||null);});

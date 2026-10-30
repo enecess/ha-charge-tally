@@ -20,7 +20,9 @@ Konfiguracją zarządza się przez **Ustawienia → Urządzenia oraz usługi →
 
 Po otwarciu strony rozwinięte jest tylko sterowanie ładowaniem. Statystyki i rekordy są zwinięte. Aktualizacje zachowują otwarte sekcje i stan kontrolek, a ponowne załadowanie strony przywraca ustawienia początkowe. Wykres i historia ładują się po rozwinięciu odpowiedniej sekcji.
 
-Wykresy grupują Dzisiaj według godzin, Ten miesiąc według dni, Ten rok według miesięcy, a Łącznie według lat. Dla własnego zakresu decyduje różnica lokalnych dat kalendarzowych: do 2 dni według godzin, do 90 dni według dni, do 730 dni według miesięcy, powyżej według lat. Obowiązuje strefa czasowa księgi i zmiany czasu. Wykresy i podsumowanie obejmują ten sam zakres; nieznany koszt pozostaje nieznany.
+Wykresy grupują Dzisiaj według godzin, Ten miesiąc według dni, Ten rok według miesięcy, a Łącznie według lat. Dla własnego zakresu decyduje różnica systemowych dat kalendarzowych: do 2 dni według godzin, do 90 dni według dni, do 730 dni według miesięcy, powyżej według lat. Obowiązuje systemowa strefa czasowa Home Assistant i zmiany czasu. Wykresy i podsumowanie obejmują ten sam zakres; nieznany koszt pozostaje nieznany.
+
+Czasy wpisów i pola daty oraz godziny stosują osobiste ustawienie Home Assistant: Serwer oznacza bieżącą strefę systemową, Lokalna strefę urządzenia. Gdy są różne, karta pokazuje **Strefa czasowa wyświetlania** i **Strefa czasowa statystyk**. Dzisiaj, miesiąc, rok, własne zakresy dat i wspólne sumy zawsze używają strefy systemowej. PDF używa Twojego języka i jawnie wskazuje strefę systemową. Konfiguracja punktu oznacza reguły dobowe etykietą **Strefa czasowa taryfy**. Zmiana strefy systemowej stosuje reguły w nowej strefie do przyszłych rozliczeń i tworzy jedno natywne powiadomienie Home Assistant dla objętych punktów; rozliczone opłaty pozostają niezmienione. Osobiste ustawienia, język i zwykłe zmiany czasu nie tworzą wersji taryf ani takiego powiadomienia.
 
 Szczegóły opłat w podglądzie i szczegółach wpisu łączą sąsiednie okresy o tej samej podstawie rozliczenia i cenie. Zmiany jakości pomiarów nie dzielą okresu cenowego; rzeczywiste braki danych energii są wskazywane osobno. Statystyki zakresów nadal korzystają z pierwotnych przedziałów pomiarowych. Księga zapisuje wewnętrzne migawki audytowe przy rozpoczęciu, zakończeniu i jawnych zmianach, w tym zmianie tożsamości lub unieważnieniu. Bieżące próbki aktualizują rekord bez kolejnej migawki; wewnętrzne numery rewizji mogą mieć luki.
 
@@ -289,7 +291,7 @@ Przed wstrzymaniem przez **Wykrywanie ładowania** zakończ aktywne wpisy i potw
 
 ### Szczegóły wpisu
 
-Szczegóły pokazują przypisanie, energię, koszt, zwięzły zakres dat i godzin z czasem trwania, strefę rozliczeń, stan, źródło i notatkę. Komunikaty wskazują braki energii lub cen. Nieznany koszt nie jest pokazywany jako zero; koszt ręczny zachowuje podaną sumę również przy niepełnym pokryciu pomiarami.
+Szczegóły pokazują przypisanie, energię, koszt, zwięzły zakres dat i godzin z czasem trwania, strefę wyświetlania, stan, źródło i notatkę. Komunikaty wskazują braki energii lub cen. Nieznany koszt nie jest pokazywany jako zero; koszt ręczny zachowuje podaną sumę również przy niepełnym pokryciu pomiarami.
 
 - **Szczegóły opłat** są początkowo zwinięte. Po rozwinięciu pokazują okresy cenowe chronologicznie, z czasem, ceną, energią i kosztem oraz osobnymi wskazaniami braków danych energii. Daty są grupowane; przy więcej niż 12 okresach można rozwinąć pozostałe.
 - Zwykłe oczekiwanie na ostatni pomiar pokazuje **Rozliczanie** bez ostrzeżenia; przed pierwszym odczytem **Bieżący koszt** pokazuje **—**. Braki energii, cen i zakończenie z powodu niedostępnego źródła są osobnymi problemami, każdy pokazany raz. **Energia wpisana ręcznie** zachowuje okresy cenowe bez stałego kosztu. Koszt ręczny jest raz w podsumowaniu; całkowicie ręczne energia i koszt nie tworzą pustej sekcji. **Przed / Po** zachowują własne kwoty.
@@ -309,7 +311,7 @@ W zakończonym wpisie wybierz **Unieważnij wpis**, sprawdź i kliknij **Potwier
 
 **Dodaj wpis historyczny** otwiera **Nowy wpis historyczny**. Aby zmienić istniejący wpis, otwórz zakończony i wybierz **Edytuj wpis**.
 
-1. Sprawdź **Strefa czasowa rozliczeń**, **Punkt ładowania** i **Przypisana tożsamość**. Nowe wpisy wymagają bieżącego punktu i włączonej tożsamości. Nawet gdy archiwalny punkt pojawia się na liście, nie można dodać do niego nowego wpisu. Przy edycji punkt jest stały.
+1. Sprawdź **Strefa czasowa wprowadzania**, **Punkt ładowania** i **Przypisana tożsamość**. Nowe wpisy wymagają bieżącego punktu i włączonej tożsamości. Nawet gdy archiwalny punkt pojawia się na liście, nie można dodać do niego nowego wpisu. Przy edycji punkt jest stały.
 2. Podaj datę i czas **Początek** oraz **Koniec (wyłącznie)**; koniec musi być późniejszy.
 3. Podaj energię ręcznie lub pozostaw pustą i wybierz podstawę kosztu.
 4. Opcjonalna **Notatka** ma maksymalnie 2000 znaków.
@@ -329,7 +331,7 @@ Wpisy tego samego punktu nie mogą nakładać się w czasie. Nakładanie w podgl
 
 Odtwarzanie historii zależy od danych zachowanych przez HA i księgę; nie ma gwarancji odtworzenia dowolnie starego okresu. Braki można uzupełnić z rachunku ładowarki. Wartości ręczne mają krótkie etykiety; zwykły podział, zaokrąglenia i zakończone przerwy w dostępności nie dodają objaśnień.
 
-Czasy dotyczą pokazanej strefy rozliczeń, nie strefy przeglądarki. Przy powtórzeniu czasu lokalnego podczas zmiany czasu wybierz **Powtórzony czas lokalny: wybierz chwilę UTC**. Nieistniejące czasy lokalne nie są akceptowane.
+Czasy dotyczą strefy wprowadzania wynikającej z osobistego ustawienia. Przy powtórzeniu czasu lokalnego podczas zmiany czasu wybierz **Powtórzony czas lokalny: wybierz chwilę UTC**. Nieistniejące czasy lokalne nie są akceptowane. Jeśli strefa systemowa lub faktyczna strefa wyświetlania zmieni się w otwartym formularzu, skopiuj wersję roboczą i otwórz formularz ponownie przed podglądem i zapisem. Niezmienione czasy zachowują pierwotną precyzję UTC.
 
 > Miejsce na zrzut ekranu 13: Dodawanie/edycja historii, podstawa kosztu i podgląd z pokryciem pomiarami.
 
@@ -344,7 +346,7 @@ Czasy dotyczą pokazanej strefy rozliczeń, nie strefy przeglądarki. Przy powt�
 | **Reset licznika** | Spadek odczytu powoduje niekompletność danego przedziału |
 | **Energia wpisana ręcznie / Ręczny koszt całkowity** | Ręczne wartości; stały koszt ręczny pozostaje stały podczas oczekiwania na pomiary |
 
-Energia jest dzielona między dni, miesiące i lata; ładowanie przez północ nie trafia całe do dnia rozpoczęcia. Historyczne wpisy zachowują swoją strefę rozliczeń. Liczba zakończonych wpisów jest przypisywana według czasu rozpoczęcia: wpis może wnosić energię do zakresu bez zwiększania liczby zakończonych wpisów w nim.
+Energia jest dzielona między dni, miesiące i lata bieżącej strefy systemowej; ładowanie przez północ nie trafia całe do dnia rozpoczęcia. Pierwotne strefy wpisów i dowody audytu pozostają zapisane; czasy historyczne stosują osobiste ustawienie, a wspólne okresy rozliczeń bieżącą strefę systemową. Liczba zakończonych wpisów jest przypisywana według czasu rozpoczęcia: wpis może wnosić energię do zakresu bez zwiększania liczby zakończonych wpisów w nim.
 
 Karta i statystyki tożsamości sumują wyłącznie wpisy ładowania. Natywne statystyki energii mogą zawierać także czuwanie poza wpisami. Edycja aktualizuje księgę, nie natywną historię licznika HA. Wykresy kosztów pokazują znane kwoty; liczba widocznych miejsc dziesiętnych nie zmienia zapisanej precyzji.
 

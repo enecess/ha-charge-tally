@@ -169,3 +169,32 @@ plugin's SQL INFO chatter; warnings, errors, tracebacks, and test failures remai
 available. Final delivery checks include the full Python suite on all six pinned
 HA versions, full frontend/browser suites, Ruff, and LF/staging checks. Keep
 designs and local verification evidence in ignored Superpowers directories.
+
+## Timezone contracts
+
+The card resolves one display/input zone from `hass.locale.time_zone`: `server`
+or an absent preference uses `snapshot.timezone` (falling back to
+`hass.config.time_zone` before the snapshot); `local` uses the device's native
+IANA zone with a system fallback. `hass.language` remains the requester's language.
+There is no per-card timezone option. Detailed records and previews send
+`display_timezone`; summary and PDF requests keep their shared system scope.
+Use `display_segments` for manual-fee measurement coverage and `billing_periods`
+for normal fees. Original record zones, raw segments, audit snapshots, Decimal
+totals and UTC instants remain evidence, never rewritten for display.
+
+Calendar presets, custom date scopes, buckets, shared sensors and TOU clocks use
+the current HA system zone. When it changes, reinterpret the last applied custom
+calendar dates, not unsaved input drafts. Existing request generations reject old
+summary/detail responses. Read-only details refresh their projections while
+retaining fee expansion and scroll. An open edit/create form keeps its old input
+zone and copyable controls, drops pending previews and requires reopening before
+Preview or Save. Already submitted writes keep their original completion path.
+Unchanged edit boundaries retain raw UTC precision, including microseconds and
+subsecond sessions; DST folds still require the selected UTC instant.
+
+System-zone changes create forward-only TOU versions and one native notification
+for affected configured points. Personal display or language changes, first setup,
+static/dynamic prices, unchanged zones and normal DST do not create them. The
+configuration names the pricing zone; PDF names the system accounting zone.
+The frontend/browser regressions cover two device zones, stale projections,
+pending previews, cross-midnight fees, manual accounting and six-language labels.

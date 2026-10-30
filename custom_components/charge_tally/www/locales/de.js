@@ -1,5 +1,9 @@
 // Frontend text. Keep keys and placeholders aligned across locales.
 export default {
+  "displayTimezone": "Anzeigezeitzone",
+  "statisticsTimezone": "Statistikzeitzone",
+  "inputTimezone": "Eingabezeitzone",
+  "error.timezoneChanged": "Die Zeitzone wurde geändert. Kopieren Sie Ihren Entwurf und öffnen Sie das Formular erneut.",
   "manualEnergyLabel": "Manuelle Energie",
   "settling": "Abrechnung läuft",
   "currentCost": "Aktuelle Kosten",

@@ -20,7 +20,9 @@ Use **Settings → Devices & services → Charge Tally** for configuration and t
 
 Only charging controls are expanded when the page opens. Statistics and records start collapsed; live updates retain your open sections and controls, while reloading the page restores the defaults. Expand statistics to load its chart and expand records to load history.
 
-Charts group Today by hour, This month by day, This year by month, and Total by year. For a custom range, the difference between the local calendar dates determines grouping: up to 2 days uses hours, up to 90 days uses days, up to 730 days uses months, and longer ranges use years. Buckets follow the ledger timezone, including daylight-saving transitions. Energy and known-cost charts use the same range as the summary; unknown cost remains unknown.
+Charts group Today by hour, This month by day, This year by month, and Total by year. For a custom range, the difference between the system calendar dates determines grouping: up to 2 days uses hours, up to 90 days uses days, up to 730 days uses months, and longer ranges use years. Buckets follow the Home Assistant system timezone, including daylight-saving transitions. Energy and known-cost charts use the same range as the summary; unknown cost remains unknown.
+
+Record times and date/time inputs follow your Home Assistant personal timezone preference: server uses the current system timezone; local uses your device timezone. When they differ, the card labels **Display timezone** and **Statistics timezone**. Today, month, year, custom date ranges and shared totals always use the system timezone. PDF reports use your language and explicitly label the system timezone. Charging-point configuration labels daily tariff rules with **Pricing timezone**. A system timezone change applies those rules in the new zone for future accounting and creates one native Home Assistant notification for affected points; already-accounted fees stay unchanged. Personal preferences, language and normal daylight-saving changes do not change tariff versions or create this notification.
 
 Fee details in previews and record details group consecutive periods with the same price and billing basis. Sampling-quality changes do not split a price period; real energy gaps remain separate notices. Original sampling details remain the basis of time-range statistics.
 
@@ -299,7 +301,7 @@ Before pausing with the native **Detection** switch, finish active records and p
 
 ### View record details
 
-Details show ownership, energy, cost, a compact date range and duration, accounting timezone, status, source and any note. Missing energy, missing prices and source-unavailable closure remain distinct problems, each shown once. Normal final-sample waiting uses **Settling** without a warning; a new active record awaiting its first reading shows **Current cost** and **—**. Unknown costs are not zero.
+Details show ownership, energy, cost, a compact date range and duration, display timezone, status, source and any note. Missing energy, missing prices and source-unavailable closure remain distinct problems, each shown once. Normal final-sample waiting uses **Settling** without a warning; a new active record awaiting its first reading shows **Current cost** and **—**. Unknown costs are not zero.
 
 - **Fee details** starts collapsed. Expand it to see chronological price periods with energy and cost and separate actual gap notices. Dates are grouped; more than 12 periods can be expanded. **Manual energy** uses a short source label and retains tariff periods when priced automatically. A manual fee appears once in the overview, with measured energy coverage below when available; a fully manual energy and fee record has no empty fee section. Preview **Before / After** each retain their own amount.
 - Active records allow **Change record identity**; only ended records show **Edit record** and **Void record**.
@@ -318,7 +320,7 @@ On an ended record choose **Void record**, review, then **Confirm void**. It lea
 
 **Add history** opens **New history record**. To edit, open an ended record and choose **Edit record**.
 
-1. Check **Accounting timezone**, **Charging point** and **Assigned identity**. New records need a current point and enabled identity; an archived point cannot receive new records even if listed. Editing keeps the original point fixed.
+1. Check **Input timezone**, **Charging point** and **Assigned identity**. New records need a current point and enabled identity; an archived point cannot receive new records even if listed. Editing keeps the original point fixed.
 2. Enter **Start** and **End (exclusive)** dates/times; end must follow start.
 3. Enter or leave blank manual energy and choose the cost basis below.
 4. Optionally add a **Note**, up to 2000 characters.
@@ -340,7 +342,7 @@ Previews expire 30 minutes after creation. After upgrading, create a new preview
 
 Reconstruction depends on data retained by Home Assistant and the ledger; arbitrary old dates cannot be guaranteed. With missing data, enter total energy and cost from the charger’s bill. Manual values use short source labels; ordinary allocation, rounding and recovered historical outages add no explanatory notices.
 
-Times use the displayed accounting timezone, not the browser timezone. For repeated local times at daylight-saving transitions, choose **Repeated local time: select UTC instant**. Nonexistent local times cannot be submitted.
+Times use the labeled input timezone from your personal preference. For repeated local times at daylight-saving transitions, choose **Repeated local time: select UTC instant**. Nonexistent local times cannot be submitted. If the system or effective display timezone changes while a form is open, copy the draft and reopen the form before previewing or saving. Unchanged edit times retain their original UTC precision.
 
 > Screenshot placeholder 13: New history record / Edit record, Cost basis, preview and coverage.
 
@@ -355,7 +357,7 @@ Times use the displayed accounting timezone, not the browser timezone. For repea
 | **Meter reset** | A falling reading made the affected interval incomplete |
 | **Manual energy / Manual total cost** | Values entered manually; a fixed manual fee does not become unsettled while awaiting measurements |
 
-Energy is split into the days, months and years where it occurs; a charge crossing midnight is not all counted on its starting day. History retains its own accounting timezone. The completed count in **Active / completed** groups by record start: a record may contribute energy across a boundary without increasing that range’s completed count.
+Energy is split into the current system's days, months and years where it occurs; a charge crossing midnight is not all counted on its starting day. Original record zones and audit evidence remain stored, while historical display follows your personal preference and shared calendar accounting follows the current system zone. The completed count in **Active / completed** groups by record start: a record may contribute energy across a boundary without increasing that range’s completed count.
 
 Card and identity statistics count charging records. Native energy statistics may also include standby outside records, so totals can differ. Editing updates the ledger without rewriting native meter history. Cost charts show known amounts; display rounding does not alter stored precision.
 

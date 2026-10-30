@@ -1,4 +1,4 @@
-import {tr,locale} from './card-i18n.js?v=0.1.2-13';
+import {tr,locale} from './card-i18n.js?v=0.1.2-14';
 const numberFormats=new Map();
 export function formatDecimal(value,language='en',digits=3,minimum=0){
   if(value==null)return '—';
@@ -34,6 +34,9 @@ export function localInput(instant, timezone) {
   const parts = new Intl.DateTimeFormat('en-CA', {timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(new Date(instant));
   const p = Object.fromEntries(parts.map(part => [part.type,part.value]));
   return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}`;
+}
+export function displayTimezone(hass,systemTimezone){
+  return hass?.locale?.time_zone==='local'?(Intl.DateTimeFormat().resolvedOptions().timeZone||systemTimezone):systemTimezone;
 }
 export function localCandidates(value, timezone) {
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(value)) return [];
@@ -95,12 +98,12 @@ export function recordsRequest(config,offset=0,limit=25) {
   return {type:'charge_tally/records',...filters(config),offset,limit};
 }
 export function previewRequest(form,timezone,record) {
-  const result=validateForm(form,record?.timezone || timezone,record);
+  const result=validateForm(form,timezone,record);
   if (!result.valid) throw Object.assign(new Error(result.code),{code:result.code});
   const boundaries={start:result.start,end:result.end};
   for(const key of result.unchanged)delete boundaries[key];
   const cost=form.cost_mode==='auto'?{}:{cost:form.cost_mode==='unknown'?null:form.cost||null};
-  return {type:'charge_tally/preview',...(record ? {record_id:record.id,expected_revision:record.revision} : {point_id:form.point_id}),identity_id:form.identity_id,...boundaries,
+  return {type:'charge_tally/preview',display_timezone:timezone,...(record ? {record_id:record.id,expected_revision:record.revision} : {point_id:form.point_id}),identity_id:form.identity_id,...boundaries,
     ...(form.energy_kwh && form.energy_kwh!==record?.manual_energy ? {energy_kwh:form.energy_kwh} : {}),...cost,note:form.note || ''};
 }
 export function commitRequest(preview,request_id) {

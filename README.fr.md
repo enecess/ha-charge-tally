@@ -20,7 +20,7 @@ Deux accès principaux : **Paramètres → Appareils et services → Charge Tall
 
 À l’ouverture, seules les commandes de charge sont dépliées. Les statistiques et les enregistrements sont repliés. Les mises à jour conservent les sections ouvertes et les commandes ; recharger la page rétablit les valeurs initiales. Le graphique et l’historique se chargent à l’ouverture de leur section.
 
-Les graphiques regroupent Aujourd’hui par heure, Ce mois par jour, Cette année par mois et Total par année. Pour une plage personnalisée, l’écart entre les dates du calendrier local détermine le regroupement : jusqu’à 2 jours par heure, jusqu’à 90 jours par jour, jusqu’à 730 jours par mois, puis par année. Les intervalles suivent le fuseau du registre et les changements d’heure. Graphiques et totaux couvrent la même plage ; un coût inconnu reste inconnu.
+Les graphiques regroupent Aujourd’hui par heure, Ce mois par jour, Cette année par mois et Total par année. Pour une plage personnalisée, l’écart entre les dates du calendrier système détermine le regroupement : jusqu’à 2 jours par heure, jusqu’à 90 jours par jour, jusqu’à 730 jours par mois, puis par année. Les intervalles suivent le fuseau système de Home Assistant et les changements d’heure. Graphiques et totaux couvrent la même plage ; un coût inconnu reste inconnu.
 
 Le détail des coûts des aperçus et des enregistrements regroupe les périodes adjacentes dont la base de facturation et le tarif sont identiques. Les changements de qualité des mesures ne divisent pas une période tarifaire ; les lacunes réelles d’énergie sont signalées séparément. Les statistiques temporelles utilisent toujours les intervalles de mesure d’origine. Le registre conserve en interne un instantané d’audit au démarrage, à la fin ou lors d’une modification explicite, y compris réaffectation et annulation. Les relevés courants modifient l’enregistrement sans nouvel instantané ; les numéros de révision internes peuvent donc comporter des sauts.
 
@@ -289,7 +289,7 @@ Avant de suspendre la détection avec **Détection de la recharge**, terminez le
 
 ### Consulter les détails d’un enregistrement
 
-Les détails présentent l’attribution, l’énergie, le coût, une plage compacte de dates et d’heures avec sa durée, le fuseau de comptabilisation, l’état, la source et la note. Des indications signalent l’énergie ou les tarifs manquants. Un coût inconnu n’est pas affiché comme nul ; un coût manuel conserve le total saisi même si la couverture des mesures est incomplète.
+Les détails présentent l’attribution, l’énergie, le coût, une plage compacte de dates et d’heures avec sa durée, le fuseau d’affichage, l’état, la source et la note. Des indications signalent l’énergie ou les tarifs manquants. Un coût inconnu n’est pas affiché comme nul ; un coût manuel conserve le total saisi même si la couverture des mesures est incomplète.
 
 - **Détail des coûts** est initialement replié. Développez-le pour voir les périodes tarifaires dans l’ordre chronologique, avec horaires, tarif, énergie, coût et lacunes d’énergie signalées séparément. Les dates sont regroupées ; au-delà de 12 périodes, les suivantes peuvent être dépliées.
 - L’attente normale du dernier relevé affiche **Calcul en cours** sans avertissement ; avant le premier relevé, **Coût actuel** affiche **—**. Les pertes d’énergie, tarifs manquants et fins dues à une source indisponible restent distincts, chacun signalé une fois. **Énergie saisie manuellement** conserve les périodes tarifaires sans coût fixe. Un coût manuel apparaît une fois dans le récapitulatif ; énergie et coût entièrement manuels ne créent pas de section vide. **Avant / Après** conservent chacun leur montant.
@@ -309,7 +309,7 @@ Dans les détails d’un enregistrement terminé, choisissez **Invalider l’enr
 
 **Ajouter un enregistrement passé** ouvre **Nouvel enregistrement passé**. Pour modifier un enregistrement existant, ouvrez un enregistrement terminé, puis **Modifier l’enregistrement**.
 
-1. Vérifiez le **Fuseau horaire de comptabilisation**, puis choisissez le **Point de recharge** et l’**Identité attribuée**. Pour un nouvel enregistrement, utilisez un point actuel et une identité activée ; même si un point archivé apparaît dans la liste, il ne peut pas recevoir de nouvel enregistrement. En modification, le point est fixe et ne peut pas être remplacé.
+1. Vérifiez le **Fuseau horaire de saisie**, puis choisissez le **Point de recharge** et l’**Identité attribuée**. Pour un nouvel enregistrement, utilisez un point actuel et une identité activée ; même si un point archivé apparaît dans la liste, il ne peut pas recevoir de nouvel enregistrement. En modification, le point est fixe et ne peut pas être remplacé.
 2. Saisissez les dates et heures de **Début** et de **Fin (exclue)** ; la fin doit être postérieure au début.
 3. Renseignez ou laissez vide l’énergie manuelle, puis choisissez la base de calcul du coût, selon le tableau ci-dessous.
 4. Ajoutez si nécessaire une **Note**, limitée à 2000 caractères.
@@ -329,7 +329,7 @@ Les enregistrements d’un même point ne peuvent pas se chevaucher. Si l’aper
 
 La reconstitution dépend des données encore conservées dans Home Assistant et dans le registre ; elle ne garantit pas la récupération de n’importe quelle date ancienne. Si les données manquent, utilisez par exemple le relevé du chargeur pour saisir l’énergie et le coût totaux manuels. Les valeurs manuelles portent des libellés courts ; la répartition normale, l’arrondi et les anciennes interruptions résolues n’ajoutent aucune explication.
 
-Les dates et heures utilisent le fuseau affiché, et non celui du navigateur. Lorsqu’une heure locale se répète au changement d’heure, choisissez l’instant dans **Heure locale répétée : sélectionner l’instant UTC**. Une heure locale inexistante ne peut pas être validée.
+Les dates et heures utilisent le fuseau de saisie correspondant à votre préférence personnelle. Lorsqu’une heure locale se répète au changement d’heure, choisissez l’instant dans **Heure locale répétée : sélectionner l’instant UTC**. Une heure locale inexistante ne peut pas être validée. Si le fuseau système ou le fuseau d’affichage effectif change pendant la saisie, copiez le brouillon et rouvrez le formulaire avant l’aperçu et l’enregistrement. Les horaires non modifiés conservent leur précision UTC d’origine.
 
 > Emplacement de capture 13 : formulaires d’ajout et de modification, bases de calcul du coût, aperçu et couverture avant enregistrement.
 
@@ -344,7 +344,9 @@ Les dates et heures utilisent le fuseau affiché, et non celui du navigateur. Lo
 | **Compteur réinitialisé** | Une baisse du relevé rend l’intervalle concerné incomplet |
 | **Énergie saisie manuellement / Coût total manuel** | Valeurs saisies ; un montant manuel fixe reste fixe pendant l’attente de mesures |
 
-L’énergie est répartie entre les jours, mois et années auxquels elle appartient ; une recharge passant minuit n’est pas entièrement affectée au jour de son début. Chaque enregistrement historique conserve son propre fuseau de comptabilisation. Le nombre d’enregistrements terminés est affecté selon leur heure de début : une recharge traversant la limite d’une période peut contribuer à son énergie sans augmenter son nombre d’enregistrements terminés.
+L’énergie est répartie entre les jours, mois et années du fuseau système actuel ; une recharge passant minuit n’est pas entièrement affectée au jour de son début. Les fuseaux d’origine et les preuves d’audit restent conservés ; les horaires historiques suivent la préférence personnelle, les périodes comptables partagées le fuseau système actuel. Le nombre d’enregistrements terminés est affecté selon leur heure de début : une recharge traversant la limite d’une période peut contribuer à son énergie sans augmenter son nombre d’enregistrements terminés.
+
+Les horaires et champs de saisie suivent votre préférence de fuseau Home Assistant : Serveur utilise le fuseau système actuel, Local celui de l’appareil. En cas de différence, la carte indique **Fuseau horaire d’affichage** et **Fuseau horaire des statistiques**. Aujourd’hui, mois, année, plages de dates personnalisées et totaux partagés utilisent toujours le fuseau système. Les PDF utilisent votre langue et indiquent explicitement ce fuseau. La configuration du point indique **Fuseau horaire de tarification** pour les règles quotidiennes. Un changement du fuseau système applique ces règles au nouveau fuseau pour les calculs futurs et crée une notification native Home Assistant pour les points concernés ; les frais déjà comptabilisés restent inchangés. Préférences personnelles, langue et changements saisonniers normaux ne créent ni versions tarifaires ni cette notification.
 
 La carte et les statistiques d’identité ne totalisent que les enregistrements de recharge. Les statistiques d’énergie natives peuvent aussi inclure la veille ou d’autres consommations hors enregistrement ; les totaux peuvent différer. Modifier un enregistrement actualise les statistiques du registre sans réécrire l’historique natif du compteur dans Home Assistant. Le graphique des coûts utilise les montants connus ; le nombre de décimales affichées ne modifie pas la précision conservée.
 

@@ -46,10 +46,11 @@ test('manual validation rejects malformed numbers, negative energy, oversized no
   assert.equal(validateForm({...form,cost:'NaN'},'Asia/Shanghai').valid,false);
   assert.equal(validateForm({...form,note:'x'.repeat(2001)},'Asia/Shanghai').valid,false);
 });
-test('edit preserves original timezone and revision, never changes point', () => {
+test('edit uses the passed display timezone and preserves revision, never changes point', () => {
   const record = {id:'r',revision:7,timezone:'America/New_York'};
   const request = previewRequest(form,'Asia/Shanghai',record);
-  assert.equal(request.start,'2026-09-09T14:00:00.000Z');
+  assert.equal(request.start,'2026-09-09T02:00:00.000Z');
+  assert.equal(request.display_timezone,'Asia/Shanghai');
   assert.equal(request.expected_revision,7);
   assert.equal(request.record_id,'r');
   assert.equal('point_id' in request,false);
@@ -160,10 +161,10 @@ globalThis.document={createElement:tag=>{const node=new TestNode();node.tagName=
 globalThis.window={customCards:[]};
 globalThis.customElements={get:()=>undefined,define:()=>{}};
 const {ChargeTallyCard}=await import('../../custom_components/charge_tally/www/charge-tally-card.js');
-const {RecordDialog}=await import('../../custom_components/charge_tally/www/card-dialog.js?v=0.1.2-13');
-const {ChargeTallyEditor}=await import('../../custom_components/charge_tally/www/card-editor.js?v=0.1.2-13');
+const {RecordDialog}=await import('../../custom_components/charge_tally/www/card-dialog.js?v=0.1.2-14');
+const {ChargeTallyEditor}=await import('../../custom_components/charge_tally/www/card-editor.js?v=0.1.2-14');
 const state=await import('../../custom_components/charge_tally/www/card-state.js');
-const {summaryView,billingDetails}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.2-13');
+const {summaryView,billingDetails}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.2-14');
 
 const visibleText=node=>[node.textContent||'',...(node.children||[]).map(visibleText)].join(' ');
 test('cost presentation keeps independent real problems while treating ordinary settlement as normal',async t=>{
@@ -193,7 +194,7 @@ test('detail requests omit eager audit snapshots',async t=>{
   t.mock.method(RecordDialog.prototype,'render',()=>{});
   const sent=[];const card=controller(async request=>{sent.push(request);return {record:{id:'r'}};});
   await card.details({id:'r'});
-  assert.deepEqual(sent,[{type:'charge_tally/records',record_id:'r',include_history:false}]);
+  assert.deepEqual(sent,[{type:'charge_tally/records',record_id:'r',include_history:false,display_timezone:'Asia/Shanghai'}]);
   card.dialog.close();
 });
 test('record details show only fee details and hide technical revision counters',()=>{
@@ -203,11 +204,11 @@ test('record details show only fee details and hide technical revision counters'
   assert.equal(dialog.node.querySelectorAll('details').length,1);
   assert.ok(dialog.node.querySelectorAll('details').every(node=>!node.open));
 });
-test('billing periods retain timezone and real mixed-loss gaps while pending-only gaps stay quiet',()=>{
+test('billing periods use explicit display timezone and retain real mixed-loss gaps',()=>{
   const period={start:'2025-12-31T15:00:00+00:00',end:'2025-12-31T16:00:00+00:00',energy_kwh:'7',cost:null,unit_price:null};
   const detail={record:{timezone:'Asia/Shanghai',quality:[],quality_spans:[{...period,quality:['missing_energy','pending_settlement']},{...period,quality:['missing_energy','reset','pending_settlement']}]},billing_periods:[period]};
-  const before=structuredClone(detail),view=billingDetails(detail,'en','EUR');
-  assert.match(visibleText(view),/2025-12-31.*23:00:00–00:00:00/s);
+  const before=structuredClone(detail),view=billingDetails(detail,'en','EUR','UTC');
+  assert.match(visibleText(view),/2025-12-31.*15:00:00–16:00:00/s);
   assert.equal(view.querySelectorAll('p').filter(node=>node.className==='billing-gap muted').length,1);
   assert.deepEqual(detail,before);
 });
@@ -229,6 +230,40 @@ test('long server decimals are formatted for display without changing payloads',
   assert.equal(tr('reset','zh-Hans'),'电表重置');
 });
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
+test('server and local display preferences resolve independently of accounting timezone',()=>{
+  assert.equal(typeof state.displayTimezone,'function');
+  assert.equal(state.displayTimezone({locale:{time_zone:'server'}},'Asia/Shanghai'),'Asia/Shanghai');
+  assert.equal(state.displayTimezone({},'Asia/Shanghai'),'Asia/Shanghai');
+  assert.equal(state.displayTimezone({locale:{time_zone:'local'}},'Asia/Shanghai'),Intl.DateTimeFormat().resolvedOptions().timeZone);
+});
+test('local display falls back to system timezone when the device has no named zone',t=>{
+  t.mock.method(Intl.DateTimeFormat.prototype,'resolvedOptions',()=>({timeZone:undefined}));
+  assert.equal(state.displayTimezone({locale:{time_zone:'local'}},'Asia/Shanghai'),'Asia/Shanghai');
+});
+test('server display uses HA config before a runtime snapshot is available',()=>{
+  const card=new ChargeTallyCard();card.render=()=>{};card.hass={config:{time_zone:'Europe/Berlin'}};
+  assert.equal(card.displayTimezone,'Europe/Berlin');
+});
+test('system timezone reinterprets applied custom dates without using unsaved edits',()=>{
+  const card=controller(async()=>{});card.period='custom';card.rangeStart='2026-10-29';card.rangeEnd='2026-10-30';card.applyRange();
+  card.rangeStart='2026-11-01';card.rangeEnd='2026-11-03';
+  card.onSnapshot({...card.snapshot,timezone:'America/New_York'});
+  assert.deepEqual(card.appliedRange,{start:'2026-10-29T04:00:00.000Z',end:'2026-10-30T04:00:00.000Z'});
+  assert.equal(card.rangeStart,'2026-11-01');assert.equal(card.rangeEnd,'2026-11-03');
+});
+test('note-only edit in another display timezone keeps UTC microseconds and subsecond range',()=>{
+  const record={id:'r',revision:4,timezone:'Asia/Shanghai',start:'2026-09-09T02:00:00.100001Z',end:'2026-09-09T02:00:00.900009Z'};
+  const values={...form,start:'2026-09-09T02:00:00',end:'2026-09-09T02:00:00',cost_mode:'auto',energy_kwh:''};
+  const request=previewRequest(values,'UTC',record);
+  assert.equal('start' in request,false);assert.equal('end' in request,false);assert.equal(request.display_timezone,'UTC');
+});
+test('manual fee coverage uses display segments without counting allocated gaps',()=>{
+  const period={start:'2026-10-29T23:30:00Z',end:'2026-10-30T00:00:00Z',energy_kwh:'2',quality:[]};
+  const detail={record:{timezone:'Asia/Shanghai',manual_fee_override:true,manual_cost:'12',quality_spans:[]},segments:[{...period,energy_kwh:'999'}],display_segments:[period,{...period,energy_kwh:'77',quality:['missing_energy']}],billing_periods:[{...period,cost:'12'}]};
+  const view=billingDetails(detail,'en','EUR','UTC');
+  assert.match(visibleText(view),/23:30:00–2026-10-30 00:00:00.*2 kWh/s);
+  assert.doesNotMatch(visibleText(view),/999|77|EUR 12/);
+});
 function controller(callWS){
   const card=new ChargeTallyCard();card.render=()=>{};card.refresh=()=>{};
   card.snapshot={points:[],archived_points:[],identities:[],timezone:'Asia/Shanghai',currency:'CNY'};
