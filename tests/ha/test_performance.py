@@ -10,6 +10,8 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from test_runtime import setup_runtime
 from test_runtime_store import configured, save_report_record
 
+from custom_components.charge_tally.runtime_store import ScopedLedger
+
 
 def test_snapshots_and_queries_reuse_unchanged_statistics(tmp_path):
     at = datetime(2026, 1, 1, tzinfo=UTC)
@@ -40,6 +42,63 @@ def test_power_observation_updates_live_value_without_rescanning_segments(tmp_pa
     assert snapshot["points"][0]["power_w"] == "123"
     assert Decimal(snapshot["summary"]["energy_kwh"]) == 1
     assert not any("SELECT data FROM segments" in sql for sql in statements)
+    store.ledger.close()
+
+
+def test_cold_snapshot_reads_each_records_segments_once(tmp_path, freezer):
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    freezer.move_to(at + timedelta(hours=1))
+    store, _ = configured(tmp_path, at)
+    save_report_record(store)
+    statements = []
+    store.ledger._db.set_trace_callback(statements.append)
+    snapshot = store.snapshot()
+    assert Decimal(snapshot["summary"]["energy_kwh"]) == 1
+    identity = next(item for item in snapshot["identities"] if item["id"] == "i")
+    assert all(
+        Decimal(value["known_cost"]) == 2 for value in identity["summaries"].values()
+    )
+    assert sum("SELECT data FROM segments" in sql for sql in statements) == 1
+    store.ledger.close()
+
+
+@pytest.mark.parametrize("cost", [None, "0", "-2"])
+def test_legacy_record_projection_reuses_cost_evidence(tmp_path, cost):
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    store, _ = configured(tmp_path, at)
+    record = save_report_record(store, cost=cost)
+    record.pop("has_known_cost")
+    store.ledger.save_record(
+        record, store.ledger.list_segments(record["id"]), audit=False
+    )
+    statements = []
+    store.ledger._db.set_trace_callback(statements.append)
+    first = store.query("records", {"limit": 25}, ["p"])
+    assert first["records"][0]["has_known_cost"] is (cost is not None)
+    assert not any("SELECT data FROM segments" in sql for sql in statements)
+    statements.clear()
+    second = store.query("records", {"limit": 25}, ["p"])
+    assert second == first
+    assert not any("FROM segments" in sql for sql in statements)
+    assert "has_known_cost" not in store.ledger.get_record(record["id"])
+    store.ledger.close()
+
+
+def test_snapshot_segment_reuse_respects_its_memory_budget(tmp_path):
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    store, _ = configured(tmp_path, at)
+    first = save_report_record(store)
+    second = save_report_record(
+        store, start=at + timedelta(hours=1), request="second", cost="-3"
+    )
+    scoped = ScopedLedger(store.ledger, ["p"], segment_limit=1)
+    statements = []
+    store.ledger._db.set_trace_callback(statements.append)
+    assert scoped.list_segments(first["id"]) == scoped.list_segments(first["id"])
+    assert scoped.list_segments(second["id"]) == scoped.list_segments(second["id"])
+    assert sum("SELECT data FROM segments" in sql for sql in statements) == 3
+    assert Decimal(scoped.list_segments(first["id"])[0]["cost"]) == 2
+    assert Decimal(scoped.list_segments(second["id"])[0]["cost"]) == -3
     store.ledger.close()
 
 

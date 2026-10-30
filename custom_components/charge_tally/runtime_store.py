@@ -34,8 +34,10 @@ def required_roles(point, source):
 class ScopedLedger:
     """Restrict records before passing the ledger to the shared query service."""
 
-    def __init__(self, ledger, point_ids):
+    def __init__(self, ledger, point_ids, *, segment_limit=0):
         self.ledger, self.point_ids = ledger, set(point_ids)
+        self._segment_cache = {}
+        self._segment_budget = segment_limit
 
     def transaction(self):
         return self.ledger.transaction()
@@ -48,7 +50,13 @@ class ScopedLedger:
         ]
 
     def list_segments(self, record_id):
-        return self.ledger.list_segments(record_id)
+        if record_id in self._segment_cache:
+            return self._segment_cache[record_id]
+        parts = self.ledger.list_segments(record_id)
+        if max(1, len(parts)) <= self._segment_budget:
+            self._segment_cache[record_id] = parts
+            self._segment_budget -= max(1, len(parts))
+        return parts
 
     def get_point(self, point_id):
         if point_id not in self.point_ids:
@@ -81,6 +89,7 @@ class RuntimeStore:
         self.currency, self.timezone = currency, timezone
         self._summary_version = None
         self._summary_cache = OrderedDict()
+        self._record_cost_cache = {}
         self.states = self.ledger.get_checkpoint("runtime") or {}
         self.points = {}
         for state in self.states.values():
@@ -184,6 +193,7 @@ class RuntimeStore:
                 error = RuntimeError("Archive transaction cancelled")
                 transaction.__exit__(type(error), error, None)
         finally:
+            self._record_cost_cache.clear()
             if not committed:
                 self._summary_cache.clear()
                 if self.ledger._db.in_transaction:
@@ -202,6 +212,7 @@ class RuntimeStore:
             return result, snapshot
         except BaseException:
             self._summary_cache.clear()
+            self._record_cost_cache.clear()
             self.states, self.points = previous, points
             self.timezone = timezone
             raise
@@ -853,17 +864,15 @@ class RuntimeStore:
         raise ValueError("Unknown command")
 
     def _record_view(self, record):
-        return record_view(
-            record,
-            None
-            if "has_known_cost" in record
-            else self.ledger.list_segments(record["id"]),
-        )
+        if "has_known_cost" in record:
+            return record_view(record)
+        cached = self._record_cost_cache.get(record["id"])
+        if cached is None or cached[0] != record["revision"]:
+            cached = (record["revision"], self.ledger.has_known_cost(record["id"]))
+            self._record_cost_cache[record["id"]] = cached
+        return record_view({**record, "has_known_cost": cached[1]})
 
     def snapshot(self, point_ids=None):
-        scoped = (
-            self.ledger if point_ids is None else ScopedLedger(self.ledger, point_ids)
-        )
         # Summaries and reset markers must describe the same calendar instant.
         day = (
             datetime.now(UTC)
@@ -880,6 +889,8 @@ class RuntimeStore:
             if point_ids is None
             else point_ids
         )
+        # Share a bounded amount of decoded evidence only within this snapshot.
+        scoped = ScopedLedger(self.ledger, allowed, segment_limit=10_000)
         points = []
         for point_id, point in self.points.items():
             if point_ids is not None and point_id not in point_ids:
@@ -959,6 +970,7 @@ class RuntimeStore:
                     allowed,
                     {"identity_id": identity["id"], "calendar_period": period},
                     now=day,
+                    scoped_ledger=scoped,
                 )
                 for period in ("total", "daily", "monthly", "yearly")
             }
@@ -975,7 +987,7 @@ class RuntimeStore:
             "points": points,
             "archived_points": archived,
             "records": [self._record_view(record) for record in scoped.list_records()],
-            "summary": self.scoped_summary(allowed, {}, now=day),
+            "summary": self.scoped_summary(allowed, {}, now=day, scoped_ledger=scoped),
             "revision": self.ledger.data_version(),
             "period_starts": {
                 period: start.isoformat() for period, start in period_starts.items()
@@ -1012,6 +1024,7 @@ class RuntimeStore:
         now=None,
         max_records=None,
         max_segments=None,
+        scoped_ledger=None,
     ):
         start = instant(data["start"]) if data.get("start") else None
         end = instant(data["end"]) if data.get("end") else None
@@ -1034,7 +1047,9 @@ class RuntimeStore:
             self._summary_cache.move_to_end(key)
             return deepcopy(self._summary_cache[key])
         result = summarize(
-            ScopedLedger(self.ledger, point_ids),
+            scoped_ledger
+            if scoped_ledger is not None
+            else ScopedLedger(self.ledger, point_ids),
             start,
             end,
             identity_id=data.get("identity_id"),

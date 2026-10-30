@@ -69,11 +69,16 @@ def summarize(
     )
     energy, cost, quality, buckets = Decimal(0), Decimal(0), set(), {}
     hourly_windows = {}
+    calendar_windows = {}
     contributions, segment_count = [], 0
 
     def windows_for(a, b, record_timezone):
         if period != "hour":
-            return bucket_windows(a, b, record_timezone, period)
+            windows = calendar_windows.get(record_timezone)
+            if windows is None or windows[0].start > a or windows[-1].end < b:
+                windows = bucket_windows(a, b, record_timezone, period)
+                calendar_windows[record_timezone] = windows
+            return [window for window in windows if window.start < b and window.end > a]
         # Cache full UTC-date spans only for this query. Window boundaries still
         # use the record's local calendar, including folds and clock changes.
         left = a.replace(hour=0, minute=0, second=0, microsecond=0)

@@ -106,3 +106,24 @@ Ending a record does not switch off a physical charger.
 `tests/ha/test_manual_end.py` covers the real WebSocket service with manual and
 automatic records, intervening measurements, explicit revision conflicts,
 idempotent retries, and protection of a newer record from an old end request.
+
+## Restart and sampling performance
+
+Cold snapshots share decoded segments across their statistics queries, up to
+10,000 segment entries per snapshot. The cache is discarded after the snapshot;
+larger histories remain readable without retaining the entire ledger in memory.
+Legacy known-cost flags use an existence query and a record-revision cache.
+Non-hourly summaries reuse complete calendar windows while keeping the original
+sample order and Decimal arithmetic.
+
+Contiguous measurements after a historical gap append only the new segments.
+Existing quality spans and incomplete-cost flags remain until actual historical
+evidence resolves them. Late history still uses the full rebuild path.
+Cold PDF imports use Home Assistant's import executor; HTTP registration stays
+on the event loop.
+
+Run `tests/ha/test_performance.py`, `tests/core/test_query_performance.py`,
+`tests/core/test_incremental_gaps.py`, and `tests/ha/test_startup_import.py` for
+work-count, accounting-equivalence, bounded-cache, and real cold-import checks.
+Timing comparisons use synthetic local ledgers and do not establish device-side
+latency.

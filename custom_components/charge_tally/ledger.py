@@ -483,6 +483,16 @@ class Ledger:
             ),
         )
 
+    def has_known_cost(self, record_id: str) -> bool:
+        """Check legacy cost evidence without loading every serialized segment."""
+        return bool(
+            self._db.execute(
+                "SELECT EXISTS(SELECT 1 FROM segments WHERE record_id=? "
+                "AND json_extract(data,'$.cost') IS NOT NULL)",
+                (record_id,),
+            ).fetchone()[0]
+        )
+
     def list_segments(self, record_id: str):
         return [
             json.loads(r[0])

@@ -199,7 +199,6 @@ class Accounting:
             record["status"] != "active"
             or record.get("manual_override")
             or record.get("manual_fee_override")
-            or record.get("quality_spans")
             or "has_known_cost" not in record
             or observation.get("gap")
             or record["point_id"] != observation["point_id"]

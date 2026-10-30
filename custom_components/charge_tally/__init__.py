@@ -24,6 +24,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ChargeTallyConfigEntry) -> bool:
     """Load the ledger and actual HA entity platforms."""
+    from homeassistant.helpers.importlib import async_import_module
+
     from .runtime import Runtime
 
     runtime = Runtime(hass, entry)
@@ -37,9 +39,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ChargeTallyConfigEntry) 
         from .frontend import async_setup
 
         await async_setup(hass)
-        from .export_api import async_register_export
-
-        async_register_export(hass)
+        export_api = await async_import_module(hass, f"{__package__}.export_api")
+        export_api.async_register_export(hass)
     except BaseException:
         await runtime.async_close()
         raise
