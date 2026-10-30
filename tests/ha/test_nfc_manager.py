@@ -5,7 +5,9 @@ from copy import deepcopy
 import pytest
 from homeassistant.components.tag import TAG_DATA
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.storage import WriteError
 from homeassistant.setup import async_setup_component
+from homeassistant.util.json import load_json
 from test_runtime import setup_runtime
 
 
@@ -87,16 +89,87 @@ async def test_failed_store_write_does_not_publish_new_version(
         "update",
     )
 
-    async def fail(_):
-        raise OSError("Disk unavailable")
+    published_before = await manager.async_list()
+    stored_before = await hass.async_add_executor_job(load_json, manager.store.path)
 
-    monkeypatch.setattr(manager.store, "async_save", fail)
-    with pytest.raises(OSError):
-        await manager.async_confirm("update", prepared["desired_config"])
+    async def fail(*_):
+        raise WriteError("Disk unavailable")
+
+    with monkeypatch.context() as failing_storage:
+        failing_storage.setattr(manager.store, "_async_write_data", fail)
+        with pytest.raises(OSError):
+            await manager.async_confirm("update", prepared["desired_config"])
+    assert await manager.async_list() == published_before
+    assert (
+        await hass.async_add_executor_job(load_json, manager.store.path)
+        == stored_before
+    )
     manager.assert_selection(rule["rule_id"], 1, "point", "car")
     with pytest.raises(ValueError, match="not_applied"):
         manager.assert_selection(rule["rule_id"], 2, "point", "car")
     assert (await manager.async_list())[0]["pending"] is not None
+    confirmed = await manager.async_confirm("update", prepared["desired_config"])
+    assert confirmed["applied"]["version"] == 2
+    assert confirmed["pending"] is None
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.parametrize("existing_rule", [False, True])
+async def test_failed_prepare_does_not_publish_pending_operation(
+    hass, tmp_path, monkeypatch, existing_rule
+):
+    entry, _, manager, draft = await setup_manager(hass, tmp_path)
+    rule = await create_rule(manager, draft) if existing_rule else None
+    published_before = await manager.async_list()
+    stored_before = await hass.async_add_executor_job(load_json, manager.store.path)
+
+    async def fail(*_):
+        raise WriteError("Disk unavailable")
+
+    with monkeypatch.context() as failing_storage:
+        failing_storage.setattr(manager.store, "_async_write_data", fail)
+        with pytest.raises(OSError):
+            await manager.async_prepare(
+                "update" if rule else "create",
+                rule["rule_id"] if rule else None,
+                {**draft, "default_identity_id": None},
+                rule["revision"] if rule else None,
+                "retry",
+            )
+    assert await manager.async_list() == published_before
+    assert (
+        await hass.async_add_executor_job(load_json, manager.store.path)
+        == stored_before
+    )
+    prepared = await manager.async_prepare(
+        "update" if rule else "create",
+        rule["rule_id"] if rule else None,
+        {**draft, "default_identity_id": None},
+        rule["revision"] if rule else None,
+        "retry",
+    )
+    persisted = await hass.async_add_executor_job(load_json, manager.store.path)
+    assert persisted["data"]["rules"][prepared["rule_id"]]["pending"] == prepared
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_catalog_uses_supported_device_entries(hass, tmp_path, caplog):
+    entry, _, manager, draft = await setup_manager(hass, tmp_path)
+    device_id = draft["device_bindings"][0]["device_id"]
+    device_registry = dr.async_get(hass)
+    device_registry.async_update_device(
+        device_id, name_by_user="My phone", disabled_by=dr.DeviceEntryDisabler.USER
+    )
+    caplog.clear()
+    catalog = await manager.async_catalog()
+    assert next(
+        device for device in catalog["devices"] if device["id"] == device_id
+    ) == {
+        "id": device_id,
+        "name": "My phone",
+        "active": False,
+    }
+    assert "device_registry.devices" not in caplog.text
     await hass.config_entries.async_unload(entry.entry_id)
 
 

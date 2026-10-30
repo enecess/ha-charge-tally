@@ -496,3 +496,37 @@ async def test_store_silent_failure_blocks_creation_or_recovers_owned_helper(
     assert len(current) == 1
     if native:
         assert current[0].entry_id == native[0].entry_id
+
+
+@pytest.mark.parametrize("operation", ["async_repair", "async_remove"])
+@pytest.mark.parametrize("domain", ["integration", "utility_meter"])
+async def test_changed_creation_token_blocks_repair_and_point_removal(
+    hass, operation, domain
+):
+    from custom_components.charge_tally.native_helpers import (
+        HelperRepairRequired,
+        NativeHelpers,
+    )
+
+    sources(hass)
+    entry = owner(hass)
+    helpers = NativeHelpers(hass, entry)
+    await helpers.async_ensure(
+        "point1",
+        {
+            "name": "Garage",
+            "input_mode": "power",
+            "power_entity": "sensor.power",
+            "periods": ["daily"],
+        },
+        "sensor.normalized",
+    )
+    helper = hass.config_entries.async_entries(domain)[0]
+    hass.config_entries.async_update_entry(helper, unique_id="another-owner")
+
+    with pytest.raises(HelperRepairRequired, match="invalid_helper_ownership"):
+        await getattr(helpers, operation)("point1")
+    assert hass.config_entries.async_get_entry(helper.entry_id) is helper
+    assert hass.config_entries.async_entries(domain) == [helper]
+    with pytest.raises(HelperRepairRequired, match="invalid_helper_ownership"):
+        await getattr(helpers, operation)("point1")

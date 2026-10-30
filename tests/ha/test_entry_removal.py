@@ -128,10 +128,15 @@ async def test_reload_and_duplicate_flow_keep_existing_ledger(hass, tmp_path):
     assert entry.runtime_data.snapshot["currency"] == "CNY"
 
 
-async def test_entry_removal_does_not_delete_helper_with_changed_owner(hass, tmp_path):
+@pytest.mark.parametrize("unload_first", [False, True])
+async def test_entry_removal_does_not_delete_helper_with_changed_owner(
+    hass, tmp_path, unload_first
+):
     entry, runtime = await setup_runtime(hass, tmp_path, periods=["daily"])
     helper = hass.config_entries.async_entries("utility_meter")[0]
     hass.config_entries.async_update_entry(helper, unique_id="another-owner")
+    if unload_first:
+        assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.config_entries.async_remove(entry.entry_id)
     await hass.async_block_till_done()
     assert hass.config_entries.async_get_entry(helper.entry_id) is helper

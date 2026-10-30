@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from copy import deepcopy
 from uuid import uuid4
 
 from homeassistant.components.tag import TAG_DATA
 from homeassistant.const import EVENT_COMPONENT_LOADED
 from homeassistant.core import callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.collection import CHANGE_REMOVED
 from homeassistant.helpers.storage import Store
+from homeassistant.util.json import load_json
 
 from .nfc_rules import compile_automation, execution_config, validate_draft
 
@@ -93,6 +96,11 @@ class NfcManager:
         self._check_open()
         self._attach_tags()
         registry = er.async_get(self.hass)
+        device_registry = dr.async_get(self.hass)
+        devices = device_registry.devices
+        # Older HA versions expose a mapping rather than an entry collection.
+        if isinstance(devices, Mapping):
+            devices = devices.values()
         points, identities = (
             [],
             [{"id": "unassigned", "name": "Unassigned", "active": True}],
@@ -131,7 +139,7 @@ class NfcManager:
                     "name": device.name_by_user or device.name or device.id,
                     "active": device.disabled_by is None,
                 }
-                for device in dr.async_get(self.hass).devices.values()
+                for device in devices
             ],
         }
 
@@ -161,6 +169,20 @@ class NfcManager:
 
     async def _save(self, data):
         await self.store.async_save(data)
+        # Store may log write failures without raising; verify the file directly.
+        try:
+            persisted = await self.hass.async_add_executor_job(
+                load_json, self.store.path
+            )
+        except HomeAssistantError as err:
+            raise OSError("nfc_storage_save_failed") from err
+        if persisted != {
+            "version": self.store.version,
+            "minor_version": self.store.minor_version,
+            "key": self.store.key,
+            "data": data,
+        }:
+            raise OSError("nfc_storage_save_failed")
         self._data = data
 
     def _copy(self, draft):

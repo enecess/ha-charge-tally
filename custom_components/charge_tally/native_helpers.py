@@ -259,7 +259,9 @@ class NativeHelpers:
             raise HelperRepairRequired("uncertain_helper_creation")
         entry = self.hass.config_entries.async_get_entry(entry_id)
         if entry is not None:
-            if entry.domain != owned["domain"]:
+            if entry.domain != owned["domain"] or entry.unique_id != owned.get(
+                "creation_token"
+            ):
                 raise HelperRepairRequired("invalid_helper_ownership")
             result = await self.hass.config_entries.async_remove(entry_id)
             if result.get("require_restart"):
