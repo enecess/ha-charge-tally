@@ -1,12 +1,12 @@
-import {exportRequest,fetchReport} from './card-export.js?v=0.1.2-12';
-import {CardView} from './card-view.js?v=0.1.2-12';
-import {newRequestId} from './request-id.js?v=0.1.2-12';
-import {tr} from './card-i18n.js?v=0.1.2-12';
-import {styles} from './card-styles.js?v=0.1.2-12';
-import {Latest,Subscription,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.2-12';
-import {el} from './card-ui.js?v=0.1.2-12';
-import {RecordDialog} from './card-dialog.js?v=0.1.2-12';
-import './card-editor.js?v=0.1.2-12';
+import {exportRequest,fetchReport} from './card-export.js?v=0.1.2-13';
+import {CardView} from './card-view.js?v=0.1.2-13';
+import {newRequestId} from './request-id.js?v=0.1.2-13';
+import {tr} from './card-i18n.js?v=0.1.2-13';
+import {styles} from './card-styles.js?v=0.1.2-13';
+import {Latest,Subscription,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.2-13';
+import {el} from './card-ui.js?v=0.1.2-13';
+import {RecordDialog} from './card-dialog.js?v=0.1.2-13';
+import './card-editor.js?v=0.1.2-13';
 
 export class ChargeTallyCard extends HTMLElement {
   static getConfigElement(){return document.createElement('charge-tally-card-editor');}

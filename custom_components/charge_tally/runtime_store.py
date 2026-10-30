@@ -1106,21 +1106,12 @@ class RuntimeStore:
         )
         if command == "summary":
             return self.scoped_summary(allowed, data)
-        if command in ("record", "record_metadata", "record_history"):
+        if command in ("record", "record_metadata"):
             record = self.ledger.get_record(data["record_id"])
             if not record or record["point_id"] not in allowed:
                 raise ValueError("Unknown authorized record")
             if command == "record_metadata":
                 return {key: record[key] for key in ("id", "point_id", "revision")}
-            if command == "record_history":
-                return {
-                    "record_id": record["id"],
-                    "revision": record["revision"],
-                    "records": [
-                        record_view(snapshot)
-                        for snapshot in self.ledger.list_revision_records(record["id"])
-                    ],
-                }
             return {
                 **detail_view(
                     record,

@@ -21,7 +21,6 @@ test('compact record issues and native section titles follow every supported lan
     assert.equal(tr('feeDetails',language),title);
     assert.equal(tr('amountMissing',language),unknown);
     assert.equal(tr('dataGap',language,{seconds:5}),seconds);
-    assert.notEqual(tr('recordHistory',language),'recordHistory');
   }
 });
 

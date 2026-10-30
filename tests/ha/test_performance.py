@@ -357,41 +357,6 @@ def test_record_page_decodes_only_authorized_page_rows(tmp_path, monkeypatch):
     store.ledger.close()
 
 
-@pytest.mark.parametrize("cost", [None, "0", "-2"])
-def test_record_history_decodes_only_records_and_keeps_legacy_cost_state(
-    tmp_path, monkeypatch, cost
-):
-    at = datetime(2026, 1, 1, tzinfo=UTC)
-    store, _ = configured(tmp_path, at)
-    record = save_report_record(store, cost=cost)
-    record.pop("has_known_cost")
-    record["revision"] += 1
-    store.ledger.save_record(record, store.ledger.list_segments(record["id"]))
-    record["revision"] += 1
-    store.ledger.save_record(
-        record, store.ledger.list_segments(record["id"]), audit=False
-    )
-    loads = json.loads
-    decoded = []
-
-    def observed_loads(value, *args, **kwargs):
-        result = loads(value, *args, **kwargs)
-        decoded.append(result)
-        return result
-
-    monkeypatch.setattr(
-        "custom_components.charge_tally.ledger.json.loads", observed_loads
-    )
-    history = store.query("record_history", {"record_id": record["id"]}, ["p"])
-    assert history["revision"] == 3
-    assert [r["revision"] for r in history["records"]] == [1, 2]
-    assert all(r["has_known_cost"] is (cost is not None) for r in history["records"])
-    assert all("segments" not in item and "energy_kwh" in item for item in decoded)
-    with pytest.raises(ValueError, match="authorized"):
-        store.query("record_history", {"record_id": record["id"]}, [])
-    store.ledger.close()
-
-
 def test_record_metadata_and_lean_detail_do_not_load_revision_evidence(
     tmp_path, monkeypatch
 ):

@@ -49,10 +49,13 @@ ledger.close()
 for(const width of [736,320])test(`compact details keep chronological periods and a distinct gap at ${width}px`,async t=>{
   const {page}=await createCardFixture(t);await page.setViewportSize({width,height:900});
   await openCompactDetails(page);
-  assert.deepEqual(await page.locator('dialog details').evaluateAll(nodes=>nodes.map(node=>node.open)),[false,false]);
+  assert.deepEqual(await page.locator('dialog details').evaluateAll(nodes=>nodes.map(node=>node.open)),[false]);
+  assert.equal(await page.evaluate(()=>fixture.pending.length),0);
+  assert.doesNotMatch(await page.locator('dialog').innerText(),/Record history/);
   assert.doesNotMatch(await page.locator('dialog').innerText(),/1797|Revision|estimated|Unavailable|Status:|Source:/);
   assert.match(await page.locator('dialog').innerText(),/2026-10-29 · 16:57–19:29 · 2 h 32 min/);
   await page.locator('dialog details').first().locator('summary').click();
+  assert.equal(await page.evaluate(()=>fixture.pending.length),0);
   assert.equal(await page.locator('dialog .billing-period').count(),3);
   assert.equal(await page.locator('dialog .billing-gap').count(),1);
   assert.match(await page.locator('dialog .billing-gap').innerText(),/19:04:11–19:04:16.*5 s/);
@@ -78,25 +81,6 @@ test('billing details render exponent fallback amounts without losing ordinary r
   assert.match(await page.locator('dialog .billing-details').innerText(),/rounded/);
 });
 
-test('history loads once, survives pending translation, and retries permission and service failures',async t=>{
-  const {page}=await createCardFixture(t);await openCompactDetails(page);
-  assert.equal(await page.evaluate(()=>fixture.pending.length),0);
-  const history=page.locator('dialog details').nth(1);await history.locator('summary').click();
-  await page.waitForFunction(()=>fixture.pending.length===1);
-  assert.deepEqual(await page.evaluate(()=>fixture.pending[0].request),{type:'charge_tally/record_history',record_id:'r',point_id:'p'});
-  await page.evaluate(()=>{fixture.card.hass={...fixture.hass,language:'zh-Hans'};fixture.pending[0].reject({code:'unauthorized'});});
-  await history.getByRole('button',{name:'重试',exact:true}).click();
-  await page.waitForFunction(()=>fixture.pending.length===2);
-  await page.evaluate(()=>fixture.pending[1].reject({code:'home_assistant_error'}));
-  await history.getByRole('button',{name:'重试',exact:true}).click();
-  await page.waitForFunction(()=>fixture.pending.length===3);
-  await page.evaluate(()=>{const record=fixture.compact.record;fixture.card.hass={...fixture.hass,language:'fr'};fixture.pending[2].resolve({record_id:'r',revision:1797,records:[{...record,revision:1,energy_kwh:'0',known_cost:'0'},{...record,revision:1796,quality:[]},record]});});
-  await history.locator('li').first().waitFor();
-  assert.equal(await history.getAttribute('open'),'');
-  assert.doesNotMatch(await history.innerText(),/1797|1796|2026-10-29|16:57/);
-  await history.locator('summary').click();await history.locator('summary').click();
-  assert.equal(await page.evaluate(()=>fixture.pending.length),3);
-});
 test('manual totals keep measured coverage and exclude allocated gap money',async t=>{
   const {page}=await createCardFixture(t);await openCompactDetails(page,{manual_fee_override:true,manual_cost:'12.00'});
   await page.evaluate(()=>{const d=fixture.compact;d.segments=[d.segments[0],{start:d.record.quality_spans[0].start,end:d.record.quality_spans[0].end,energy_kwh:'0',cost:'3',cost_basis:'manual',unit_price:null,quality:['missing_energy','manual']},...d.segments.slice(1)];fixture.card.dialog.detail=d;fixture.card.dialog.render();});
@@ -140,7 +124,7 @@ test('unchanged subsecond edit boundaries survive compact details and shared pre
   assert.equal(await page.locator('dialog .preview .billing-period').count(),3);
   assert.equal(await page.locator('dialog .preview .billing-gap').count(),1);
 });
-test('compact detail language updates retain sections, grouped dates and final history',async t=>{
+test('compact detail language updates retain fee details and grouped dates',async t=>{
   const {page}=await createCardFixture(t);await page.setViewportSize({width:320,height:900});await openCompactDetails(page,{quality:[],quality_spans:[],cost_complete:true});
   await page.locator('dialog details').first().locator('summary').click();
   assert.equal(await page.locator('dialog .billing-date').count(),1);
@@ -401,7 +385,7 @@ test('period and page versions independently reject late responses',async t=>{
 test('select protection clones the latest queued options and dispose drops pending changes',async t=>{
   const {page}=await createCardFixture(t);
   assert.deepEqual(await page.evaluate(async()=>{
-    const {SelectControl}=await import('/card-controls.js?v=0.1.2-12');const control=new SelectControl();document.body.append(control.node);control.update({options:[{id:'a',name:'A'}],value:'a'});const original=control.node.firstChild;control.update({options:[{id:'a',name:'A'}],value:'a'});const untouched=original===control.node.firstChild;control.node.focus();const options=[{id:'b',name:'B'}];control.update({options,value:'b'});options[0].name='Changed outside';control.node.blur();const name=control.node.firstChild.textContent;control.node.focus();control.update({options:[{id:'c',name:'C'}],value:'c'});control.dispose();control.node.blur();return {untouched,name,value:control.node.value,pending:control.pending,editing:control.editing};
+    const {SelectControl}=await import('/card-controls.js?v=0.1.2-13');const control=new SelectControl();document.body.append(control.node);control.update({options:[{id:'a',name:'A'}],value:'a'});const original=control.node.firstChild;control.update({options:[{id:'a',name:'A'}],value:'a'});const untouched=original===control.node.firstChild;control.node.focus();const options=[{id:'b',name:'B'}];control.update({options,value:'b'});options[0].name='Changed outside';control.node.blur();const name=control.node.firstChild.textContent;control.node.focus();control.update({options:[{id:'c',name:'C'}],value:'c'});control.dispose();control.node.blur();return {untouched,name,value:control.node.value,pending:control.pending,editing:control.editing};
   }),{untouched:true,name:'B',value:'b',pending:null,editing:false});
 });
 test('selection failure stays visible through a background push',async t=>{
@@ -493,7 +477,7 @@ test('record details consolidate sampling explanations inside fee details',async
   const {page}=await createCardFixture(t);
   for(const [kind,flags,basis]of [['normal',[],'tariff'],['price',['missing_price'],'unknown'],['sampling',['gap'],'tariff'],['manual',['estimated','manual'],'manual']]){
     await page.evaluate(({flags,basis})=>{const c=fixture.card;c.hass={...fixture.hass,language:'zh-Hans'};const record={id:'r',revision:90,point_id:'p',identity_id:'i',start:'2026-09-22T08:00:00Z',end:'2026-09-22T09:00:00Z',timezone:'UTC',status:'ended',source:'manual',energy_kwh:'1',known_cost:'1',cost_complete:basis!=='unknown',quality:flags};c.openDialog('details',{record,segments:[{start:record.start,end:record.end,energy_kwh:'1',cost:basis==='unknown'?null:'1',cost_basis:basis,quality:flags}],revisions:[{record}]});},{flags,basis});
-    const text=await page.locator('dialog').innerText();assert.match(text,/记录历史/);assert.doesNotMatch(text,/修改记录 \(|版本|部分数据为估算值/);if(kind==='price')assert.match(text,/部分时段未计价/);
+    const text=await page.locator('dialog').innerText();assert.doesNotMatch(text,/记录历史|修改记录 \(|版本|部分数据为估算值/);assert.equal(await page.locator('dialog details').count(),1);if(kind==='price')assert.match(text,/部分时段未计价/);
     await page.locator('dialog details').first().locator('summary').click();if(kind==='manual')assert.match(await page.locator('dialog .billing-details').innerText(),/部分时段按采样区间分配/);if(kind==='normal')assert.equal(await page.locator('dialog .quality').count(),0);
     await page.evaluate(()=>fixture.card.dialog.close());
   }

@@ -133,6 +133,11 @@ latency.
 
 ## Record detail and export regressions
 
+The card requests record details with `include_history=false` to avoid decoding
+audit snapshots. The `records` command still includes revisions by default for
+existing clients. Revision evidence and optimistic concurrency remain internal
+ledger contracts; there is no separate record change-history command or card UI.
+
 Run all checks from an rsynced WSL `/dev-tmp` checkout, including focused Python,
 frontend, browser, formatting, and performance checks. Before reusing cached HA
 environments, verify the installed HA and test-plugin versions against

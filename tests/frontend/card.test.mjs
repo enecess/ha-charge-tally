@@ -158,10 +158,10 @@ globalThis.document={createElement:tag=>{const node=new TestNode();node.tagName=
 globalThis.window={customCards:[]};
 globalThis.customElements={get:()=>undefined,define:()=>{}};
 const {ChargeTallyCard}=await import('../../custom_components/charge_tally/www/charge-tally-card.js');
-const {RecordDialog}=await import('../../custom_components/charge_tally/www/card-dialog.js?v=0.1.2-12');
-const {ChargeTallyEditor}=await import('../../custom_components/charge_tally/www/card-editor.js?v=0.1.2-12');
+const {RecordDialog}=await import('../../custom_components/charge_tally/www/card-dialog.js?v=0.1.2-13');
+const {ChargeTallyEditor}=await import('../../custom_components/charge_tally/www/card-editor.js?v=0.1.2-13');
 const state=await import('../../custom_components/charge_tally/www/card-state.js');
-const {summaryView,segmentTable}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.2-12');
+const {summaryView,segmentTable}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.2-13');
 
 const visibleText=node=>[node.textContent||'',...(node.children||[]).map(visibleText)].join(' ');
 test('cost presentation separates final sampling, permanent loss, missing prices and manual totals',()=>{
@@ -178,16 +178,6 @@ test('cost presentation separates final sampling, permanent loss, missing prices
     [{status:'active',cost_complete:true,quality:[],quality_spans:[]},'currentCost',null,'EUR 5.29'],
   ])assert.deepEqual(state.recordCostState({...record,...change},'EUR','en'),{label,issue,value});
 });
-test('history describes business changes without treating sample revisions as operations',()=>{
-  assert.equal(typeof state.historyEntries,'function');
-  const record={revision:1,status:'active',identity_id:'i',note:'',energy_kwh:'0',known_cost:'0',has_known_cost:true,start:'2026-01-01T00:00:00Z',end:null};
-  const entries=state.historyEntries([record,{...record,revision:9,quality:['estimated']},{...record,revision:10,status:'ended',end:'2026-01-01T01:00:00Z'},{...record,revision:90,status:'ended',end:'2026-01-01T01:00:00Z',energy_kwh:'1.25',known_cost:'2.50'},{...record,revision:91,status:'ended',end:'2026-01-01T01:00:00Z',energy_kwh:'1.25',known_cost:'2.50',identity_id:'j',note:'Updated'}],'EUR','en',id=>({i:'Family',j:'Guest'})[id]);
-  assert.deepEqual(entries,[['Record created'],['Status changed: Ended'],['Energy: 0 → 1.25 kWh','Cost: EUR 0.00 → EUR 2.50'],['Assigned identity: Family → Guest','Note: Updated']]);
-});
-test('history retains amount changes below display precision without inventing different rounded values',()=>{
-  const record={status:'ended',identity_id:'i',energy_kwh:'1.00001',known_cost:'2.50001',has_known_cost:true};
-  assert.deepEqual(state.historyEntries([record,{...record,energy_kwh:'1.00002',known_cost:'2.50002'},{...record,energy_kwh:'1.000020',known_cost:'2.500020'}],'EUR','en',()=> 'Family'),[['Record created'],['Energy updated','Cost updated']]);
-});
 test('detail requests omit eager audit snapshots',async t=>{
   t.mock.method(RecordDialog.prototype,'render',()=>{});
   const sent=[];const card=controller(async request=>{sent.push(request);return {record:{id:'r'}};});
@@ -195,24 +185,12 @@ test('detail requests omit eager audit snapshots',async t=>{
   assert.deepEqual(sent,[{type:'charge_tally/records',record_id:'r',include_history:false}]);
   card.dialog.close();
 });
-test('record details defer history and hide technical revision counters',()=>{
+test('record details show only fee details and hide technical revision counters',()=>{
   const record={id:'r',point_id:'p',identity_id:'i',start:'2026-10-29T08:00:00Z',end:'2026-10-29T09:00:00Z',timezone:'UTC',status:'ended',source:'automatic',revision:1797,energy_kwh:'1',known_cost:'1',has_known_cost:true,cost_complete:true,quality:[]};
   const dialog=new RecordDialog(new TestNode(),{mode:'details',language:'en',currency:'EUR',detail:{record,segments:[],billing_periods:[],revisions:[]},identities:[],pointName:()=> 'Garage',identityName:()=> 'Family'});
-  assert.doesNotMatch(visibleText(dialog.node),/1797|Revision|Change history \(0\)/);
-  assert.equal(dialog.node.querySelectorAll('details').length,2);
+  assert.doesNotMatch(visibleText(dialog.node),/1797|Revision|Record history/);
+  assert.equal(dialog.node.querySelectorAll('details').length,1);
   assert.ok(dialog.node.querySelectorAll('details').every(node=>!node.open));
-});
-test('record history keeps a deleted identity name without restoring its selector entry',async()=>{
-  const record={id:'r',point_id:'p',identity_id:'unassigned',start:'2026-01-01T00:00:00Z',end:'2026-01-01T01:00:00Z',timezone:'UTC',status:'ended',source:'manual',revision:2,energy_kwh:'10',known_cost:'12.34',cost_complete:true,quality:[]};
-  const historical={...record,revision:1,identity_id:'deleted-id',identity_name:'Old car'};
-  const dialog=new RecordDialog(new TestNode(),{mode:'details',language:'en',currency:'CNY',
-    detail:{record,segments:[],revisions:[{record:historical}]},
-    identities:[{id:'unassigned',name:'Unassigned'}],pointName:()=> 'Garage',identityName:id=>id==='unassigned'?'Unassigned':id,call:async()=>({revision:2,records:[historical,record]})});
-  await dialog.loadHistory();
-  assert.match(visibleText(dialog.node),/Old car/);
-  assert.doesNotMatch(visibleText(dialog.node),/deleted-id/);
-  assert.deepEqual(dialog.identityOptions().map(i=>i.id),['unassigned']);
-  dialog.close();
 });
 test('segment ranges use the record accounting timezone without altering UTC data',()=>{
   const segments=[{local_date:'2025-12-31',start:'2025-12-31T15:00:00+00:00',end:'2025-12-31T16:00:00+00:00',energy_kwh:'7',cost:null}];

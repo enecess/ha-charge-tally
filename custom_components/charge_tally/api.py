@@ -89,7 +89,6 @@ SCHEMAS = {
         vol.Optional("offset", default=0): vol.All(integer, vol.Range(min=0)),
         vol.Optional("limit", default=50): vol.All(integer, vol.Range(min=1, max=100)),
     },
-    "record_history": {**SCOPE, vol.Required("record_id"): ID},
     "preview": {
         **FILTER,
         vol.Optional("record_id"): ID,
@@ -213,7 +212,7 @@ async def execute(
     data = dict(payload)
     if command == "snapshot":
         return await public_snapshot(runtime, user, data.get("point_id"))
-    if command in ("query", "records", "record_history"):
+    if command in ("query", "records"):
         if command == "query":
             if "calendar_period" in data:
                 if "start" in data or "end" in data:
@@ -234,9 +233,7 @@ async def execute(
                 user,
                 data.get("point_id"),
                 lambda ids: runtime.async_query(
-                    "record_history"
-                    if command == "record_history"
-                    else "record"
+                    "record"
                     if data.get("record_id")
                     else "summary"
                     if command == "query"
