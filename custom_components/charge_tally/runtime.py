@@ -841,6 +841,13 @@ class Runtime:
         )
 
     async def async_command(self, command, payload):
+        display_timezone = (
+            await self._read(
+                self._store.display_context, payload.get("display_timezone")
+            )
+            if command == "preview"
+            else None
+        )
         if command == "preview" and "energy_kwh" not in payload:
             data = dict(payload)
             if data.get("record_id"):
@@ -853,7 +860,12 @@ class Runtime:
                 existing = detail["record"]
                 if not any(k in data for k in ("start", "end", "point_id")):
                     return await self._apply(
-                        "command", command, payload, dt_util.utcnow()
+                        "command",
+                        command,
+                        payload,
+                        dt_util.utcnow(),
+                        True,
+                        display_timezone,
                     )
                 data = {**existing, **data}
             await self.async_recover_history(
@@ -868,7 +880,13 @@ class Runtime:
             return {"point_id": point_id, "repaired": point_id not in self._errors}
         if command == "start" and payload.get("point_id") in self._errors:
             raise ValueError("Repair the point helpers before starting")
-        result = await self._apply("command", command, payload, dt_util.utcnow())
+        result = await self._apply(
+            "command",
+            command,
+            payload,
+            dt_util.utcnow(),
+            *((True, display_timezone) if command == "preview" else ()),
+        )
         if command == "set_detection":
             subentry = self.entry.subentries[payload["point_id"]]
             data = deepcopy(dict(subentry.data))

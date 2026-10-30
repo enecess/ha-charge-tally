@@ -601,7 +601,7 @@ def test_current_ledger_with_unbound_accounting_data_is_rejected(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "start,end,now,zone,energy",
+    "start,end,now,zone,energy,expected",
     [
         (
             "2026-01-01T00:00:00+08:00",
@@ -609,6 +609,7 @@ def test_current_ledger_with_unbound_accounting_data_is_rejected(tmp_path):
             "2026-01-01T12:00:00Z",
             "Asia/Shanghai",
             "10",
+            ("0", "0", "0", "10"),
         ),
         (
             "2026-02-01T00:00:00+08:00",
@@ -616,6 +617,7 @@ def test_current_ledger_with_unbound_accounting_data_is_rejected(tmp_path):
             "2026-02-01T12:00:00Z",
             "Asia/Shanghai",
             "10",
+            ("0", "0", "10", "10"),
         ),
         (
             "2025-11-02T00:00:00-04:00",
@@ -623,6 +625,7 @@ def test_current_ledger_with_unbound_accounting_data_is_rejected(tmp_path):
             "2025-11-02T12:00:00Z",
             "America/New_York",
             "25",
+            ("20", "25", "25", "25"),
         ),
         (
             "2026-03-08T00:00:00-05:00",
@@ -630,11 +633,12 @@ def test_current_ledger_with_unbound_accounting_data_is_rejected(tmp_path):
             "2026-03-08T12:00:00Z",
             "America/New_York",
             "23",
+            ("19", "23", "23", "23"),
         ),
     ],
 )
-def test_calendar_summary_preserves_original_timezone(
-    tmp_path, monkeypatch, start, end, now, zone, energy
+def test_calendar_summary_follows_changed_system_timezone(
+    tmp_path, monkeypatch, start, end, now, zone, energy, expected
 ):
     fixed = datetime.fromisoformat(now)
 
@@ -671,17 +675,21 @@ def test_calendar_summary_preserves_original_timezone(
         "configure", {"p": point}, {"i": {"name": "Car", "enabled": True}}, fixed, "UTC"
     )
     identity = next(i for i in store.snapshot()["identities"] if i["id"] == "i")
-    for period, bucket in (
-        ("daily", "hour"),
-        ("monthly", "day"),
-        ("yearly", "month"),
-        ("total", "year"),
+    for (period, bucket), amount in zip(
+        (
+            ("daily", "hour"),
+            ("monthly", "day"),
+            ("yearly", "month"),
+            ("total", "year"),
+        ),
+        expected,
     ):
         result = store.query(
             "summary", {"calendar_period": period, "identity_id": "i"}, ["p"]
         )
-        assert Decimal(result["energy_kwh"]) == Decimal(energy)
-        assert result["completed_count"] == 1
+        assert Decimal(result["energy_kwh"]) == Decimal(amount)
+        assert Decimal(result["known_cost"]) == Decimal(amount)
+        assert result["completed_count"] == int(Decimal(amount) != 0)
         assert result["bucket_period"] == bucket
         assert result == identity["summaries"][period]
     store.ledger.close()
@@ -760,6 +768,201 @@ def save_report_record(
         }
     )
     return store.accounting.commit_preview(preview["token"], request)
+
+
+def test_today_custom_and_shared_identity_summary_use_system_zone(
+    tmp_path, monkeypatch
+):
+    now = datetime(2026, 1, 1, 20, tzinfo=UTC)
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now.astimezone(tz) if tz else now.replace(tzinfo=None)
+
+    store, _ = configured(tmp_path, now)
+    record = save_report_record(
+        store,
+        start="2026-01-01T16:30:00Z",
+        end="2026-01-01T17:30:00Z",
+        timezone="Asia/Shanghai",
+    )
+    monkeypatch.setattr("custom_components.charge_tally.runtime_store.datetime", Clock)
+    snapshot = store.snapshot()
+    daily = store.query(
+        "summary",
+        {"calendar_period": "daily", "identity_id": "i", "bucket_period": "day"},
+        ["p"],
+    )
+    custom = store.query(
+        "summary",
+        {
+            "start": "2026-01-01T00:00:00Z",
+            "end": "2026-01-02T00:00:00Z",
+            "identity_id": "i",
+            "bucket_period": "day",
+        },
+        ["p"],
+    )
+    assert daily == custom
+    assert Decimal(daily["energy_kwh"]) == 1
+    assert Decimal(daily["known_cost"]) == 2
+    assert daily["completed_count"] == 1
+    assert [row["key"] for row in daily["buckets"]] == ["2026-01-01"]
+    identity = next(row for row in snapshot["identities"] if row["id"] == "i")
+    assert identity["summaries"]["daily"]["energy_kwh"] == daily["energy_kwh"]
+    assert snapshot["period_starts"]["daily"] == "2026-01-01T00:00:00+00:00"
+    before = list(store.ledger._db.iterdump())
+    detail = store.query(
+        "record",
+        {"record_id": record["id"], "display_timezone": "America/New_York"},
+        ["p"],
+    )
+    assert detail["display_timezone"] == "America/New_York"
+    assert detail["record"]["timezone"] == "Asia/Shanghai"
+    assert list(store.ledger._db.iterdump()) == before
+    assert store.snapshot() == snapshot
+    store.ledger.close()
+
+
+def test_display_details_and_preview_preserve_evidence_and_noop_revision(tmp_path):
+    at = datetime(2026, 1, 3, tzinfo=UTC)
+    store, _ = configured(tmp_path, at)
+    record = save_report_record(
+        store,
+        start="2026-01-01T22:30:00Z",
+        end="2026-01-02T00:30:00Z",
+        timezone="Asia/Shanghai",
+        energy="4",
+        cost="8",
+    )
+    parts = store.ledger.list_segments(record["id"])
+    revisions = store.ledger.list_revisions(record["id"])
+    version = store.ledger.data_version()
+    legacy = store.query("record", {"record_id": record["id"]}, ["p"])
+    detail = store.query(
+        "record",
+        {
+            "record_id": record["id"],
+            "display_timezone": "Europe/Berlin",
+            "include_history": False,
+        },
+        ["p"],
+    )
+    assert legacy["display_timezone"] == "UTC"
+    assert detail["display_timezone"] == "Europe/Berlin"
+    assert [row["local_date"] for row in detail["display_segments"]] == [
+        "2026-01-01",
+        "2026-01-02",
+    ]
+    assert [Decimal(row["energy_kwh"]) for row in detail["display_segments"]] == [1, 3]
+    assert [Decimal(row["cost"]) for row in detail["billing_periods"]] == [2, 6]
+    assert detail["segments"] == legacy["segments"]
+    assert detail["revisions"] == []
+    preview, _ = store.apply(
+        "command",
+        "preview",
+        {
+            "record_id": record["id"],
+            "expected_revision": 1,
+            "display_timezone": "Europe/Berlin",
+        },
+        at,
+    )
+    assert preview["display_segments"] == detail["display_segments"]
+    assert preview["billing_periods"] == detail["billing_periods"]
+    stored = store.ledger.get_preview(preview["token"])["payload"]
+    assert stored["segments"] == parts
+    assert "display_timezone" not in stored
+    saved, _ = store.apply(
+        "command",
+        "commit_preview",
+        {"token": preview["token"], "request_id": "no-op"},
+        at,
+    )
+    assert saved == record
+    assert store.ledger.list_segments(record["id"]) == parts
+    assert store.ledger.list_revisions(record["id"]) == revisions
+    assert store.ledger.data_version() == version
+    for command in ("record", "preview"):
+        before = list(store.ledger._db.iterdump())
+        with pytest.raises(ValueError, match="display timezone"):
+            if command == "record":
+                store.query(
+                    command,
+                    {"record_id": record["id"], "display_timezone": "Unknown/Timezone"},
+                    ["p"],
+                )
+            else:
+                store.apply(
+                    "command",
+                    command,
+                    {
+                        "record_id": record["id"],
+                        "expected_revision": 1,
+                        "display_timezone": "Unknown/Timezone",
+                    },
+                    at,
+                )
+        assert list(store.ledger._db.iterdump()) == before
+    with pytest.raises(ValueError, match="authorized"):
+        store.query(
+            "record",
+            {"record_id": record["id"], "display_timezone": "Unknown/Timezone"},
+            [],
+        )
+    store.ledger.close()
+
+
+@pytest.mark.parametrize("cost", ["7.5", None])
+def test_display_manual_fee_preserves_uneven_measured_energy(tmp_path, cost):
+    start = datetime(2026, 1, 1, 22, 30, tzinfo=UTC)
+    middle, end = start + timedelta(minutes=45), start + timedelta(minutes=90)
+    store, point = configured(tmp_path, start)
+    point["max_gap_seconds"] = 7200
+    store.configure({"p": point}, {"i": {"name": "Car"}}, start, "UTC")
+    record = store.accounting.start("p", "i", start, "measured", timezone="UTC")
+    store.accounting.add_interval(
+        "p", start, middle, Decimal("0.75"), [(start, Decimal("0.2"))]
+    )
+    store.accounting.add_interval(
+        "p", middle, end, Decimal("3"), [(middle, Decimal("0.2"))]
+    )
+    record = store.accounting.end(record["id"], end, "end")
+    preview, _ = store.apply(
+        "command",
+        "preview",
+        {
+            "record_id": record["id"],
+            "expected_revision": record["revision"],
+            "cost": cost,
+            "display_timezone": "Europe/Berlin",
+        },
+        end,
+    )
+    assert preview["record"]["manual_fee_override"]
+    assert not preview["record"].get("manual_override")
+    assert [Decimal(row["energy_kwh"]) for row in preview["display_segments"]] == [
+        Decimal("0.5"),
+        Decimal("3.25"),
+    ]
+    assert [
+        None if row["cost"] is None else Decimal(row["cost"])
+        for row in preview["display_segments"]
+    ] == ([Decimal("2.5"), Decimal("5")] if cost is not None else [None, None])
+    saved, _ = store.apply(
+        "command",
+        "commit_preview",
+        {"token": preview["token"], "request_id": "fee"},
+        end,
+    )
+    detail = store.query(
+        "record", {"record_id": saved["id"], "display_timezone": "Europe/Berlin"}, ["p"]
+    )
+    assert detail["display_segments"] == preview["display_segments"]
+    assert detail["billing_periods"] == preview["billing_periods"]
+    assert saved["timezone"] == "UTC"
+    store.ledger.close()
 
 
 def test_report_snapshot_uses_one_calendar_instant(tmp_path, monkeypatch):
@@ -896,7 +1099,7 @@ def test_report_timezone_contract(
         energy=energy,
         cost=str(-Decimal(energy)),
     )
-    # Calendar labels follow the runtime clock, each row uses its own timezone.
+    # Calendar labels and selected overlaps follow the runtime system clock.
     store.timezone = zone
     monkeypatch.setattr("custom_components.charge_tally.runtime_store.datetime", Clock)
     period = {4: "yearly", 7: "monthly", 10: "daily"}[len(label)]
@@ -1011,13 +1214,12 @@ def test_report_timezone_contract_mixed_records_keep_distinct_instants(
     data = {"calendar_period": "daily", "identity_id": "i"}
     report = store.query("report", data, ["p", "other"])
     assert report["summary"] == store.query("summary", data, ["p", "other"])
-    assert Decimal(report["summary"]["energy_kwh"]) == 3
-    assert Decimal(report["summary"]["known_cost"]) == 6
+    assert Decimal(report["summary"]["energy_kwh"]) == 1
+    assert Decimal(report["summary"]["known_cost"]) == 2
     rows = {row["record"]["point_id"]: row for row in report["rows"]}
     assert rows["p"]["range_start"] == "2026-01-01T00:00:00+00:00"
-    assert rows["other"]["range_start"] == "2025-12-31T16:00:00+00:00"
     assert Decimal(rows["p"]["energy_kwh"]) == 1
-    assert Decimal(rows["other"]["energy_kwh"]) == 2
-    assert rows["other"]["record"]["timezone"] == "Asia/Shanghai"
-    assert len(report["summary"]["buckets"]) == 2
+    assert "other" not in rows
+    assert store.ledger.list_records(point_id="other")[0]["timezone"] == "Asia/Shanghai"
+    assert len(report["summary"]["buckets"]) == 1
     store.ledger.close()

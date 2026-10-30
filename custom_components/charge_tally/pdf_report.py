@@ -383,7 +383,7 @@ def _render(report, language):
     quality = set()
     for ordinal, row in enumerate(report["rows"], 1):
         record = row["record"]
-        timezone = record["timezone"]
+        timezone = report["timezone"]
         active = record["end"] is None
         times = (
             tr("start")

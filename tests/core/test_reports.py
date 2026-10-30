@@ -32,7 +32,7 @@ class ReportTests(unittest.TestCase):
                     "identity_id": None,
                 },
                 currency="CNY",
-                timezone="UTC",
+                timezone=kwargs.get("timezone", "UTC"),
                 generated_at=T,
             )
 
@@ -278,15 +278,23 @@ class ReportTests(unittest.TestCase):
                     )
                 )
                 self.app.commit_preview(preview["token"], point)
-                result = self.report(calendar=label, point_id=point)
+                result = self.report(calendar=label, point_id=point, timezone=zone)
                 self.assertEqual(
                     result["summary"],
-                    summarize(self.ledger, None, None, calendar=label, point_id=point),
+                    summarize(
+                        self.ledger,
+                        None,
+                        None,
+                        calendar=label,
+                        point_id=point,
+                        timezone=zone,
+                    ),
                 )
                 row = result["rows"][0]
                 self.assertEqual(Decimal(row["energy_kwh"]), Decimal(expected))
                 self.assertEqual(Decimal(row["known_cost"]), Decimal(fee))
                 self.assertEqual(row["record"]["timezone"], zone)
+                self.assertEqual(result["timezone"], zone)
                 self.assertEqual(result["summary"]["completed_count"], count)
                 if point == "fold":
                     self.assertEqual(len(result["summary"]["buckets"]), 25)
@@ -313,8 +321,11 @@ class ReportTests(unittest.TestCase):
         mixed = self.report(calendar="2026-01-01", identity_id="personal")
         rows = {r["record"]["point_id"]: r for r in mixed["rows"]}
         self.assertEqual(Decimal(rows["home"]["energy_kwh"]), 1)
-        self.assertEqual(Decimal(rows["work"]["energy_kwh"]), 2)
-        self.assertNotEqual(rows["home"]["range_start"], rows["work"]["range_start"])
+        self.assertNotIn("work", rows)
+        self.assertEqual(rows["home"]["range_start"], "2026-01-01T00:00:00+00:00")
+        self.assertEqual(
+            self.ledger.list_records(point_id="work")[0]["timezone"], "Asia/Shanghai"
+        )
 
     def test_build_report_does_not_mutate_source_summary_or_scope(self):
         from custom_components.charge_tally.reports import build_report

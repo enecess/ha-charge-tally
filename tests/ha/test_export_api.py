@@ -109,6 +109,38 @@ async def test_export_returns_authorized_pdf_attachment(
     await hass.config_entries.async_unload(entry.entry_id)
 
 
+async def test_export_mixed_record_zones_use_system_timestamps_and_requester_language(
+    hass, tmp_path, hass_client
+):
+    entry, runtime = await setup_runtime(hass, tmp_path)
+    original = await add_record(runtime)
+    assert original["timezone"] == "Asia/Shanghai"
+    hass.config.time_zone = "UTC"
+    await runtime.async_refresh_config()
+    current = await add_record(runtime, hour=1)
+    assert current["timezone"] == "UTC"
+    client = await hass_client()
+    response = await client.post(
+        URL,
+        json={
+            "start": "2025-01-01T00:00:00Z",
+            "end": "2025-01-02T00:00:00Z",
+            "language": "de",
+        },
+    )
+    assert response.status == 200
+    text = " ".join(
+        page.extract_text() for page in PdfReader(BytesIO(await response.read())).pages
+    )
+    assert "Verbrauch im Zeitraum" in text
+    assert "2025-01-01 00:00" in text
+    assert "2025-01-0102:00" in re.sub(r"\s+", "", text)
+    assert "UTC" in text and "Asia/Shanghai" not in text
+    detail = await runtime.async_query("record", {"record_id": original["id"]})
+    assert detail["record"]["timezone"] == "Asia/Shanghai"
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
 async def test_export_rejects_anonymous(hass, tmp_path, hass_client_no_auth):
     entry, _ = await setup_runtime(hass, tmp_path)
     client = await hass_client_no_auth()

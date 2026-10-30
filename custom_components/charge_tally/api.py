@@ -23,8 +23,7 @@ from homeassistant.exceptions import ServiceValidationError, Unauthorized
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
-from .core.billing import billing_periods, billing_segments
-from .record_views import record_view
+from .record_views import InvalidDisplayTimezone
 
 if TYPE_CHECKING:
     from homeassistant.auth.models import User
@@ -86,6 +85,7 @@ SCHEMAS = {
         **FILTER,
         vol.Optional("record_id"): ID,
         vol.Optional("include_history", default=True): bool,
+        vol.Optional("display_timezone"): ID,
         vol.Optional("offset", default=0): vol.All(integer, vol.Range(min=0)),
         vol.Optional("limit", default=50): vol.All(integer, vol.Range(min=1, max=100)),
     },
@@ -93,6 +93,7 @@ SCHEMAS = {
         **FILTER,
         vol.Optional("record_id"): ID,
         vol.Optional("expected_revision"): REV,
+        vol.Optional("display_timezone"): ID,
         vol.Optional("start"): date,
         vol.Optional("end"): date,
         vol.Optional("energy_kwh"): vol.All(
@@ -242,6 +243,8 @@ async def execute(
                     point_ids=ids,
                 ),
             )
+        except InvalidDisplayTimezone:
+            raise
         except ValueError:
             if data.get("record_id"):
                 raise Unauthorized() from None
@@ -285,14 +288,6 @@ async def execute(
         )
         authorize(runtime, user, point_id, POLICY_READ)
         authorize(runtime, user, point_id, POLICY_CONTROL)
-        result = {
-            **result,
-            "record": record_view(result["record"]),
-            "segments": billing_segments(result["segments"]),
-            "billing_periods": billing_periods(
-                result["segments"], result["record"].get("quality_spans", ())
-            ),
-        }
         result.pop("basis_version", None)
         result.pop("basis_fingerprint", None)
         result.pop("basis_dependencies", None)

@@ -1,9 +1,74 @@
 """Pure public billing projections from detailed accounting evidence."""
 
+from bisect import bisect_left, bisect_right
 from datetime import datetime
 from decimal import Decimal, localcontext
+from zoneinfo import ZoneInfo
 
-from .tariffs import utc
+from .tariffs import calendar_boundaries, elapsed, utc
+
+
+def display_parts(parts: list[dict], timezone: ZoneInfo) -> list[dict]:
+    """Localize raw evidence copies, allocating each sample at display midnight."""
+    if not parts:
+        return []
+    instants = [
+        (
+            utc(datetime.fromisoformat(part["start"])),
+            utc(datetime.fromisoformat(part["end"])),
+        )
+        for part in parts
+    ]
+    boundaries = calendar_boundaries(
+        min(start for start, _ in instants),
+        max(end for _, end in instants),
+        timezone.key,
+        {0},
+    )
+    result = []
+    with localcontext() as context:
+        context.prec = 36
+        for part, (start, end) in zip(parts, instants):
+            cuts = [
+                start,
+                *boundaries[
+                    bisect_right(boundaries, start) : bisect_left(boundaries, end)
+                ],
+                end,
+            ]
+            energy = Decimal(part["energy_kwh"])
+            cost = None if part["cost"] is None else Decimal(part["cost"])
+            allocated_energy = allocated_cost = Decimal(0)
+            for left, right in zip(cuts, cuts[1:]):
+                cumulative_energy = (
+                    energy
+                    if right == end
+                    else energy * elapsed(start, right) / elapsed(start, end)
+                )
+                cumulative_cost = (
+                    None
+                    if cost is None
+                    else cost
+                    if right == end
+                    else cost * elapsed(start, right) / elapsed(start, end)
+                )
+                result.append(
+                    {
+                        **part,
+                        "start": left.isoformat(),
+                        "end": right.isoformat(),
+                        "local_date": left.astimezone(timezone).date().isoformat(),
+                        "energy_kwh": str(cumulative_energy - allocated_energy),
+                        "cost": None
+                        if cumulative_cost is None
+                        else str(cumulative_cost - allocated_cost),
+                        "quality": list(part["quality"]),
+                    }
+                )
+                allocated_energy = cumulative_energy
+                if cumulative_cost is not None:
+                    allocated_cost = cumulative_cost
+    return result
 
 
 def billing_segments(parts: list[dict]) -> list[dict]:

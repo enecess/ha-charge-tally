@@ -17,6 +17,58 @@ class QueryTests(unittest.TestCase):
     setUp = fixtures.AccountingTests.setUp
     manual = fixtures.AccountingTests.manual
 
+    def test_system_calendar_and_buckets_ignore_historical_record_zone(self):
+        preview = self.app.preview(
+            self.manual(
+                start=T + timedelta(hours=16, minutes=30),
+                end=T + timedelta(hours=17, minutes=30),
+                timezone="Asia/Shanghai",
+                energy_kwh="1",
+                cost="2",
+            )
+        )
+        self.app.commit_preview(preview["token"], "mixed-zone")
+        for query in (
+            {"calendar": "2026-01-01"},
+            {"start": T, "end": T + timedelta(days=1)},
+        ):
+            data = {"start": None, "end": None, **query}
+            result = summarize(self.ledger, **data, timezone="UTC", bucket_period="day")
+            self.assertEqual(Decimal(result["energy_kwh"]), 1)
+            self.assertEqual(Decimal(result["known_cost"]), 2)
+            self.assertEqual(result["completed_count"], 1)
+            self.assertEqual([row["key"] for row in result["buckets"]], ["2026-01-01"])
+
+    def test_system_dst_days_use_23_and_25_hours_for_foreign_record_zones(self):
+        for label, start, end, hours in (
+            ("2026-03-08", "2026-03-08T05:00:00Z", "2026-03-09T04:00:00Z", 23),
+            ("2025-11-02", "2025-11-02T04:00:00Z", "2025-11-03T05:00:00Z", 25),
+        ):
+            with self.subTest(label=label):
+                preview = self.app.preview(
+                    self.manual(
+                        start=datetime.fromisoformat(start),
+                        end=datetime.fromisoformat(end),
+                        timezone="Asia/Shanghai",
+                        energy_kwh=str(hours),
+                        cost=str(-hours),
+                    )
+                )
+                self.app.commit_preview(preview["token"], label)
+                result = summarize(
+                    self.ledger, None, None, calendar=label, timezone="America/New_York"
+                )
+                self.assertEqual(len(result["buckets"]), hours)
+                self.assertEqual(result["completed_count"], 1)
+                self.assertEqual(Decimal(result["energy_kwh"]), hours)
+                self.assertEqual(Decimal(result["known_cost"]), -hours)
+                self.assertTrue(
+                    all(
+                        row["timezone"] == "America/New_York"
+                        for row in result["buckets"]
+                    )
+                )
+
     def test_hour_boundaries_are_reused_within_each_summary(self):
         from custom_components.charge_tally.core.buckets import calendar_boundaries
 
@@ -176,7 +228,9 @@ class QueryTests(unittest.TestCase):
             ("2026-01", 14, 0),
             ("2026-01-01", 14, 0),
         ]:
-            result = summarize(self.ledger, None, None, calendar=label)
+            result = summarize(
+                self.ledger, None, None, calendar=label, timezone="Asia/Shanghai"
+            )
             self.assertEqual(Decimal(result["energy_kwh"]), energy)
             self.assertEqual(Decimal(result["known_cost"]), energy)
             self.assertEqual(result["completed_count"], count)
@@ -189,11 +243,15 @@ class QueryTests(unittest.TestCase):
             "start",
             timezone="Asia/Shanghai",
         )
-        result = summarize(self.ledger, None, None, calendar="2026-01-01")
+        result = summarize(
+            self.ledger, None, None, calendar="2026-01-01", timezone="Asia/Shanghai"
+        )
         self.assertEqual(result["active_count"], 1)
         self.assertEqual(result["energy_kwh"], "0")
         self.app.end(record["id"], T, "end")
-        result = summarize(self.ledger, None, None, calendar="2026-01-01")
+        result = summarize(
+            self.ledger, None, None, calendar="2026-01-01", timezone="Asia/Shanghai"
+        )
         self.assertEqual(result["completed_count"], 1)
         self.assertFalse(result["cost_complete"])
         self.assertIn("missing_energy", result["quality"])
@@ -214,7 +272,9 @@ class QueryTests(unittest.TestCase):
             Decimal("1"),
             [(start, Decimal("2"))],
         )
-        result = summarize(self.ledger, None, None, calendar="2026-01-01")
+        result = summarize(
+            self.ledger, None, None, calendar="2026-01-01", timezone="Asia/Shanghai"
+        )
         self.assertEqual(result["active_count"], 1)
         self.assertEqual(result["completed_count"], 0)
         self.assertEqual(Decimal(result["energy_kwh"]), 1)
@@ -238,7 +298,7 @@ class QueryTests(unittest.TestCase):
         self.assertEqual(Decimal(zero["energy_kwh"]), 0)
         self.assertTrue(zero["buckets"][0]["has_known_cost"])
 
-    def test_mixed_timezones_keep_hour_identity_and_merge_calendar_labels(self):
+    def test_mixed_record_timezones_share_system_hour_and_calendar_labels(self):
         for point, zone in [("home", "UTC"), ("work", "Asia/Shanghai")]:
             preview = self.app.preview(
                 self.manual(
@@ -252,11 +312,9 @@ class QueryTests(unittest.TestCase):
             )
             self.app.commit_preview(preview["token"], point)
         hours = summarize(self.ledger, None, None, calendar="2026-01-01")
-        self.assertEqual(len(hours["buckets"]), 2)
-        self.assertEqual(len({b["key"] for b in hours["buckets"]}), 2)
-        self.assertEqual(
-            {b["timezone"] for b in hours["buckets"]}, {"UTC", "Asia/Shanghai"}
-        )
+        self.assertEqual(len(hours["buckets"]), 1)
+        self.assertEqual(len({b["key"] for b in hours["buckets"]}), 1)
+        self.assertEqual({b["timezone"] for b in hours["buckets"]}, {"UTC"})
         for period, key in [
             ("day", "2026-01-01"),
             ("month", "2026-01"),
@@ -279,7 +337,13 @@ class QueryTests(unittest.TestCase):
             )
         )
         self.app.commit_preview(preview["token"], "save")
-        result = summarize(self.ledger, None, None, calendar="2026-04-05")
+        result = summarize(
+            self.ledger,
+            None,
+            None,
+            calendar="2026-04-05",
+            timezone="Australia/Lord_Howe",
+        )
         with localcontext() as ctx:
             ctx.prec = 36
             self.assertEqual(

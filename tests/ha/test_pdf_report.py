@@ -298,9 +298,11 @@ def test_pdf_cross_period_timezone_and_conditional_rounding_explanations():
     report["summary"].update(energy_kwh="2.4688", known_cost="2.008")
     report["rows"].append(deepcopy(row))
     _, text = read_pdf(report)
-    assert "2026-10-01 06:30" in text
-    assert "2026-10-0107:00" in compact(text)
-    assert "Asia/Kolkata" in text and "+05:30" in text
+    assert "2026-10-01 09:00" in text
+    assert "2026-10-0110:00" in compact(text)
+    assert "2026-10-0109:30" in compact(text)
+    assert "Asia/Shanghai" in text and "+08:00" in text
+    assert "Asia/Kolkata" not in text and "+05:30" not in text
     assert "Period coverage" in text
     assert "Rounding" in text
     report = report_fixture()

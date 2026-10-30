@@ -12,7 +12,7 @@ from .record_views import record_view
 
 
 def calendar_bounds(label, timezone):
-    """Interpret a calendar label in the original record's accounting timezone."""
+    """Interpret a calendar label in the supplied system accounting timezone."""
     if len(label) not in (4, 7, 10):
         raise ValueError("Invalid calendar label")
     value = label + {4: "-01-01", 7: "-01", 10: ""}[len(label)]
@@ -49,13 +49,12 @@ def summarize(
         raise ValueError("Calendar and absolute range are mutually exclusive")
     start, end = instant(start) if start else None, instant(end) if end else None
     if calendar is not None:
-        calendar_bounds(calendar, "UTC")
+        start, end = calendar_bounds(calendar, timezone)
     if start and end and end <= start:
         raise ValueError("Query end must follow start")
     period = choose_bucket_period(
         bucket_period, calendar=calendar, start=start, end=end, timezone=timezone
     )
-    absolute_start, absolute_end = start, end
     result = dict(
         energy_kwh="0",
         known_cost="0",
@@ -79,22 +78,22 @@ def summarize(
     if cache is not None and cache.get("query") != query:
         cache.clear()
 
-    def windows_for(a, b, record_timezone):
+    def windows_for(a, b):
         if period != "hour":
-            windows = calendar_windows.get(record_timezone)
+            windows = calendar_windows.get(timezone)
             if windows is None or windows[0].start > a or windows[-1].end < b:
-                windows = bucket_windows(a, b, record_timezone, period)
-                calendar_windows[record_timezone] = windows
+                windows = bucket_windows(a, b, timezone, period)
+                calendar_windows[timezone] = windows
             return [window for window in windows if window.start < b and window.end > a]
         # Cache full UTC-date spans only for this query. Window boundaries still
-        # use the record's local calendar, including folds and clock changes.
+        # use the system calendar, including folds and clock changes.
         left = a.replace(hour=0, minute=0, second=0, microsecond=0)
         right = (b - timedelta(microseconds=1)).replace(
             hour=0, minute=0, second=0, microsecond=0
         ) + timedelta(days=1)
-        key = (record_timezone, left, right)
+        key = (timezone, left, right)
         if key not in hourly_windows:
-            hourly_windows[key] = bucket_windows(left, right, record_timezone, period)
+            hourly_windows[key] = bucket_windows(left, right, timezone, period)
         return [
             window
             for window in hourly_windows[key]
@@ -222,11 +221,6 @@ def summarize(
                     deepcopy((result, energy, cost, quality, buckets)),
                     None,
                 )
-            start, end = (
-                calendar_bounds(calendar, record["timezone"])
-                if calendar is not None
-                else (absolute_start, absolute_end)
-            )
             begins = instant(record["start"])
             finishes = instant(record["end"]) if record["end"] else None
             if (end and begins >= end) or (start and finishes and finishes <= start):
@@ -262,7 +256,7 @@ def summarize(
                 result["cost_complete"] = False
                 row_quality.update(span["quality"])
                 row_complete = False
-                for window in windows_for(a, b, record["timezone"]):
+                for window in windows_for(a, b):
                     item = bucket(window)
                     item["cost_complete"] = False
                     item["quality"].update(span["quality"])
@@ -287,7 +281,7 @@ def summarize(
                 fee = (
                     Decimal(part["cost"]) * weight if part["cost"] is not None else None
                 )
-                windows = windows_for(a, b, record["timezone"])
+                windows = windows_for(a, b)
                 marks = set(part["quality"])
                 if active:
                     marks.add("provisional")

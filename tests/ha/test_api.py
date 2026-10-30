@@ -27,6 +27,101 @@ async def second_point(hass, entry, runtime):
     await hass.async_block_till_done()
 
 
+async def test_display_timezone_projects_preview_and_detail_without_changing_basis(
+    hass, tmp_path, hass_ws_client
+):
+    from decimal import Decimal
+
+    entry, runtime = await setup_runtime(hass, tmp_path)
+    hass.config.time_zone = "UTC"
+    await runtime.async_refresh_config()
+    client = await hass_ws_client(hass)
+    await client.send_json(
+        {
+            "id": 1,
+            "type": "charge_tally/preview",
+            "point_id": "point",
+            "identity_id": "car",
+            "start": "2026-01-01T22:30:00Z",
+            "end": "2026-01-02T00:30:00Z",
+            "energy_kwh": "4",
+            "cost": "8",
+            "display_timezone": "Europe/Berlin",
+        }
+    )
+    preview = (await client.receive_json())["result"]
+    assert preview["record"]["timezone"] == "UTC"
+    assert preview["display_timezone"] == "Europe/Berlin"
+    assert [Decimal(row["energy_kwh"]) for row in preview["display_segments"]] == [1, 3]
+    await client.send_json(
+        {
+            "id": 2,
+            "type": "charge_tally/commit",
+            "token": preview["token"],
+            "request_id": "display",
+        }
+    )
+    record = (await client.receive_json())["result"]
+    before = await runtime._read(runtime._store.ledger.data_version)
+    await client.send_json(
+        {
+            "id": 3,
+            "type": "charge_tally/records",
+            "record_id": record["id"],
+            "display_timezone": "Europe/Berlin",
+            "include_history": False,
+        }
+    )
+    detail = (await client.receive_json())["result"]
+    assert detail["billing_periods"] == preview["billing_periods"]
+    assert detail["display_segments"] == preview["display_segments"]
+    assert detail["revisions"] == []
+    assert await runtime._read(runtime._store.ledger.data_version) == before
+    await client.send_json(
+        {
+            "id": 4,
+            "type": "charge_tally/records",
+            "record_id": record["id"],
+            "display_timezone": "Unknown/Timezone",
+        }
+    )
+    assert (await client.receive_json())["error"]["code"] == "invalid_request"
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_invalid_display_timezone_fails_before_preview_recovery_or_writes(
+    hass, tmp_path, hass_ws_client, monkeypatch
+):
+    entry, runtime = await setup_runtime(hass, tmp_path)
+
+    async def no_recovery(*args):
+        raise AssertionError("Invalid display timezone must precede history recovery")
+
+    monkeypatch.setattr(runtime, "async_recover_history", no_recovery)
+    before = await runtime._read(lambda: list(runtime._store.ledger._db.iterdump()))
+    client = await hass_ws_client(hass)
+    for request_id, timezone in enumerate(("Unknown/Timezone", "x" * 129), 1):
+        await client.send_json(
+            {
+                "id": request_id,
+                "type": "charge_tally/preview",
+                "point_id": "point",
+                "identity_id": "car",
+                "start": "2026-01-01T22:30:00Z",
+                "end": "2026-01-02T00:30:00Z",
+                "display_timezone": timezone,
+            }
+        )
+        assert (await client.receive_json())["error"]["code"] == (
+            "invalid_request" if request_id == 1 else "invalid_format"
+        )
+    assert (
+        await runtime._read(lambda: list(runtime._store.ledger._db.iterdump()))
+        == before
+    )
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
 async def test_scope_precedes_summary_count_pagination_and_record_writes(
     hass, tmp_path, hass_ws_client, hass_read_only_access_token, hass_read_only_user
 ):
@@ -62,13 +157,18 @@ async def test_scope_precedes_summary_count_pagination_and_record_writes(
             "expected_revision": 1,
             "request_id": "bad",
         },
-        {"type": "charge_tally/records", "record_id": foreign["id"]},
+        {
+            "type": "charge_tally/records",
+            "record_id": foreign["id"],
+            "display_timezone": "Unknown/Timezone",
+        },
         {"type": "charge_tally/records", "record_id": own["id"]},
         {
             "type": "charge_tally/preview",
             "record_id": foreign["id"],
             "expected_revision": 1,
             "note": "Forbidden",
+            "display_timezone": "Unknown/Timezone",
         },
     ]
     results = []
@@ -227,6 +327,7 @@ async def test_preview_commit_idempotence_and_cross_user_token(
             "end": "2025-01-01T01:00:00Z",
             "energy_kwh": "2",
             "cost": "-3",
+            "display_timezone": "Pacific/Auckland",
         }
     )
     preview = (await client.receive_json())["result"]
@@ -826,7 +927,7 @@ async def test_calendar_query_matches_identity_snapshot(
                 period
             ]
         )
-        assert result["energy_kwh"] == "10"
+        assert result["energy_kwh"] == ("10" if period == "total" else "0")
     await client.send_json(
         {
             "id": 5,

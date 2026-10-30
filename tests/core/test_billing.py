@@ -3,7 +3,9 @@
 import copy
 import unittest
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, localcontext
+from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 from custom_components.charge_tally.core import billing
 from custom_components.charge_tally.core.billing import billing_segments
@@ -109,6 +111,100 @@ class BillingTests(unittest.TestCase):
 
 
 class BillingPeriodTests(unittest.TestCase):
+    def test_display_midnight_splits_raw_uneven_samples_before_merging(self):
+        parts = [
+            sample(
+                0,
+                start="2026-01-01T22:30:00Z",
+                end="2026-01-01T23:15:00Z",
+                energy_kwh="0.75",
+                cost="0.15",
+                unit_price="0.2",
+            ),
+            sample(
+                1,
+                start="2026-01-01T23:15:00Z",
+                end="2026-01-02T00:00:00Z",
+                energy_kwh="3",
+                cost="0.60",
+                unit_price="0.2",
+            ),
+        ]
+        before = copy.deepcopy(parts)
+        localized = billing.display_parts(parts, ZoneInfo("Europe/Berlin"))
+        for projection in (billing_segments, billing.billing_periods):
+            result = projection(localized)
+            self.assertEqual(
+                [row["local_date"] for row in result], ["2026-01-01", "2026-01-02"]
+            )
+            self.assertEqual(
+                [Decimal(row["energy_kwh"]) for row in result],
+                [Decimal("0.5"), Decimal("3.25")],
+            )
+            self.assertEqual(
+                [Decimal(row["cost"]) for row in result],
+                [Decimal("0.10"), Decimal("0.65")],
+            )
+            self.assertEqual(result[0]["end"], "2026-01-01T23:00:00+00:00")
+            self.assertEqual(result[1]["start"], result[0]["end"])
+        self.assertEqual(parts, before)
+
+    def test_display_projection_conserves_cost_unknownness_quality_and_real_gaps(self):
+        for cost, price, basis in (
+            ("-1", "-1", "tariff"),
+            ("0", "0", "tariff"),
+            (None, None, "unknown"),
+            ("7", None, "manual"),
+        ):
+            with self.subTest(cost=cost):
+                part = sample(
+                    0,
+                    start="2026-01-01T22:59:59Z",
+                    end="2026-01-01T23:00:02Z",
+                    energy_kwh="1",
+                    cost=cost,
+                    unit_price=price,
+                    cost_basis=basis,
+                    quality=["manual", "estimated"],
+                )
+                localized = billing.display_parts([part], ZoneInfo("Europe/Berlin"))
+                self.assertEqual(len(localized), 2)
+                with localcontext() as context:
+                    context.prec = 36
+                    self.assertEqual(
+                        sum(Decimal(row["energy_kwh"]) for row in localized), 1
+                    )
+                    if cost is not None:
+                        self.assertEqual(
+                            sum(Decimal(row["cost"]) for row in localized),
+                            Decimal(cost),
+                        )
+                self.assertTrue(
+                    all(
+                        row["cost_basis"] == basis and row["quality"] == part["quality"]
+                        for row in localized
+                    )
+                )
+                if cost is None:
+                    self.assertTrue(all(row["cost"] is None for row in localized))
+        parts = [sample(0), sample(1, local_date="2026-01-02"), sample(3)]
+        localized = billing.display_parts(parts, ZoneInfo("UTC"))
+        self.assertEqual(len(billing.billing_periods(localized)), 2)
+        self.assertEqual(len(billing_segments(localized)), 2)
+
+    def test_display_projection_reuses_calendar_boundaries_for_all_samples(self):
+        from custom_components.charge_tally.core.tariffs import calendar_boundaries
+
+        with patch(
+            "custom_components.charge_tally.core.billing.calendar_boundaries",
+            wraps=calendar_boundaries,
+        ) as boundaries:
+            result = billing.display_parts(
+                [sample(i) for i in range(720)], ZoneInfo("UTC")
+            )
+        self.assertEqual(boundaries.call_count, 1)
+        self.assertEqual(len(billing_segments(result)), 1)
+
     def test_quality_only_boundaries_merge_without_changing_evidence(self):
         parts = [
             sample(0, quality=["estimated"]),

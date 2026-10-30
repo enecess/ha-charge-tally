@@ -1,6 +1,20 @@
 """Shared public record projections, separate from persisted evidence."""
 
-from .core.billing import billing_periods, billing_segments
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from .core.billing import billing_periods, billing_segments, display_parts
+
+
+class InvalidDisplayTimezone(ValueError):
+    """An authorized display request contains an unknown timezone."""
+
+
+def display_zone(timezone: str) -> ZoneInfo:
+    """Validate a display context once before recovery or ledger writes."""
+    try:
+        return ZoneInfo(timezone)
+    except (ZoneInfoNotFoundError, ValueError):
+        raise InvalidDisplayTimezone("Invalid display timezone") from None
 
 
 def record_view(record: dict, parts: list[dict] | None = None) -> dict:
@@ -25,14 +39,30 @@ def revision_view(revision: dict) -> dict:
 
 
 def detail_view(
-    record: dict, parts: list[dict], revisions: list[dict], *, include_history=True
+    record: dict,
+    parts: list[dict],
+    revisions: list[dict],
+    *,
+    include_history=True,
+    display_timezone: ZoneInfo | None = None,
 ) -> dict:
     """Build the shared public record detail."""
-    return {
+    localized = (
+        display_parts(parts, display_timezone)
+        if display_timezone is not None
+        else parts
+    )
+    result = {
         "record": record_view(record, parts),
         "segments": billing_segments(parts),
-        "billing_periods": billing_periods(parts, record.get("quality_spans", ())),
+        "billing_periods": billing_periods(localized, record.get("quality_spans", ())),
         "revisions": [revision_view(revision) for revision in revisions]
         if include_history
         else [],
     }
+    if display_timezone is not None:
+        result.update(
+            display_timezone=display_timezone.key,
+            display_segments=billing_segments(localized),
+        )
+    return result

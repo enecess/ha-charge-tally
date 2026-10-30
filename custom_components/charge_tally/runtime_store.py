@@ -18,7 +18,7 @@ from .core.tariffs import DailySchedule
 from .core.units import energy_kwh, power_w, price_per_kwh
 from .ledger import Ledger
 from .queries import summarize
-from .record_views import detail_view, record_view
+from .record_views import detail_view, display_zone, record_view
 
 
 def required_roles(point, source):
@@ -688,9 +688,16 @@ class RuntimeStore:
                 self.accounting.end(active["id"], instant(event["at"]), uuid4().hex)
         state["detector"] = detector.snapshot()
 
-    def command(self, command, payload, now, source_available=True):
+    def display_context(self, timezone=None):
+        return display_zone(self.timezone if timezone is None else timezone)
+
+    def command(
+        self, command, payload, now, source_available=True, display_timezone=None
+    ):
         if command not in ("start", "end", "commit_preview"):
-            return self._command(command, payload, now)
+            return self._command(
+                command, payload, now, source_available, display_timezone
+            )
         key = "runtime_request:" + payload["request_id"]
         previous = self.ledger.get_checkpoint(key)
         if previous:
@@ -748,7 +755,9 @@ class RuntimeStore:
         )
         return result
 
-    def _command(self, command, payload, now, source_available=True):
+    def _command(
+        self, command, payload, now, source_available=True, display_timezone=None
+    ):
         data = dict(payload)
         if command == "start":
             point_id = data["point_id"]
@@ -862,6 +871,9 @@ class RuntimeStore:
                     raise ValueError("End the active record before voiding it")
             return getattr(self.accounting, command)(**data)
         if command == "preview":
+            requested_zone = data.pop("display_timezone", None)
+            if display_timezone is None:
+                display_timezone = self.display_context(requested_zone)
             existing = (
                 self.ledger.get_record(data["record_id"])
                 if data.get("record_id")
@@ -869,7 +881,16 @@ class RuntimeStore:
             )
             if not existing:
                 data.setdefault("timezone", self.timezone)
-            return self.accounting.preview(data)
+            result = self.accounting.preview(data)
+            return {
+                **result,
+                **detail_view(
+                    result["record"],
+                    result["segments"],
+                    [],
+                    display_timezone=display_timezone,
+                ),
+            }
         if command == "commit_preview":
             return self.accounting.commit_preview(**data)
         if command == "record":
@@ -883,6 +904,7 @@ class RuntimeStore:
                 if data.get("include_history", True)
                 else [],
                 include_history=data.get("include_history", True),
+                display_timezone=self.display_context(data.get("display_timezone")),
             )
         if command == "summary":
             return summarize(
@@ -1160,6 +1182,7 @@ class RuntimeStore:
                     if data.get("include_history", True)
                     else [],
                     include_history=data.get("include_history", True),
+                    display_timezone=self.display_context(data.get("display_timezone")),
                 ),
                 "point": self.ledger.get_point(record["point_id"]),
                 "identity": self.ledger.get_identity(record["identity_id"]),
