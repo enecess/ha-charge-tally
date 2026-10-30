@@ -87,7 +87,7 @@
         },
         "tou": {
           "title": "Programma giornaliero delle fasce orarie",
-          "description": "Fasce attuali:\n{schedule}\n\nAggiungi, modifica o rimuovi fasce, quindi completa il programma quando l’intera giornata è coperta.",
+          "description": "Fuso orario della tariffa: {timezone}\n\nFasce attuali:\n{schedule}\n\nAggiungi, modifica o rimuovi fasce, quindi completa il programma quando l’intera giornata è coperta.",
           "data": {
             "action": "Azione",
             "row": "Fascia"
@@ -387,6 +387,10 @@
           "point_removed": "Il punto di ricarica è stato rimosso oppure l’integrazione non è in esecuzione."
         }
       }
+    },
+    "tou_timezone_changed": {
+      "title": "Charge Tally: Controlla le fasce orarie",
+      "description": "Il fuso orario del sistema Home Assistant è cambiato per questi punti di ricarica:\n{points}\n\nLe future fasce tariffarie sono interpretate nel fuso {timezone}. Controlla le fasce configurate. I costi già contabilizzati restano invariati."
     }
   },
   "services": {

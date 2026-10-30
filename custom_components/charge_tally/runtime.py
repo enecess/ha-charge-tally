@@ -11,7 +11,8 @@ from decimal import Decimal
 from functools import partial
 from typing import TYPE_CHECKING
 
-from homeassistant.const import EVENT_HOMEASSISTANT_STOP
+from homeassistant.components import persistent_notification
+from homeassistant.const import EVENT_CORE_CONFIG_UPDATE, EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
@@ -21,6 +22,7 @@ from homeassistant.helpers.event import (
     async_track_state_report_event,
     async_track_utc_time_change,
 )
+from homeassistant.helpers.translation import async_get_translations
 from homeassistant.util import dt as dt_util
 
 from .accounting import instant
@@ -74,6 +76,7 @@ class Runtime:
         self._revision = 0
         self._period_unsub = None
         self._registry_unsub = None
+        self._core_config_unsub = None
         self._stop_unsub = None
 
     async def _worker(self, function, *args):
@@ -194,6 +197,19 @@ class Runtime:
         await self.async_refresh_config(finish_helpers=False)
 
         @callback
+        def core_config_changed(event):
+            if "time_zone" in event.data:
+                self._queue(
+                    self._async_change_timezone(
+                        event.data["time_zone"], event.time_fired
+                    )
+                )
+
+        self._core_config_unsub = self.hass.bus.async_listen(
+            EVENT_CORE_CONFIG_UPDATE, core_config_changed
+        )
+
+        @callback
         def minute(now):
             self._queue(self._apply("maintenance", now))
 
@@ -231,6 +247,32 @@ class Runtime:
             target[subentry.subentry_id] = deepcopy(dict(subentry.data))
         return points, identities
 
+    async def _async_change_timezone(self, timezone, at):
+        async with self._config_lock:
+            if not self._closing:
+                changes = await self._apply("change_timezone", timezone, at)
+                await self._async_notify_timezone_changes(changes)
+
+    async def _async_notify_timezone_changes(self, changes):
+        if not changes:
+            return
+        translations = await async_get_translations(
+            self.hass, self.hass.config.language, "issues", {"charge_tally"}
+        )
+        prefix = "component.charge_tally.issues.tou_timezone_changed."
+        persistent_notification.async_create(
+            self.hass,
+            translations[prefix + "description"].format(
+                points="\n".join(
+                    f"- {change['name']}: {change['old_timezone']} → {change['new_timezone']}"
+                    for change in changes
+                ),
+                timezone=changes[0]["new_timezone"],
+            ),
+            title=translations[prefix + "title"],
+            notification_id="charge_tally_timezone_" + self.entry.entry_id,
+        )
+
     async def async_refresh_config(self, *, finish_helpers=True):
         async with self._config_lock:
             if not self._closing:
@@ -241,13 +283,14 @@ class Runtime:
         old_points = self.points
         old_sources = self._sources()
         removed = set(self.points) - set(points)
-        await self._apply(
+        changes = await self._apply(
             "configure",
             points,
             identities,
             dt_util.utcnow(),
             self.hass.config.time_zone,
         )
+        await self._async_notify_timezone_changes(changes)
         self.points = points
         for point_id in removed:
             from homeassistant.helpers import issue_registry as ir
@@ -912,6 +955,9 @@ class Runtime:
         if self._registry_unsub:
             self._registry_unsub()
             self._registry_unsub = None
+        if self._core_config_unsub:
+            self._core_config_unsub()
+            self._core_config_unsub = None
         if self._stop_unsub:
             self._stop_unsub()
             self._stop_unsub = None

@@ -87,7 +87,7 @@
         },
         "tou": {
           "title": "每日分时电价",
-          "description": "当前时段：\n{schedule}\n\n逐项新增、编辑或移除时段，完整覆盖一天后完成。",
+          "description": "计价时区：{timezone}\n\n当前时段：\n{schedule}\n\n逐项新增、编辑或移除时段，完整覆盖一天后完成。",
           "data": {
             "action": "操作",
             "row": "时段"
@@ -387,6 +387,10 @@
           "point_removed": "充电点已移除或集成未运行。"
         }
       }
+    },
+    "tou_timezone_changed": {
+      "title": "Charge Tally：请核对分时电价时段",
+      "description": "以下充电点的 Home Assistant 系统时区已变更：\n{points}\n\n之后的分时电价时段将按 {timezone} 解释。请核对已配置的时段。已核算的费用保持不变。"
     }
   },
   "services": {

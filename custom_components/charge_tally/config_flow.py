@@ -485,7 +485,10 @@ class PointSubentryFlow(ConfigSubentryFlow):
         return self.async_show_form(
             step_id="tou",
             data_schema=vol.Schema(fields),
-            description_placeholders={"schedule": summary},
+            description_placeholders={
+                "timezone": self.hass.config.time_zone,
+                "schedule": summary,
+            },
             errors=errors,
         )
 

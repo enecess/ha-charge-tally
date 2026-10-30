@@ -1,6 +1,7 @@
 """Runtime tests exercise actual HA setup, events and SQLite persistence."""
 
 import asyncio
+from copy import deepcopy
 from datetime import timedelta
 from decimal import Decimal
 
@@ -24,10 +25,18 @@ POWER = {
 
 
 async def setup_runtime(
-    hass, tmp_path, *, detection=None, periods=None, mode="energy_power", price=None
+    hass,
+    tmp_path,
+    *,
+    detection=None,
+    periods=None,
+    mode="energy_power",
+    price=None,
+    timezone="Asia/Shanghai",
+    extra_points=None,
 ):
     hass.config.config_dir = str(tmp_path)
-    hass.config.time_zone = "Asia/Shanghai"
+    hass.config.time_zone = timezone
     hass.states.async_set("sensor.energy", "100", ENERGY)
     hass.states.async_set("sensor.power", "0", POWER)
     point = {
@@ -60,6 +69,16 @@ async def setup_runtime(
                 "unique_id": None,
                 "data": point,
             },
+            *[
+                {
+                    "subentry_id": id_,
+                    "subentry_type": "point",
+                    "title": data["name"],
+                    "unique_id": None,
+                    "data": {**deepcopy(point), **data},
+                }
+                for id_, data in (extra_points or {}).items()
+            ],
         ],
     )
     entry.add_to_hass(hass)
@@ -67,6 +86,266 @@ async def setup_runtime(
     await hass.async_block_till_done()
     assert hasattr(entry, "runtime_data"), "Root setup must create a real runtime"
     return entry, entry.runtime_data
+
+
+async def test_live_system_timezone_change_preserves_active_evidence_and_new_record_zone(
+    hass,
+    tmp_path,
+    freezer,
+):
+    entry, runtime = await setup_runtime(hass, tmp_path)
+    await runtime.async_command(
+        "select_identity", {"point_id": "point", "identity_id": "car"}
+    )
+    record = await runtime.async_command(
+        "start", {"point_id": "point", "request_id": "old-zone"}
+    )
+    await tick(hass, freezer, 5)
+    hass.states.async_set("sensor.energy", "100.01", ENERGY)
+    await hass.async_block_till_done()
+    before = await runtime._worker(runtime._store.ledger.get_record, record["id"])
+    parts = await runtime._worker(runtime._store.ledger.list_segments, record["id"])
+    helpers = deepcopy(runtime._helper_results)
+    observations = await runtime._worker(lambda: deepcopy(runtime._store.states))
+    await hass.config.async_update(time_zone="UTC")
+    await hass.async_block_till_done()
+    assert runtime.snapshot["timezone"] == "UTC"
+    assert (
+        await runtime._worker(runtime._store.ledger.get_record, record["id"]) == before
+    )
+    assert (
+        await runtime._worker(runtime._store.ledger.list_segments, record["id"])
+        == parts
+    )
+    assert await runtime._worker(lambda: runtime._store.states) == observations
+    assert runtime._helper_results == helpers
+    assert runtime.snapshot["points"][0]["active_record"]["identity_id"] == "car"
+    await runtime.async_command("end", {"record_id": record["id"], "request_id": "end"})
+    await tick(hass, freezer, 1)
+    new = await runtime.async_command(
+        "start", {"point_id": "point", "request_id": "new-zone"}
+    )
+    assert new["timezone"] == "UTC"
+    assert new["identity_id"] == "car"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    revision = runtime.snapshot["revision"]
+    await hass.config.async_update(time_zone="Europe/Berlin")
+    await hass.async_block_till_done()
+    assert runtime.snapshot["revision"] == revision
+
+
+@pytest.mark.parametrize(
+    "language, title",
+    [
+        ("en", "Charge Tally: Check time-of-use periods"),
+        ("zh-Hans", "Charge Tally：请核对分时电价时段"),
+        ("de", "Charge Tally: Zeitabhängige Tarifzeiten prüfen"),
+        ("fr", "Charge Tally : Vérifiez les plages tarifaires"),
+        ("pl", "Charge Tally: Sprawdź okresy taryfy czasowej"),
+        ("it", "Charge Tally: Controlla le fasce orarie"),
+    ],
+)
+async def test_tou_timezone_notification_is_native_consolidated_and_stays_dismissed(
+    hass,
+    tmp_path,
+    hass_ws_client,
+    language,
+    title,
+):
+    from homeassistant.components import persistent_notification
+    from homeassistant.helpers import issue_registry as ir
+    from homeassistant.helpers.dispatcher import async_dispatcher_connect
+
+    hass.config.language = language
+    price = {
+        "mode": "tou",
+        "schedule": [{"start": "00:00", "end": "24:00", "price": "0.1"}],
+    }
+    hass.states.async_set("sensor.price", "0.2", {"unit_of_measurement": "CNY/kWh"})
+    updates = []
+    unsub = async_dispatcher_connect(
+        hass,
+        "persistent_notifications_updated",
+        lambda kind, values: updates.append((kind, values)),
+    )
+    entry, runtime = await setup_runtime(
+        hass,
+        tmp_path,
+        price=price,
+        extra_points={
+            "second": {"name": "Second TOU"},
+            "static": {
+                "name": "Static point",
+                "price": {"mode": "static", "value": "1"},
+            },
+            "dynamic": {
+                "name": "Dynamic point",
+                "price": {
+                    "mode": "dynamic",
+                    "entity_id": "sensor.price",
+                    "unit": "CNY/kWh",
+                },
+            },
+        },
+    )
+    notification_id = "charge_tally_timezone_" + entry.entry_id
+    assert not any(notification_id in values for _, values in updates)
+    await hass.config.async_update(language="en" if language != "en" else "de")
+    await hass.async_block_till_done()
+    assert not any(notification_id in values for _, values in updates)
+    hass.config.language = language
+    await hass.config.async_update(time_zone="UTC")
+    await hass.async_block_till_done()
+    notices = [
+        values[notification_id] for _, values in updates if notification_id in values
+    ]
+    assert len(notices) == 1
+    assert notices[0]["title"] == title
+    for text in ("Garage", "Second TOU", "Asia/Shanghai", "UTC"):
+        assert text in notices[0]["message"]
+    assert "Static point" not in notices[0]["message"]
+    assert "Dynamic point" not in notices[0]["message"]
+    assert not any(domain == "charge_tally" for domain, _ in ir.async_get(hass).issues)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "persistent_notification/get"})
+    response = await client.receive_json()
+    assert response["success"]
+    assert (
+        next(
+            item
+            for item in response["result"]
+            if item["notification_id"] == notification_id
+        )["title"]
+        == title
+    )
+    persistent_notification.async_dismiss(hass, notification_id)
+    await hass.async_block_till_done()
+    updates.clear()
+    await hass.config.async_update(time_zone="UTC")
+    await runtime.async_refresh_config()
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert not any(notification_id in values for _, values in updates)
+    await client.send_json({"id": 2, "type": "persistent_notification/get"})
+    assert all(
+        item["notification_id"] != notification_id
+        for item in (await client.receive_json())["result"]
+    )
+    unsub()
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_live_tou_version_uses_core_event_instant_when_worker_is_paused(
+    hass,
+    tmp_path,
+    freezer,
+):
+    freezer.move_to("2026-01-01T00:00:00Z")
+    price = {
+        "mode": "tou",
+        "schedule": [
+            {"start": "00:00", "end": "08:00", "price": "0.10"},
+            {"start": "08:00", "end": "24:00", "price": "0.30"},
+        ],
+    }
+    entry, runtime = await setup_runtime(hass, tmp_path, price=price, timezone="UTC")
+    freezer.move_to("2026-01-01T01:00:00Z")
+    runtime._gate.clear()
+    await hass.config.async_update(time_zone="Asia/Shanghai")
+    freezer.move_to("2026-01-01T01:01:00Z")
+    runtime._gate.set()
+    await hass.async_block_till_done()
+    versions = await runtime._worker(runtime._store.ledger.list_price_versions, "point")
+    assert len(versions) == 2
+    assert versions[-1]["at"] == "2026-01-01T01:00:00+00:00"
+    assert versions[-1]["timezone"] == "Asia/Shanghai"
+    assert runtime.snapshot["points"][0]["current_price"] == "0.30"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_offline_tou_timezone_change_notifies_once_at_recognition(
+    hass,
+    tmp_path,
+    freezer,
+):
+    from homeassistant.components import persistent_notification
+    from homeassistant.helpers.dispatcher import async_dispatcher_connect
+
+    updates = []
+    unsub = async_dispatcher_connect(
+        hass,
+        "persistent_notifications_updated",
+        lambda kind, values: updates.append(values),
+    )
+    freezer.move_to("2026-01-01T00:00:00Z")
+    price = {
+        "mode": "tou",
+        "schedule": [{"start": "00:00", "end": "24:00", "price": "0.10"}],
+    }
+    entry, runtime = await setup_runtime(hass, tmp_path, price=price, timezone="UTC")
+    original = await runtime._worker(runtime._store.ledger.list_price_versions, "point")
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    freezer.move_to("2026-01-01T01:00:00Z")
+    await hass.config.async_update(time_zone="Asia/Shanghai")
+    await hass.async_block_till_done()
+    freezer.move_to("2026-01-01T02:00:00Z")
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    runtime = entry.runtime_data
+    versions = await runtime._worker(runtime._store.ledger.list_price_versions, "point")
+    assert versions[:-1] == original
+    assert versions[-1]["at"] == "2026-01-01T02:00:00+00:00"
+    notification_id = "charge_tally_timezone_" + entry.entry_id
+    notices = [
+        values[notification_id] for values in updates if notification_id in values
+    ]
+    assert len(notices) == 1
+    message = notices[0]["message"]
+    assert "Future time-of-use periods are interpreted in Asia/Shanghai" in message
+    assert "Already-accounted fees remain unchanged" in message
+    persistent_notification.async_dismiss(hass, notification_id)
+    await hass.async_block_till_done()
+    updates.clear()
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert not any(notification_id in values for values in updates)
+    unsub()
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_failed_tou_timezone_commit_does_not_notify(hass, tmp_path, monkeypatch):
+    from homeassistant.helpers.dispatcher import async_dispatcher_connect
+
+    price = {
+        "mode": "tou",
+        "schedule": [{"start": "00:00", "end": "24:00", "price": "0.1"}],
+    }
+    entry, runtime = await setup_runtime(hass, tmp_path, price=price)
+    before = deepcopy(runtime.snapshot)
+    versions = await runtime._worker(runtime._store.ledger.list_price_versions, "point")
+    notices = []
+    unsub = async_dispatcher_connect(
+        hass,
+        "persistent_notifications_updated",
+        lambda kind, values: notices.append(values),
+    )
+    snapshot = runtime._store.snapshot
+
+    def fail_snapshot():
+        raise OSError("Snapshot failed")
+
+    monkeypatch.setattr(runtime._store, "snapshot", fail_snapshot)
+    with pytest.raises(OSError, match="Snapshot failed"):
+        await runtime._async_change_timezone("UTC", dt_util.utcnow())
+    assert runtime.snapshot == before
+    assert (
+        await runtime._worker(runtime._store.ledger.list_price_versions, "point")
+        == versions
+    )
+    assert notices == []
+    monkeypatch.setattr(runtime._store, "snapshot", snapshot)
+    unsub()
+    assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 async def tick(hass, freezer, seconds):

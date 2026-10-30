@@ -87,7 +87,7 @@
         },
         "tou": {
           "title": "Täglicher Zeitplan für zeitabhängige Tarife",
-          "description": "Aktuelle Zeiträume:\n{schedule}\n\nFügen Sie Zeiträume hinzu, bearbeiten oder entfernen Sie diese. Schließen Sie den Zeitplan ab, sobald der gesamte Tag abgedeckt ist.",
+          "description": "Zeitzone der Preisberechnung: {timezone}\n\nAktuelle Zeiträume:\n{schedule}\n\nFügen Sie Zeiträume hinzu, bearbeiten oder entfernen Sie diese. Schließen Sie den Zeitplan ab, sobald der gesamte Tag abgedeckt ist.",
           "data": {
             "action": "Aktion",
             "row": "Zeitraum"
@@ -387,6 +387,10 @@
           "point_removed": "Der Ladepunkt wurde entfernt oder die Integration läuft nicht."
         }
       }
+    },
+    "tou_timezone_changed": {
+      "title": "Charge Tally: Zeitabhängige Tarifzeiten prüfen",
+      "description": "Die Home Assistant-Systemzeitzone hat sich für diese Ladepunkte geändert:\n{points}\n\nKünftige zeitabhängige Tarifzeiten werden in {timezone} interpretiert. Prüfen Sie die konfigurierten Zeiten. Bereits abgerechnete Kosten bleiben unverändert."
     }
   },
   "services": {

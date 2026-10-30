@@ -9,6 +9,144 @@ import pytest
 from custom_components.charge_tally.runtime_store import RuntimeStore
 
 
+def test_timezone_change_versions_tou_forward_without_resetting_active_record(tmp_path):
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    store, point = configured(
+        tmp_path,
+        at,
+        {
+            "mode": "tou",
+            "schedule": [
+                {"start": "00:00", "end": "08:00", "price": "0.10"},
+                {"start": "08:00", "end": "24:00", "price": "0.30"},
+            ],
+        },
+    )
+    point["max_gap_seconds"] = 7200
+    store.apply("configure", {"p": point}, {"i": {"name": "Car"}}, at, "UTC")
+    start = at + timedelta(minutes=30)
+    store.apply("energy", "p", start, Decimal("100"))
+    record, _ = store.apply(
+        "command", "start", {"point_id": "p", "request_id": "start"}, start
+    )
+    before = store.ledger.get_record(record["id"])
+    state = dict(store.states["p"])
+    original = store.ledger.list_price_versions("p")
+    changes, snapshot = store.apply(
+        "change_timezone", "Asia/Shanghai", at + timedelta(hours=1)
+    )
+    assert changes == [
+        {
+            "point_id": "p",
+            "name": "Point",
+            "old_timezone": "UTC",
+            "new_timezone": "Asia/Shanghai",
+        }
+    ]
+    assert snapshot["timezone"] == "Asia/Shanghai"
+    assert store.ledger.get_record(record["id"]) == before
+    assert store.states["p"] == {**state, "current_price": "0.30"}
+    assert store.ledger.list_price_versions("p")[:-1] == original
+    assert store.prices("p", at + timedelta(hours=2), at + timedelta(hours=3)) == [
+        (at + timedelta(hours=2), Decimal("0.30"))
+    ]
+    assert store.prices("p", start, at + timedelta(hours=1)) == [
+        (start, Decimal("0.10"))
+    ]
+    end = at + timedelta(minutes=90)
+    store.apply("energy", "p", end, Decimal("101"))
+    current = store.ledger.get_record(record["id"])
+    assert current["id"] == before["id"]
+    assert current["timezone"] == "UTC"
+    assert current["start"] == start.isoformat()
+    assert Decimal(current["known_cost"]) == Decimal("0.20")
+    assert [
+        Decimal(part["energy_kwh"]) for part in store.ledger.list_segments(record["id"])
+    ] == [Decimal("0.5"), Decimal("0.5")]
+    versions = store.ledger.list_price_versions("p")
+    assert store.apply("change_timezone", "Asia/Shanghai", end)[0] == []
+    assert store.ledger.list_price_versions("p") == versions
+    store.ledger.close()
+
+
+def test_configure_recognizes_persisted_tou_zone_after_offline_change(tmp_path):
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    store, point = configured(
+        tmp_path,
+        at,
+        {
+            "mode": "tou",
+            "schedule": [{"start": "00:00", "end": "24:00", "price": "0.1"}],
+        },
+    )
+    original = store.ledger.list_price_versions("p")
+    store.ledger.close()
+    store = RuntimeStore(str(tmp_path / "ledger.sqlite3"), "CNY", "Asia/Shanghai")
+    recognized = at + timedelta(hours=1)
+    changes, _ = store.apply("configure", {"p": point}, {}, recognized, "Asia/Shanghai")
+    assert changes == [
+        {
+            "point_id": "p",
+            "name": "Point",
+            "old_timezone": "UTC",
+            "new_timezone": "Asia/Shanghai",
+        }
+    ]
+    versions = store.ledger.list_price_versions("p")
+    assert versions[:-1] == original
+    assert versions[-1]["at"] == recognized.isoformat()
+    assert (
+        store.apply("configure", {"p": point}, {}, recognized, "Asia/Shanghai")[0] == []
+    )
+    assert store.ledger.list_price_versions("p") == versions
+    store.ledger.close()
+
+
+@pytest.mark.parametrize(
+    "price",
+    [
+        {"mode": "static", "value": "2"},
+        {"mode": "dynamic", "entity_id": "sensor.price", "unit": "CNY/kWh"},
+    ],
+)
+def test_timezone_change_leaves_non_tou_timelines_unchanged(tmp_path, price):
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    store, point = configured(tmp_path, at, price)
+    versions = store.ledger.list_price_versions("p")
+    assert store.apply("configure", {"p": point}, {}, at, "UTC")[0] == []
+    changes, snapshot = store.apply(
+        "change_timezone", "Asia/Shanghai", at + timedelta(hours=1)
+    )
+    assert changes == []
+    assert snapshot["timezone"] == "Asia/Shanghai"
+    assert store.ledger.list_price_versions("p") == versions
+    store.ledger.close()
+
+
+def test_failed_timezone_change_rolls_back_versions_and_runtime_state(
+    tmp_path, monkeypatch
+):
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    store, _ = configured(
+        tmp_path,
+        at,
+        {"mode": "tou", "schedule": [{"start": "00:00", "end": "24:00", "price": "1"}]},
+    )
+    versions = store.ledger.list_price_versions("p")
+    checkpoint = store.ledger.get_checkpoint("runtime")
+
+    def fail_snapshot():
+        raise OSError("Snapshot failed")
+
+    monkeypatch.setattr(store, "snapshot", fail_snapshot)
+    with pytest.raises(OSError, match="Snapshot failed"):
+        store.apply("change_timezone", "Asia/Shanghai", at + timedelta(hours=1))
+    assert store.timezone == "UTC"
+    assert store.ledger.list_price_versions("p") == versions
+    assert store.ledger.get_checkpoint("runtime") == checkpoint
+    store.ledger.close()
+
+
 def test_maintenance_continues_after_protected_candidate_batch(tmp_path):
     store = RuntimeStore(str(tmp_path / "ledger.db"), "CNY", "UTC")
     store.ledger.put_point({"id": "p"})

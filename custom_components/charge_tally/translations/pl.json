@@ -87,7 +87,7 @@
         },
         "tou": {
           "title": "Dzienny harmonogram taryf czasowych",
-          "description": "Bieżące przedziały:\n{schedule}\n\nDodaj, edytuj lub usuń przedziały, a następnie zakończ, gdy obejmą całą dobę.",
+          "description": "Strefa czasowa taryfy: {timezone}\n\nBieżące przedziały:\n{schedule}\n\nDodaj, edytuj lub usuń przedziały, a następnie zakończ, gdy obejmą całą dobę.",
           "data": {
             "action": "Działanie",
             "row": "Przedział"
@@ -387,6 +387,10 @@
           "point_removed": "Punkt ładowania został usunięty lub integracja nie działa."
         }
       }
+    },
+    "tou_timezone_changed": {
+      "title": "Charge Tally: Sprawdź okresy taryfy czasowej",
+      "description": "Systemowa strefa czasowa Home Assistant zmieniła się dla tych punktów ładowania:\n{points}\n\nPrzyszłe okresy taryfy czasowej są interpretowane w strefie {timezone}. Sprawdź skonfigurowane okresy. Już rozliczone opłaty pozostają bez zmian."
     }
   },
   "services": {

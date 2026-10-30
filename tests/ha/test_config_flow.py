@@ -56,10 +56,11 @@ async def advance(hass, result, data):
     return await hass.config_entries.subentries.async_configure(result["flow_id"], data)
 
 
-async def point_until_price(hass, entry, mode="energy", detection=False):
+async def point_until_price(hass, entry, mode="energy", detection=False, language=None):
     sources(hass)
     result = await hass.config_entries.subentries.async_init(
-        (entry.entry_id, "point"), context={"source": "user"}
+        (entry.entry_id, "point"),
+        context={"source": "user", **({"language": language} if language else {})},
     )
     assert result["step_id"] == "user"
     result = await advance(hass, result, {"name": "Garage", "input_mode": mode})
@@ -254,6 +255,68 @@ async def test_tou_add_edit_remove_full_day_and_midnight(hass, entry):
         {"start": "08:00", "end": "24:00", "price": "0.6"},
         {"start": "00:00", "end": "08:00", "price": "0"},
     ]
+
+
+@pytest.mark.parametrize(
+    "language, label",
+    [
+        ("en", "Pricing timezone: Asia/Shanghai"),
+        ("zh-Hans", "计价时区：Asia/Shanghai"),
+        ("de", "Zeitzone der Preisberechnung: Asia/Shanghai"),
+        ("fr", "Fuseau horaire de tarification : Asia/Shanghai"),
+        ("pl", "Strefa czasowa taryfy: Asia/Shanghai"),
+        ("it", "Fuso orario della tariffa: Asia/Shanghai"),
+    ],
+)
+async def test_tou_new_and_edit_show_system_pricing_timezone(
+    hass, entry, language, label
+):
+    hass.config.time_zone = "Asia/Shanghai"
+    hass.config.language = "en"
+    result = await point_until_price(hass, entry, language=language)
+    result = await advance(hass, result, {"mode": "tou"})
+    assert result["description_placeholders"]["timezone"] == "Asia/Shanghai"
+    translations = await async_get_translations(
+        hass, language, "config_subentries", {DOMAIN}
+    )
+    description = translations[
+        f"component.{DOMAIN}.config_subentries.point.step.tou.description"
+    ].format(**result["description_placeholders"])
+    assert description.startswith(label + "\n")
+    result = await advance(hass, result, {"action": "add"})
+    result = await advance(
+        hass, result, {"start": "00:00", "end": "24:00", "price": "0.1"}
+    )
+    result = await advance(hass, result, {"action": "finish"})
+    await advance(hass, result, {"periods": []})
+    subentry_id = next(iter(entry.subentries))
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, "point"),
+        context={
+            "source": "reconfigure",
+            "subentry_id": subentry_id,
+            "language": language,
+        },
+    )
+    result = await advance(hass, result, {"name": "Garage", "input_mode": "energy"})
+    result = await advance(
+        hass,
+        result,
+        {
+            "measurement": {
+                "energy_entity": "sensor.energy",
+                "resetting": True,
+                "max_gap_seconds": 600,
+            }
+        },
+    )
+    result = await advance(hass, result, {"mode": "tou"})
+    assert result["description_placeholders"]["timezone"] == "Asia/Shanghai"
+    description = translations[
+        f"component.{DOMAIN}.config_subentries.point.step.tou.description"
+    ].format(**result["description_placeholders"])
+    assert description.startswith(label + "\n")
+    assert description.index(label) < description.index("00:00")
 
 
 async def test_identity_reconfigure_retains_stable_id_and_disabled_name_reuse(

@@ -7,7 +7,7 @@
   "config_flow": true,
   "integration_type": "service",
   "iot_class": "calculated",
-  "dependencies": ["sensor"],
+  "dependencies": ["sensor", "persistent_notification"],
   "after_dependencies": ["integration", "utility_meter"],
   "codeowners": [],
   "requirements": ["reportlab==5.1.0"]

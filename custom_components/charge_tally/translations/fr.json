@@ -87,7 +87,7 @@
         },
         "tou": {
           "title": "Planning tarifaire journalier par plage horaire",
-          "description": "Plages actuelles :\n{schedule}\n\nAjoutez, modifiez ou supprimez des plages, puis terminez une fois la journée entière couverte.",
+          "description": "Fuseau horaire de tarification : {timezone}\n\nPlages actuelles :\n{schedule}\n\nAjoutez, modifiez ou supprimez des plages, puis terminez une fois la journée entière couverte.",
           "data": {
             "action": "Action",
             "row": "Plage horaire"
@@ -387,6 +387,10 @@
           "point_removed": "Le point de recharge a été supprimé ou l’intégration n’est pas en cours d’exécution."
         }
       }
+    },
+    "tou_timezone_changed": {
+      "title": "Charge Tally : Vérifiez les plages tarifaires",
+      "description": "Le fuseau horaire du système Home Assistant a changé pour ces points de charge :\n{points}\n\nLes futures plages tarifaires sont interprétées dans le fuseau {timezone}. Vérifiez les plages configurées. Les frais déjà comptabilisés restent inchangés."
     }
   },
   "services": {

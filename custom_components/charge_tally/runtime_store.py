@@ -222,7 +222,6 @@ class RuntimeStore:
             for id_, data in identities.items()
             if id_ != "unassigned"
         }
-        self.timezone = timezone
         identities = {
             **identities,
             "unassigned": {"name": BUILTIN_IDENTITY_NAME, "enabled": True},
@@ -315,8 +314,49 @@ class RuntimeStore:
             if state["current_price"] is not None:
                 state["current_price"] = str(state["current_price"])
         self.points = deepcopy(points)
+        changes = self.change_timezone(timezone, at)
         for point_id in points:
             self.expire_unavailable(point_id, at)
+        return changes
+
+    def change_timezone(self, timezone, at):
+        """Interpret existing TOU periods in the new zone only from this instant."""
+        changes = []
+        for point_id, point in self.points.items():
+            if point["price"]["mode"] != "tou":
+                continue
+            versions = self.ledger.list_price_versions(
+                point_id,
+                start=at.isoformat(),
+                end=(at + timedelta(microseconds=1)).isoformat(),
+            )
+            if not versions or versions[-1].get("mode") != "tou":
+                continue
+            version = versions[-1]
+            old_timezone = version.get("timezone", self.timezone)
+            if old_timezone == timezone:
+                continue
+            self.put_price(
+                {
+                    **{key: value for key, value in version.items() if key != "id"},
+                    "at": at.isoformat(),
+                    "timezone": timezone,
+                }
+            )
+            self.states[point_id]["current_price"] = str(
+                DailySchedule(version["schedule"]).price_at(at, timezone)
+            )
+            changes.append(
+                {
+                    "point_id": point_id,
+                    "name": point["name"],
+                    "old_timezone": old_timezone,
+                    "new_timezone": timezone,
+                }
+            )
+        self.timezone = timezone
+        self._summary_cache.clear()
+        return changes
 
     def put_price(self, data):
         sequence = (self.ledger.get_checkpoint("price_sequence") or 0) + 1

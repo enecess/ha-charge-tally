@@ -87,7 +87,7 @@
         },
         "tou": {
           "title": "Daily time-of-use schedule",
-          "description": "Current periods:\n{schedule}\n\nAdd, edit or remove periods, then finish after the full day is covered.",
+          "description": "Pricing timezone: {timezone}\n\nCurrent periods:\n{schedule}\n\nAdd, edit or remove periods, then finish after the full day is covered.",
           "data": {
             "action": "Action",
             "row": "Period"
@@ -387,6 +387,10 @@
           "point_removed": "The charging point was removed or the integration is not running."
         }
       }
+    },
+    "tou_timezone_changed": {
+      "title": "Charge Tally: Check time-of-use periods",
+      "description": "The Home Assistant system timezone changed for these charging points:\n{points}\n\nFuture time-of-use periods are interpreted in {timezone}. Check the configured periods. Already-accounted fees remain unchanged."
     }
   },
   "services": {
