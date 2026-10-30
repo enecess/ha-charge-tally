@@ -12,6 +12,136 @@ from custom_components.charge_tally.ledger import Ledger
 
 
 class LedgerTests(unittest.TestCase):
+    def test_prune_batches_audit_observation_references_with_idle_candidates(self):
+        from datetime import timedelta
+
+        with closing(Ledger(":memory:")) as ledger:
+            ledger.put_point({"id": "p"})
+            ledger.put_identity({"id": "i", "name": "Car"})
+            start = datetime(2025, 1, 1, tzinfo=UTC)
+            for index in range(302):
+                left = start + timedelta(seconds=index)
+                ledger.put_interval(
+                    dict(
+                        id=str(index),
+                        point_id="p",
+                        start=left.isoformat(),
+                        end=(left + timedelta(seconds=1)).isoformat(),
+                        gap=index == 0,
+                    )
+                )
+            record = dict(
+                id="r",
+                point_id="p",
+                identity_id="i",
+                status="ended",
+                revision=1,
+                start=(start + timedelta(days=2)).isoformat(),
+                end=(start + timedelta(days=3)).isoformat(),
+            )
+            ledger.save_record(record, [{"observation_id": "1"}] * 2000)
+            ledger.save_record({**record, "revision": 2}, [])
+            history = ledger.list_revisions("r")
+            statements = []
+            work = []
+            ledger._db.set_trace_callback(statements.append)
+            ledger._db.set_progress_handler(lambda: work.append(1) or 0, 1000)
+            cutoff = datetime(2026, 1, 1, tzinfo=UTC)
+            self.assertEqual(ledger.prune(cutoff, limit=300), 298)
+            ledger._db.set_trace_callback(None)
+            ledger._db.set_progress_handler(None, 0)
+            self.assertEqual(
+                ledger.get_checkpoint("_prune_progress")["after"][1], "299"
+            )
+            self.assertIsNotNone(ledger._get("observations", "300"))
+            self.assertEqual(ledger.list_revisions("r"), history)
+            self.assertIsNotNone(ledger._get("observations", "1"))
+            audit_queries = [sql for sql in statements if "FROM revisions" in sql]
+            self.assertLessEqual(len(audit_queries), 1, len(audit_queries))
+            self.assertLess(
+                len(work), 1000, "Repeated historical scans amplify SQLite work"
+            )
+            self.assertEqual(ledger.prune(cutoff, limit=300), 2)
+            self.assertFalse(ledger.prune_pending())
+            self.assertEqual(
+                [row["id"] for row in ledger.list_intervals("p")], ["0", "1"]
+            )
+
+    def test_prune_batches_audit_price_ranges_with_idle_candidates(self):
+        from datetime import timedelta
+
+        with closing(Ledger(":memory:")) as ledger:
+            ledger.put_point({"id": "p"})
+            ledger.put_identity({"id": "i", "name": "Car"})
+            start = datetime(2025, 1, 1, tzinfo=UTC)
+            for index in range(302):
+                ledger.put_price_version(
+                    dict(
+                        id=str(index),
+                        point_id="p",
+                        price="0.5",
+                        at=(start + timedelta(seconds=index)).isoformat(),
+                    )
+                )
+            record = dict(
+                id="r",
+                point_id="p",
+                identity_id="i",
+                status="ended",
+                revision=1,
+                start=(start + timedelta(seconds=1)).isoformat(),
+                end=(start + timedelta(seconds=2)).isoformat(),
+            )
+            ledger.save_record(record, [])
+            for revision in range(2, 1002):
+                ledger.save_record(
+                    {
+                        **record,
+                        "revision": revision,
+                        "start": (start + timedelta(days=2)).isoformat(),
+                        "end": (start + timedelta(days=3)).isoformat(),
+                    },
+                    [],
+                )
+            history = ledger.list_revisions("r")
+            statements = []
+            work = []
+            ledger._db.set_trace_callback(statements.append)
+            ledger._db.set_progress_handler(lambda: work.append(1) or 0, 1000)
+            cutoff = datetime(2026, 1, 1, tzinfo=UTC)
+            self.assertEqual(ledger.prune(cutoff, limit=300), 299)
+            ledger._db.set_trace_callback(None)
+            ledger._db.set_progress_handler(None, 0)
+            self.assertEqual(
+                ledger.get_checkpoint("_prune_progress")["after"][1], "299"
+            )
+            self.assertEqual(ledger.list_revisions("r"), history)
+            self.assertIsNotNone(ledger._get("price_versions", "1"))
+            self.assertIsNotNone(ledger._get("price_versions", "300"))
+            audit_queries = [sql for sql in statements if "FROM revisions" in sql]
+            self.assertLessEqual(len(audit_queries), 1, len(audit_queries))
+            self.assertLess(
+                len(work), 1000, "Repeated historical scans amplify SQLite work"
+            )
+            self.assertEqual(ledger.prune(cutoff, limit=300), 1)
+            self.assertFalse(ledger.prune_pending())
+            self.assertEqual(
+                [row["id"] for row in ledger.list_price_versions("p")], ["1", "301"]
+            )
+            self.assertEqual(
+                ledger.get_checkpoint("_price_gaps:p"),
+                [
+                    {
+                        "start": start.isoformat(),
+                        "end": (start + timedelta(seconds=1)).isoformat(),
+                    },
+                    {
+                        "start": (start + timedelta(seconds=2)).isoformat(),
+                        "end": (start + timedelta(seconds=301)).isoformat(),
+                    },
+                ],
+            )
+
     def test_narrow_queries_decode_only_matching_ordered_evidence(self):
         import json
 

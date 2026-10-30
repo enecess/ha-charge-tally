@@ -16,6 +16,56 @@ T = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 class AccountingTests(unittest.TestCase):
+    def test_manual_energy_keeps_tariff_periods_in_shared_projection(self):
+        from custom_components.charge_tally.record_views import detail_view
+
+        preview = self.app.preview(
+            {
+                "point_id": "home",
+                "identity_id": "personal",
+                "start": T,
+                "end": T + timedelta(hours=3),
+                "timezone": "UTC",
+                "energy_kwh": "6",
+                "prices": [(T, "0.25"), (T + timedelta(hours=1), "0.5")],
+            }
+        )
+        detail = detail_view(
+            preview["record"], preview["segments"], [], include_history=False
+        )
+        self.assertTrue(detail["record"]["manual_override"])
+        self.assertNotIn("manual_cost", detail["record"])
+        self.assertEqual(D(detail["record"]["energy_kwh"]), D("6"))
+        self.assertEqual(D(detail["record"]["known_cost"]), D("2.50"))
+        self.assertEqual(
+            [
+                (
+                    part["start"],
+                    part["end"],
+                    D(part["unit_price"]),
+                    D(part["energy_kwh"]),
+                    D(part["cost"]),
+                )
+                for part in detail["billing_periods"]
+            ],
+            [
+                (
+                    T.isoformat(),
+                    (T + timedelta(hours=1)).isoformat(),
+                    D("0.25"),
+                    D("2"),
+                    D("0.50"),
+                ),
+                (
+                    (T + timedelta(hours=1)).isoformat(),
+                    (T + timedelta(hours=3)).isoformat(),
+                    D("0.5"),
+                    D("4"),
+                    D("2.00"),
+                ),
+            ],
+        )
+
     def test_preview_expires_at_thirty_minutes_without_touching_records(self):
         for age, succeeds in ((1799, True), (1800, False)):
             with self.subTest(age=age):

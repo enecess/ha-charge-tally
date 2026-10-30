@@ -1,6 +1,50 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
 import {createCardFixture,openCompactDetails} from './card-fixture.mjs';
+
+test('backend manual energy shows tariff periods in shared details and preview',async t=>{
+  const detail=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',`
+import json
+from datetime import UTC, datetime, timedelta
+from custom_components.charge_tally.ledger import Ledger
+from custom_components.charge_tally.accounting import Accounting
+from custom_components.charge_tally.record_views import detail_view
+ledger = Ledger(':memory:')
+ledger.put_point({'id': 'p'})
+ledger.put_identity({'id': 'i', 'name': 'Family'})
+start = datetime(2026, 1, 1, tzinfo=UTC)
+preview = Accounting(ledger).preview({'point_id': 'p', 'identity_id': 'i',
+    'start': start, 'end': start + timedelta(hours=3), 'timezone': 'UTC',
+    'energy_kwh': '6', 'prices': [(start, '0.25'), (start + timedelta(hours=1), '0.5')]})
+print(json.dumps(detail_view(preview['record'], preview['segments'], [], include_history=False)))
+ledger.close()
+`],{encoding:'utf8'}));
+  assert.equal(Number(detail.record.energy_kwh),6);assert.equal(Number(detail.record.known_cost),2.5);
+  assert.equal('manual_cost'in detail.record,false);
+  assert.deepEqual(detail.billing_periods.map(part=>Number(part.unit_price)),[0.25,0.5]);
+  const {page}=await createCardFixture(t);
+  await page.evaluate(detail=>fixture.card.openDialog('details',detail),detail);
+  assert.equal(await page.locator('dialog details').first().getAttribute('open'),null);
+  await page.locator('dialog details').first().locator('summary').click();
+  assert.equal(await page.locator('dialog .billing-period:visible').count(),2);
+  assert.match(await page.locator('dialog .billing-period').nth(0).innerText(),/00:00:00–01:00:00.*0.25.*2 kWh.*0.50/s);
+  assert.match(await page.locator('dialog .billing-period').nth(1).innerText(),/01:00:00–03:00:00.*0.5.*4 kWh.*2.00/s);
+  assert.match(await page.locator('dialog .billing-details').innerText(),/Energy was entered manually; it does not establish measurement coverage/);
+  assert.doesNotMatch(await page.locator('dialog .billing-details').innerText(),/allocated from sampling intervals/);
+  assert.equal(await page.locator('dialog .measurement-period').count(),0);
+  await page.getByRole('button',{name:'Edit record',exact:true}).click();
+  await page.locator('dialog textarea').fill('Manual energy with tariff cost');
+  await page.getByRole('button',{name:'Preview changes',exact:true}).click();
+  await page.waitForFunction(()=>fixture.pending.length===1);
+  await page.evaluate(detail=>fixture.pending[0].resolve({...detail,token:'manual-tariff',coverage:[],overlaps:[]}),detail);
+  assert.equal(await page.locator('dialog .preview details').getAttribute('open'),null);
+  await page.locator('dialog .preview details summary').click();
+  assert.equal(await page.locator('dialog .preview .billing-period:visible').count(),2);
+  assert.match(await page.locator('dialog .preview .billing-details').innerText(),/0.25.*0.50.*0.5.*2.00/s);
+  assert.match(await page.locator('dialog .preview .billing-details').innerText(),/does not establish measurement coverage/);
+  assert.doesNotMatch(await page.locator('dialog .preview .billing-details').innerText(),/allocated from sampling intervals/);
+});
 
 for(const width of [736,320])test(`compact details keep chronological periods and a distinct gap at ${width}px`,async t=>{
   const {page}=await createCardFixture(t);await page.setViewportSize({width,height:900});
@@ -64,6 +108,10 @@ test('manual totals keep measured coverage and exclude allocated gap money',asyn
   assert.match(await page.locator('dialog').innerText(),/Cost to be added/);
   await page.locator('dialog details').first().locator('summary').click();
   assert.equal(await page.locator('dialog .billing-period').count(),0);
+  await page.evaluate(()=>fixture.card.dialog.close());await openCompactDetails(page,{manual_override:true,manual_energy:'17.675',manual_cost:'12.00',known_cost:'12.00'});
+  await page.locator('dialog details').first().locator('summary').click();
+  assert.equal(await page.locator('dialog .billing-period').count(),0);
+  assert.equal((await page.locator('dialog .billing-details').innerText()).match(/EUR 12.00/g)?.length,1);
 });
 test('real tariff periods expand beyond twelve and preserve negative and unknown prices',async t=>{
   const {page}=await createCardFixture(t);await openCompactDetails(page,{quality:[],quality_spans:[]});

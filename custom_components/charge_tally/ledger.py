@@ -708,8 +708,49 @@ class Ledger:
                     + f" ORDER BY json_extract(data,'$.{field}'),id LIMIT ?",
                     [cutoff, *([after[0], *after] if after else []), remaining + 1],
                 ).fetchall()
-                for row in rows[:remaining]:
-                    item = json.loads(row[0])
+                candidates = [json.loads(row[0]) for row in rows[:remaining]]
+                historical = set()
+                if candidates:
+                    if phase == "observations":
+                        historical = {
+                            row[0]
+                            for row in self._db.execute(
+                                "SELECT DISTINCT json_extract(segment.value,'$.observation_id') "
+                                "FROM revisions,json_each(revisions.data,'$.segments') AS segment "
+                                "WHERE json_extract(segment.value,'$.observation_id') "
+                                "IN (SELECT value FROM json_each(?))",
+                                (encode([item["id"] for item in candidates]),),
+                            )
+                        }
+                    else:
+                        # Materialize relevant revision ranges once, not once per price.
+                        historical = {
+                            row[0]
+                            for row in self._db.execute(
+                                "WITH history AS MATERIALIZED ("
+                                "SELECT DISTINCT json_extract(data,'$.record.point_id') AS point_id,"
+                                "json_extract(data,'$.record.start') AS start,"
+                                "json_extract(data,'$.record.end') AS end FROM revisions "
+                                "WHERE json_extract(data,'$.record.end') IS NOT NULL "
+                                "AND json_extract(data,'$.record.point_id') IN "
+                                "(SELECT json_extract(value,'$.point_id') FROM json_each(?))) "
+                                "SELECT DISTINCT candidate.id FROM json_each(?) AS selected "
+                                "JOIN price_versions AS candidate ON candidate.id=selected.value "
+                                "JOIN history ON history.point_id=json_extract(candidate.data,'$.point_id') "
+                                "AND history.end>json_extract(candidate.data,'$.at') "
+                                "AND history.start<COALESCE(("
+                                "SELECT json_extract(data,'$.at') FROM price_versions "
+                                "WHERE json_extract(data,'$.point_id')=json_extract(candidate.data,'$.point_id') "
+                                "AND json_extract(data,'$.at')>=json_extract(candidate.data,'$.at') "
+                                "AND (json_extract(data,'$.at'),id)>(json_extract(candidate.data,'$.at'),candidate.id) "
+                                "ORDER BY json_extract(data,'$.at'),id LIMIT 1),'9999')",
+                                (
+                                    encode(candidates),
+                                    encode([item["id"] for item in candidates]),
+                                ),
+                            )
+                        }
+                for item in candidates:
                     progress["after"] = [item[field], item["id"]]
                     if phase == "observations":
                         if (
@@ -721,11 +762,7 @@ class Ledger:
                             or self.overlaps(
                                 item["point_id"], item["start"], item["end"]
                             )
-                            or self._db.execute(
-                                "SELECT 1 FROM revisions,json_each(revisions.data,'$.segments') AS segment "
-                                "WHERE json_extract(segment.value,'$.observation_id')=? LIMIT 1",
-                                (item["id"],),
-                            ).fetchone()
+                            or item["id"] in historical
                         ):
                             continue
                     else:
@@ -753,13 +790,7 @@ class Ledger:
                                 "AND start<COALESCE(?,'9999') LIMIT 1",
                                 (item["point_id"], right),
                             ).fetchone()
-                            or self._db.execute(
-                                "SELECT 1 FROM revisions WHERE json_extract(data,'$.record.point_id')=? "
-                                "AND json_extract(data,'$.record.end') IS NOT NULL "
-                                "AND json_extract(data,'$.record.start')<COALESCE(?,'9999') "
-                                "AND json_extract(data,'$.record.end')>? LIMIT 1",
-                                (item["point_id"], right, item["at"]),
-                            ).fetchone()
+                            or item["id"] in historical
                         ):
                             continue
                         key = "_price_gaps:" + item["point_id"]

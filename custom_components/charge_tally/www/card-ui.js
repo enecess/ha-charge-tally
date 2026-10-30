@@ -55,7 +55,7 @@ export function billingDetails(detail,language,currency){
   if(manual)body.append(el('p',record.manual_cost==null?tr('manualAmountMissing',language):`${tr('manualAmount',language)}: ${recordCostState(record,currency,language).value}`));
   if(record.manual_override){
     body.append(el('p',tr('manualEnergyExplanation',language)));
-    return section;
+    if(manual)return section;
   }
   const missing=(record.quality_spans||[]).filter(span=>span.quality.includes('missing_energy'));
   // Fee allocations include unmeasured zero-energy spans; only raw measured parts
@@ -74,7 +74,7 @@ export function billingDetails(detail,language,currency){
   if(!periods.length&&!missing.length)body.append(el('p',tr('noCoverage',language)));
   if(hidden.length){const more=el('details',null,{class:'more-periods'});more.append(el('summary',tr('showAllPeriods',language)),...hidden);body.append(more);}
   const explanations=[];
-  if((record.quality||[]).some(flag=>['estimated','unavailable'].includes(flag)))explanations.push(tr('samplingExplanation',language));
+  if(!record.manual_override&&(record.quality||[]).some(flag=>['estimated','unavailable'].includes(flag)))explanations.push(tr('samplingExplanation',language));
   if((record.quality||[]).some(flag=>['missing_price','price_unknown'].includes(flag))&&!manual)explanations.push(tr('priceMissing',language));
   if(record.end_reason==='source_unavailable'&&recordCostState(record,currency,language).issue)explanations.push(tr('ended_source_unavailable',language));
   const rounded=(value,digits)=>{const text=formatDecimal(value,'en',digits,digits).replace(/[,.]/g,'');return /^-?\d+$/.test(text)?BigInt(text):null;};

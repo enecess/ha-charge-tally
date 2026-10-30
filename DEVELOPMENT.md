@@ -60,6 +60,9 @@ python -m unittest discover -s tests/core -p 'test_*.py'
 
 浏览器测试另需 Playwright 与浏览器运行时：通过 `PLAYWRIGHT_MODULE` 指定本机 Playwright 模块，必要时使用 `BROWSER_CHANNEL=msedge`，再执行 `node --test tests/browser/*.test.mjs`。
 
+The card browser regression also runs a real Accounting preview. Set `PYTHON` to
+a Python 3.13+ interpreter when it is not available as `python3` on the test PATH.
+
 ## PDF 报表验证
 
 运行依赖由 `manifest.json` 固定为 `reportlab==5.1.0`；PDF 解析测试依赖

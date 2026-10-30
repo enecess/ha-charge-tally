@@ -8,9 +8,13 @@ import custom_components.charge_tally  # noqa: F401  # Load this checkout before
 
 
 @pytest.fixture(autouse=True)
-def sqlalchemy_warning_logs(caplog):
+def sqlalchemy_warning_logs():
     """Keep Recorder warnings and errors without the plugin's SQL INFO chatter."""
-    caplog.set_level(logging.WARNING, logger="sqlalchemy.engine")
+    logger = logging.getLogger("sqlalchemy.engine")
+    level = logger.level
+    logger.setLevel(logging.WARNING)
+    yield
+    logger.setLevel(level)
 
 
 @pytest.fixture(autouse=True)
