@@ -723,30 +723,57 @@ class Ledger:
                             )
                         }
                     else:
-                        # Materialize relevant revision ranges once, not once per price.
+                        # Reuse each successor boundary before matching audit ranges.
+                        following = {
+                            item["id"]: row[0]
+                            if (
+                                row := self._db.execute(
+                                    "SELECT json_extract(data,'$.at') FROM price_versions WHERE json_extract(data,'$.point_id')=? "
+                                    "AND json_extract(data,'$.at')>=? AND (json_extract(data,'$.at'),id)>(?,?) ORDER BY json_extract(data,'$.at'),id LIMIT 1",
+                                    (
+                                        item["point_id"],
+                                        item["at"],
+                                        item["at"],
+                                        item["id"],
+                                    ),
+                                ).fetchone()
+                            )
+                            else None
+                            for item in candidates
+                        }
                         historical = {
                             row[0]
                             for row in self._db.execute(
-                                "WITH history AS MATERIALIZED ("
+                                "WITH candidates AS MATERIALIZED ("
+                                "SELECT json_extract(value,'$.id') AS id,"
+                                "json_extract(value,'$.point_id') AS point_id,"
+                                "json_extract(value,'$.start') AS start,"
+                                "json_extract(value,'$.end') AS end FROM json_each(?)),"
+                                "history AS MATERIALIZED ("
                                 "SELECT DISTINCT json_extract(data,'$.record.point_id') AS point_id,"
                                 "json_extract(data,'$.record.start') AS start,"
                                 "json_extract(data,'$.record.end') AS end FROM revisions "
                                 "WHERE json_extract(data,'$.record.end') IS NOT NULL "
                                 "AND json_extract(data,'$.record.point_id') IN "
-                                "(SELECT json_extract(value,'$.point_id') FROM json_each(?))) "
-                                "SELECT DISTINCT candidate.id FROM json_each(?) AS selected "
-                                "JOIN price_versions AS candidate ON candidate.id=selected.value "
-                                "JOIN history ON history.point_id=json_extract(candidate.data,'$.point_id') "
-                                "AND history.end>json_extract(candidate.data,'$.at') "
-                                "AND history.start<COALESCE(("
-                                "SELECT json_extract(data,'$.at') FROM price_versions "
-                                "WHERE json_extract(data,'$.point_id')=json_extract(candidate.data,'$.point_id') "
-                                "AND json_extract(data,'$.at')>=json_extract(candidate.data,'$.at') "
-                                "AND (json_extract(data,'$.at'),id)>(json_extract(candidate.data,'$.at'),candidate.id) "
-                                "ORDER BY json_extract(data,'$.at'),id LIMIT 1),'9999')",
+                                "(SELECT point_id FROM candidates) "
+                                "AND json_extract(data,'$.record.end')>(SELECT min(start) FROM candidates) "
+                                "AND json_extract(data,'$.record.start')<(SELECT max(COALESCE(end,'9999')) FROM candidates)) "
+                                "SELECT DISTINCT candidate.id FROM candidates AS candidate "
+                                "JOIN history ON history.point_id=candidate.point_id "
+                                "AND history.end>candidate.start "
+                                "AND history.start<COALESCE(candidate.end,'9999')",
                                 (
-                                    encode(candidates),
-                                    encode([item["id"] for item in candidates]),
+                                    encode(
+                                        [
+                                            {
+                                                "id": item["id"],
+                                                "point_id": item["point_id"],
+                                                "start": item["at"],
+                                                "end": following[item["id"]],
+                                            }
+                                            for item in candidates
+                                        ]
+                                    ),
                                 ),
                             )
                         }
@@ -773,12 +800,7 @@ class Ledger:
                         ).fetchone()
                         if anchor[0] == item["id"]:
                             continue
-                        following = self._db.execute(
-                            "SELECT json_extract(data,'$.at') FROM price_versions WHERE json_extract(data,'$.point_id')=? "
-                            "AND json_extract(data,'$.at')>=? AND (json_extract(data,'$.at'),id)>(?,?) ORDER BY json_extract(data,'$.at'),id LIMIT 1",
-                            (item["point_id"], item["at"], item["at"], item["id"]),
-                        ).fetchone()
-                        right = following[0] if following else None
+                        right = following[item["id"]]
                         if (
                             self._db.execute(
                                 "SELECT 1 FROM observations WHERE json_extract(data,'$.point_id')=? "

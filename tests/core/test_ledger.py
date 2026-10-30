@@ -73,7 +73,7 @@ class LedgerTests(unittest.TestCase):
         with closing(Ledger(":memory:")) as ledger:
             ledger.put_point({"id": "p"})
             ledger.put_identity({"id": "i", "name": "Car"})
-            start = datetime(2025, 1, 1, tzinfo=UTC)
+            start = datetime(2022, 1, 1, tzinfo=UTC)
             for index in range(302):
                 ledger.put_price_version(
                     dict(
@@ -93,17 +93,20 @@ class LedgerTests(unittest.TestCase):
                 end=(start + timedelta(seconds=2)).isoformat(),
             )
             ledger.save_record(record, [])
-            for revision in range(2, 1002):
+            for index in range(1001):
+                left = start + timedelta(days=2, hours=8 * index)
                 ledger.save_record(
                     {
                         **record,
-                        "revision": revision,
-                        "start": (start + timedelta(days=2)).isoformat(),
-                        "end": (start + timedelta(days=3)).isoformat(),
+                        "id": f"past-{index}",
+                        "start": left.isoformat(),
+                        "end": (left + timedelta(hours=1)).isoformat(),
                     },
                     [],
                 )
-            history = ledger.list_revisions("r")
+            history = ledger._db.execute(
+                "SELECT data FROM revisions ORDER BY record_id,revision"
+            ).fetchall()
             statements = []
             work = []
             ledger._db.set_trace_callback(statements.append)
@@ -115,7 +118,12 @@ class LedgerTests(unittest.TestCase):
             self.assertEqual(
                 ledger.get_checkpoint("_prune_progress")["after"][1], "299"
             )
-            self.assertEqual(ledger.list_revisions("r"), history)
+            self.assertEqual(
+                ledger._db.execute(
+                    "SELECT data FROM revisions ORDER BY record_id,revision"
+                ).fetchall(),
+                history,
+            )
             self.assertIsNotNone(ledger._get("price_versions", "1"))
             self.assertIsNotNone(ledger._get("price_versions", "300"))
             audit_queries = [sql for sql in statements if "FROM revisions" in sql]
@@ -138,6 +146,74 @@ class LedgerTests(unittest.TestCase):
                     {
                         "start": (start + timedelta(seconds=2)).isoformat(),
                         "end": (start + timedelta(seconds=301)).isoformat(),
+                    },
+                ],
+            )
+
+    def test_price_prune_preserves_tied_successors_across_candidate_batches(self):
+        from datetime import timedelta
+
+        with closing(Ledger(":memory:")) as ledger:
+            ledger.put_point({"id": "p"})
+            ledger.put_identity({"id": "i", "name": "Car"})
+            start = datetime(2022, 1, 1, tzinfo=UTC)
+            for id_, second in (
+                ("old", 0),
+                ("tie-a", 1),
+                ("tie-b", 1),
+                ("next", 2),
+                ("anchor", 3),
+            ):
+                ledger.put_price_version(
+                    {
+                        "id": id_,
+                        "point_id": "p",
+                        "price": "0.5",
+                        "at": (start + timedelta(seconds=second)).isoformat(),
+                    }
+                )
+            ledger.save_record(
+                {
+                    "id": "r",
+                    "point_id": "p",
+                    "identity_id": "i",
+                    "revision": 1,
+                    "status": "ended",
+                    "start": (start + timedelta(seconds=1)).isoformat(),
+                    "end": (start + timedelta(seconds=2)).isoformat(),
+                },
+                [],
+            )
+            history = ledger.list_revisions("r")
+            cutoff = datetime(2026, 1, 1, tzinfo=UTC)
+            self.assertEqual(ledger.prune(cutoff, limit=2), 2)
+            self.assertEqual(
+                ledger.get_checkpoint("_prune_progress"),
+                {
+                    "phase": "price_versions",
+                    "cutoff": cutoff.isoformat(),
+                    "after": [(start + timedelta(seconds=1)).isoformat(), "tie-a"],
+                },
+            )
+            self.assertIsNotNone(ledger._get("price_versions", "tie-b"))
+            self.assertEqual(ledger.prune(cutoff, limit=2), 1)
+            self.assertEqual(ledger.prune(cutoff, limit=2), 0)
+            self.assertFalse(ledger.prune_pending())
+            self.assertEqual(
+                [row["id"] for row in ledger.list_price_versions("p")],
+                ["tie-b", "anchor"],
+            )
+            self.assertEqual(ledger.list_revisions("r"), history)
+            self.assertEqual(
+                ledger.get_checkpoint("_price_gaps:p"),
+                [
+                    {
+                        "start": start.isoformat(),
+                        "end": (start + timedelta(seconds=1)).isoformat(),
+                    },
+                    {
+                        "start": (start + timedelta(seconds=2)).isoformat(),
+                        "end": (start + timedelta(seconds=3)).isoformat(),
                     },
                 ],
             )
