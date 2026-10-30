@@ -76,7 +76,8 @@ ledger.close()
   assert.equal('manual_cost'in detail.record,false);
   assert.deepEqual(detail.billing_periods.map(part=>Number(part.unit_price)),[0.25,0.5]);
   const {page}=await createCardFixture(t);
-  await page.evaluate(detail=>fixture.card.openDialog('details',detail),detail);
+  await page.evaluate(detail=>{const c=fixture.card;c.expanded.records=true;c.page={records:[detail.record],total:1,limit:25};c.render();c.openDialog('details',detail);},detail);
+  await t.test('record row identifies the entered energy',async()=>assert.match(await page.locator('[data-record-id]').innerText(),/Manual energy: 6 kWh/));
   assert.equal(await page.locator('dialog details').first().getAttribute('open'),null);
   await page.locator('dialog details').first().locator('summary').click();
   assert.equal(await page.locator('dialog .billing-period:visible').count(),2);
@@ -90,6 +91,7 @@ ledger.close()
   await page.getByRole('button',{name:'Preview changes',exact:true}).click();
   await page.waitForFunction(()=>fixture.pending.length===1);
   await page.evaluate(detail=>fixture.pending[0].resolve({...detail,token:'manual-tariff',coverage:[],overlaps:[]}),detail);
+  await t.test('Before summary retains the entered energy source',async()=>assert.match(await page.locator('dialog .preview > .grid').innerText(),/Manual energy\s+6 kWh/));
   assert.equal(await page.locator('dialog .preview details').getAttribute('open'),null);
   await page.locator('dialog .preview details summary').click();
   assert.equal(await page.locator('dialog .preview .billing-period:visible').count(),2);

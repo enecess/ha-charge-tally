@@ -33,7 +33,7 @@ export function updateLabels(target,source,mapping=new Map()){
 export function input(type,value=''){const node=el('input',null,{type});node.value=value;return node;}
 export function metric(label,value){const node=el('div',null,{class:'metric'});node.append(el('small',label),el('div',value,{class:'value'}));return node;}
 export function quality(flags,language){return (flags||[]).map(flag=>tr(flag,language)).join(' · ');}
-export function summaryView(summary,currency,language){const node=el('div',null,{class:'grid'}),cost=summary?.status?recordCostState(summary,currency,language):{label:summary?.cost_complete?'cost':'calculatedCost',value:formatCost(summary,currency,language)};node.append(metric(tr('energy',language),`${formatDecimal(summary?.energy_kwh,language)} kWh`),metric(tr(cost.label,language),cost.value));return node;}
+export function summaryView(summary,currency,language){const node=el('div',null,{class:'grid'}),cost=summary?.status?recordCostState(summary,currency,language):{label:summary?.cost_complete?'cost':'calculatedCost',value:formatCost(summary,currency,language)};node.append(metric(tr(summary?.status&&summary.manual_override?'manualEnergyLabel':'energy',language),`${formatDecimal(summary?.energy_kwh,language)} kWh`),metric(tr(cost.label,language),cost.value));return node;}
 export function dateText(value,timezone){if(!value)return '—';try{return localInput(value,timezone).replace('T',' ');}catch{return value;}}
 export function recordOverview(record,currency,language){
   const view=el('div',null,{class:'stack record-overview'}),metrics=el('div',null,{class:'record-metrics'}),cost=recordCostState(record,currency,language);
