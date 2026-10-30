@@ -158,6 +158,7 @@ async def test_preview_displays_one_segment_but_commits_two_exact_intervals(
     assert response["success"] is True
     preview = response["result"]
     assert len(preview["segments"]) == 1
+    assert len(preview["billing_periods"]) == 1
     assert Decimal(preview["segments"][0]["energy_kwh"]) == Decimal("0.004")
     assert "_accounted_until" not in preview["record"]
     assert "_segment_count" not in preview["record"]
@@ -673,6 +674,7 @@ async def test_preview_bound_to_user_and_commit_reauthorizes(
     "payload",
     [
         {"type": "charge_tally/records", "limit": True},
+        {"type": "charge_tally/records", "include_history": "false"},
         {"type": "charge_tally/records", "limit": 101},
         {"type": "charge_tally/query", "start": "2025-01-01", "end": "2025-01-02"},
         {
@@ -826,4 +828,160 @@ async def test_total_query_scopes_bucket_data_and_counts(
     assert len(result["buckets"]) == 1
     assert result["buckets"][0]["energy_kwh"] == "1"
     assert result["buckets"][0]["has_known_cost"] is True
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_record_history_is_lazy_and_mutation_authorization_uses_metadata(
+    hass, tmp_path, hass_ws_client, monkeypatch
+):
+    entry, runtime = await setup_runtime(hass, tmp_path)
+    record = await runtime.async_command(
+        "start", {"point_id": "point", "request_id": "history"}
+    )
+    client = await hass_ws_client(hass)
+    await client.send_json(
+        {"id": 1, "type": "charge_tally/records", "record_id": record["id"]}
+    )
+    detail = (await client.receive_json())["result"]
+    assert len(detail["revisions"]) == 1
+    assert "billing_periods" in detail
+
+    def no_full_history(*args):
+        raise AssertionError("This request must not load complete revision evidence")
+
+    monkeypatch.setattr(runtime._store.ledger, "list_revisions", no_full_history)
+    await client.send_json(
+        {
+            "id": 2,
+            "type": "charge_tally/records",
+            "record_id": record["id"],
+            "include_history": False,
+        }
+    )
+    detail = (await client.receive_json())["result"]
+    assert detail["revisions"] == []
+    assert detail["record"]["revision"] == 1
+    await client.send_json(
+        {"id": 3, "type": "charge_tally/record_history", "record_id": record["id"]}
+    )
+    history = (await client.receive_json())["result"]
+    assert history["record_id"] == record["id"]
+    assert history["revision"] == 1
+    assert len(history["records"]) == 1
+    assert history["records"][0]["identity_id"] == "unassigned"
+    assert "segments" not in history["records"][0]
+    assert "_segment_count" not in history["records"][0]
+    await client.send_json(
+        {
+            "id": 4,
+            "type": "charge_tally/reassign",
+            "record_id": record["id"],
+            "identity_id": "unassigned",
+            "expected_revision": 1,
+            "request_id": "same",
+        }
+    )
+    saved = (await client.receive_json())["result"]
+    assert saved["revision"] == 1
+    await client.send_json(
+        {
+            "id": 5,
+            "type": "charge_tally/reassign",
+            "record_id": record["id"],
+            "identity_id": "unassigned",
+            "expected_revision": 1,
+            "request_id": "same",
+        }
+    )
+    assert (await client.receive_json())["result"] == saved
+    await client.send_json(
+        {
+            "id": 6,
+            "type": "charge_tally/reassign",
+            "record_id": record["id"],
+            "identity_id": "unassigned",
+            "expected_revision": 2,
+            "request_id": "stale-same",
+        }
+    )
+    assert (await client.receive_json())["error"]["code"] == "conflict"
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_record_history_enforces_point_scope_and_authorized_record_lookup(
+    hass, tmp_path, hass_ws_client, hass_read_only_access_token, hass_read_only_user
+):
+    entry, runtime = await setup_runtime(hass, tmp_path)
+    await second_point(hass, entry, runtime)
+    own = await runtime.async_command(
+        "start", {"point_id": "point", "request_id": "own-history"}
+    )
+    foreign = await runtime.async_command(
+        "start", {"point_id": "other", "request_id": "foreign-history"}
+    )
+    anchor = next(
+        p["identity_entity_id"]
+        for p in (await runtime.async_snapshot())["points"]
+        if p["id"] == "point"
+    )
+    hass_read_only_user.permissions = PolicyPermissions(
+        {"entities": {"entity_ids": {anchor: True}}}, None
+    )
+    client = await hass_ws_client(hass, access_token=hass_read_only_access_token)
+    for index, payload in enumerate(
+        (
+            {"record_id": own["id"]},
+            {"record_id": foreign["id"]},
+            {"record_id": own["id"], "point_id": "other"},
+            {"record_id": "missing"},
+        ),
+        1,
+    ):
+        await client.send_json(
+            {"id": index, "type": "charge_tally/record_history", **payload}
+        )
+        response = await client.receive_json()
+        if index == 1:
+            assert response["result"]["records"][0]["id"] == own["id"]
+        else:
+            assert response["error"]["code"] == "unauthorized"
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_record_history_rechecks_authorization_after_queued_read(
+    hass, tmp_path, hass_read_only_user, monkeypatch
+):
+    from homeassistant.exceptions import Unauthorized
+
+    from custom_components.charge_tally.api import execute
+
+    entry, runtime = await setup_runtime(hass, tmp_path)
+    record = await runtime.async_command(
+        "start", {"point_id": "point", "request_id": "queued-history"}
+    )
+    anchor = (await runtime.async_snapshot())["points"][0]["identity_entity_id"]
+    hass_read_only_user.permissions = PolicyPermissions(
+        {"entities": {"entity_ids": {anchor: True}}}, None
+    )
+    await runtime.async_pre_backup()
+    entered = asyncio.Event()
+    wait = runtime._gate.wait
+
+    async def waiting():
+        entered.set()
+        return await wait()
+
+    monkeypatch.setattr(runtime._gate, "wait", waiting)
+    task = asyncio.create_task(
+        execute(
+            hass, hass_read_only_user, "record_history", {"record_id": record["id"]}
+        )
+    )
+    await entered.wait()
+    hass_read_only_user.permissions = PolicyPermissions(
+        {"entities": {"entity_ids": {}}}, None
+    )
+    runtime.async_post_backup()
+    with pytest.raises(Unauthorized):
+        await task
     await hass.config_entries.async_unload(entry.entry_id)

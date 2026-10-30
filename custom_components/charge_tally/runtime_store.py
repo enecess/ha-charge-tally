@@ -848,7 +848,10 @@ class RuntimeStore:
             return detail_view(
                 record,
                 self.ledger.list_segments(record["id"]),
-                self.ledger.list_revisions(record["id"]),
+                self.ledger.list_revisions(record["id"])
+                if data.get("include_history", True)
+                else [],
+                include_history=data.get("include_history", True),
             )
         if command == "summary":
             return summarize(
@@ -1111,15 +1114,29 @@ class RuntimeStore:
         )
         if command == "summary":
             return self.scoped_summary(allowed, data)
-        if command == "record":
+        if command in ("record", "record_metadata", "record_history"):
             record = self.ledger.get_record(data["record_id"])
             if not record or record["point_id"] not in allowed:
                 raise ValueError("Unknown authorized record")
+            if command == "record_metadata":
+                return {key: record[key] for key in ("id", "point_id", "revision")}
+            if command == "record_history":
+                return {
+                    "record_id": record["id"],
+                    "revision": record["revision"],
+                    "records": [
+                        record_view(snapshot)
+                        for snapshot in self.ledger.list_revision_records(record["id"])
+                    ],
+                }
             return {
                 **detail_view(
                     record,
                     self.ledger.list_segments(record["id"]),
-                    self.ledger.list_revisions(record["id"]),
+                    self.ledger.list_revisions(record["id"])
+                    if data.get("include_history", True)
+                    else [],
+                    include_history=data.get("include_history", True),
                 ),
                 "point": self.ledger.get_point(record["point_id"]),
                 "identity": self.ledger.get_identity(record["identity_id"]),

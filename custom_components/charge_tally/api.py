@@ -23,7 +23,7 @@ from homeassistant.exceptions import ServiceValidationError, Unauthorized
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
-from .core.billing import billing_segments
+from .core.billing import billing_periods, billing_segments
 from .record_views import record_view
 
 if TYPE_CHECKING:
@@ -85,9 +85,11 @@ SCHEMAS = {
     "records": {
         **FILTER,
         vol.Optional("record_id"): ID,
+        vol.Optional("include_history", default=True): bool,
         vol.Optional("offset", default=0): vol.All(integer, vol.Range(min=0)),
         vol.Optional("limit", default=50): vol.All(integer, vol.Range(min=1, max=100)),
     },
+    "record_history": {**SCOPE, vol.Required("record_id"): ID},
     "preview": {
         **FILTER,
         vol.Optional("record_id"): ID,
@@ -211,7 +213,7 @@ async def execute(
     data = dict(payload)
     if command == "snapshot":
         return await public_snapshot(runtime, user, data.get("point_id"))
-    if command in ("query", "records"):
+    if command in ("query", "records", "record_history"):
         if command == "query":
             if "calendar_period" in data:
                 if "start" in data or "end" in data:
@@ -232,7 +234,9 @@ async def execute(
                 user,
                 data.get("point_id"),
                 lambda ids: runtime.async_query(
-                    "record"
+                    "record_history"
+                    if command == "record_history"
+                    else "record"
                     if data.get("record_id")
                     else "summary"
                     if command == "query"
@@ -248,14 +252,14 @@ async def execute(
     principal = user.id if user else "system"
     if data.get("record_id"):
         try:
-            detail = await runtime.async_query(
-                "record",
+            metadata = await runtime.async_query(
+                "record_metadata",
                 {"record_id": data["record_id"]},
                 point_ids=await allowed_points(runtime, user),
             )
         except ValueError:
             raise Unauthorized() from None
-        point_id = detail["record"]["point_id"]
+        point_id = metadata["point_id"]
         if data.get("point_id", point_id) != point_id:
             raise Unauthorized()
     elif command == "commit":
@@ -286,6 +290,9 @@ async def execute(
             **result,
             "record": record_view(result["record"]),
             "segments": billing_segments(result["segments"]),
+            "billing_periods": billing_periods(
+                result["segments"], result["record"].get("quality_spans", ())
+            ),
         }
         result.pop("basis_version", None)
         result.pop("basis_fingerprint", None)

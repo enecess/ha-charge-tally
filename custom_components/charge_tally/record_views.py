@@ -1,6 +1,6 @@
 """Shared public record projections, separate from persisted evidence."""
 
-from .core.billing import billing_segments
+from .core.billing import billing_periods, billing_segments
 
 
 def record_view(record: dict, parts: list[dict] | None = None) -> dict:
@@ -24,10 +24,15 @@ def revision_view(revision: dict) -> dict:
     }
 
 
-def detail_view(record: dict, parts: list[dict], revisions: list[dict]) -> dict:
+def detail_view(
+    record: dict, parts: list[dict], revisions: list[dict], *, include_history=True
+) -> dict:
     """Build the shared public record detail."""
     return {
         "record": record_view(record, parts),
         "segments": billing_segments(parts),
-        "revisions": [revision_view(revision) for revision in revisions],
+        "billing_periods": billing_periods(parts, record.get("quality_spans", ())),
+        "revisions": [revision_view(revision) for revision in revisions]
+        if include_history
+        else [],
     }

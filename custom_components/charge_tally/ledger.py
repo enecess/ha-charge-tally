@@ -511,6 +511,23 @@ class Ledger:
             )
         ]
 
+    def list_revision_records(self, record_id: str):
+        """Decode audit records without transferring historical segment payloads."""
+        result = []
+        for row in self._db.execute(
+            "SELECT json_extract(data,'$.record'), "
+            "CASE WHEN json_type(data,'$.record.has_known_cost') IS NULL THEN "
+            "EXISTS(SELECT 1 FROM json_each(revisions.data,'$.segments') "
+            "WHERE json_extract(value,'$.cost') IS NOT NULL) END "
+            "FROM revisions WHERE record_id=? ORDER BY revision",
+            (record_id,),
+        ):
+            record = json.loads(row[0])
+            if "has_known_cost" not in record:
+                record["has_known_cost"] = bool(row[1])
+            result.append(record)
+        return result
+
     def get_request(self, request_id: str):
         return self._get("requests", request_id)
 

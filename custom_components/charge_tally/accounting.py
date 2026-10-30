@@ -97,10 +97,7 @@ class Accounting:
         if expected_revision is not None and record["revision"] != expected_revision:
             raise ValueError("Record revision conflict")
         if "has_known_cost" not in record:
-            record["has_known_cost"] = any(
-                part["cost"] is not None
-                for part in self.ledger.list_segments(record_id)
-            )
+            record["has_known_cost"] = self.ledger.has_known_cost(record_id)
         return record
 
     def _build(self, record):
@@ -484,6 +481,8 @@ class Accounting:
         with self.ledger.transaction():
             record = self._record(record_id, expected_revision)
             self._references(record["point_id"], identity_id, record)
+            if record["identity_id"] == identity_id:
+                return record
             record.update(identity_id=identity_id, revision=record["revision"] + 1)
             self.ledger.save_record(record, self.ledger.list_segments(record_id))
             return record
@@ -537,6 +536,21 @@ class Accounting:
             timezone = merged.get("timezone", "Asia/Shanghai")
             ZoneInfo(timezone)
             self._references(merged["point_id"], merged["identity_id"], original)
+            energy = (
+                decimal_value(data["energy_kwh"], nonnegative=True)
+                if "energy_kwh" in data
+                else Decimal(original["manual_energy"])
+                if original and original.get("manual_override")
+                else None
+            )
+            cost = data.get("cost", original.get("manual_cost") if original else None)
+            cost = (
+                None
+                if cost is None
+                else decimal_value(cost)
+                if "cost" in data
+                else Decimal(cost)
+            )
             record = dict(
                 id=original["id"] if original else uuid4().hex,
                 point_id=merged["point_id"],
@@ -549,21 +563,39 @@ class Accounting:
                 revision=original["revision"] + 1 if original else 1,
                 note=merged.get("note", ""),
             )
-            basis_changed = bool(
-                set(data)
-                & {
-                    "start",
-                    "end",
-                    "point_id",
-                    "timezone",
-                    "energy_kwh",
-                    "cost",
-                    "prices",
-                }
+            basis_changed = not original or (
+                start != instant(original["start"])
+                or end != instant(original["end"])
+                or record["point_id"] != original["point_id"]
+                or timezone != original["timezone"]
+                or "prices" in data
+                or (
+                    "energy_kwh" in data
+                    and (
+                        not original.get("manual_override")
+                        or energy != Decimal(original["manual_energy"])
+                    )
+                )
+                or (
+                    "cost" in data
+                    and (
+                        "manual_cost" not in original
+                        or cost
+                        != (
+                            None
+                            if original["manual_cost"] is None
+                            else Decimal(original["manual_cost"])
+                        )
+                    )
+                )
             )
             dependencies = {"intervals": False, "prices": False}
             if original and not basis_changed:
                 record = {**original, **record, "source": original["source"]}
+                if record["identity_id"] == original["identity_id"] and record[
+                    "note"
+                ] == original.get("note", ""):
+                    record = dict(original)
                 segments = self.ledger.list_segments(original["id"])
                 coverage = [
                     {"start": s["start"], "end": s["end"]}
@@ -571,13 +603,6 @@ class Accounting:
                     if s.get("observation_id")
                 ]
             elif "energy_kwh" in data or (original and original.get("manual_override")):
-                energy = decimal_value(
-                    data.get(
-                        "energy_kwh",
-                        original.get("manual_energy") if original else None,
-                    ),
-                    nonnegative=True,
-                )
                 record.update(
                     source="manual", manual_override=True, manual_energy=str(energy)
                 )
@@ -596,10 +621,6 @@ class Accounting:
                     start, end, energy, timezone, [] if explicit_cost else prices
                 )
                 if explicit_cost:
-                    cost = data.get(
-                        "cost", original.get("manual_cost") if original else None
-                    )
-                    cost = None if cost is None else decimal_value(cost)
                     record["manual_cost"] = None if cost is None else str(cost)
                     allocated = Decimal(0)
                     with localcontext() as ctx:
@@ -637,12 +658,9 @@ class Accounting:
             else:
                 dependencies["intervals"] = True
                 if "cost" in data or (original and original.get("manual_fee_override")):
-                    cost = data.get(
-                        "cost", original.get("manual_cost") if original else None
-                    )
                     record.update(
                         manual_fee_override=True,
-                        manual_cost=None if cost is None else str(decimal_value(cost)),
+                        manual_cost=None if cost is None else str(cost),
                     )
                 record, segments, coverage = self._build(record)
                 record["quality"] = sorted(
@@ -692,6 +710,8 @@ class Accounting:
             self._references(record["point_id"], record["identity_id"], original)
             if instant(record["end"]) > datetime.now(UTC):
                 raise ValueError("Historical end is in the future")
+            if original is not None and record == original:
+                return original
             self.ledger.save_record(record, data["segments"])
             return record
 

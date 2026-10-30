@@ -735,3 +735,70 @@ class AccountingTests(unittest.TestCase):
         other = self.app.start("work", "company", T + timedelta(days=1), "other")
         with self.assertRaises(ValueError):
             self.app.reassign(other["id"], "personal", other["revision"])
+
+    def test_same_identity_reassign_preserves_revision_and_audit(self):
+        record = self.app.start("home", "personal", T, "same-start")
+        before = self.ledger.list_revisions(record["id"])
+        with patch.object(
+            self.ledger,
+            "list_segments",
+            side_effect=AssertionError("No segment copy needed"),
+        ):
+            result = self.app.reassign(record["id"], "personal", record["revision"])
+        self.assertEqual(result, record)
+        self.assertEqual(self.ledger.list_revisions(record["id"]), before)
+        with self.assertRaisesRegex(ValueError, "revision"):
+            self.app.reassign(record["id"], "personal", record["revision"] + 1)
+
+    def test_unchanged_preview_preserves_revision_audit_and_retry_receipt(self):
+        record = self.app.commit_preview(
+            self.app.preview(self.manual(cost="0"))["token"], "initial"
+        )
+        before = self.ledger.list_revisions(record["id"])
+        for changes in (
+            {"note": "manual"},
+            {
+                "start": T,
+                "end": T + timedelta(hours=3),
+                "energy_kwh": "21.00",
+                "cost": "0.00",
+                "note": "manual",
+            },
+        ):
+            preview = self.app.preview(
+                {
+                    "record_id": record["id"],
+                    "expected_revision": record["revision"],
+                    **changes,
+                }
+            )
+            self.assertEqual(preview["record"]["revision"], record["revision"])
+            with patch.object(
+                self.ledger,
+                "save_record",
+                side_effect=AssertionError("No snapshot copy needed"),
+            ):
+                saved = self.app.commit_preview(preview["token"], preview["token"])
+                self.assertEqual(saved, record)
+                self.assertEqual(
+                    self.app.commit_preview(preview["token"], preview["token"]), record
+                )
+            self.assertEqual(self.ledger.list_revisions(record["id"]), before)
+        with self.assertRaisesRegex(ValueError, "revision"):
+            self.app.preview(
+                {
+                    "record_id": record["id"],
+                    "expected_revision": record["revision"] + 1,
+                    "note": "manual",
+                }
+            )
+        preview = self.app.preview(
+            {
+                "record_id": record["id"],
+                "expected_revision": record["revision"],
+                "note": "manual",
+            }
+        )
+        self.app.reassign(record["id"], "company", record["revision"])
+        with self.assertRaisesRegex(ValueError, "stale"):
+            self.app.commit_preview(preview["token"], "stale-noop")
