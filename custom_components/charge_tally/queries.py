@@ -176,7 +176,7 @@ def summarize(
                 count = len(checkpoint[0])
                 if checkpoint[0] == signatures[:count]:
                     position = count
-                elif count and count == len(records):
+                elif count and count == len(records) and checkpoint[2] is not None:
                     previous = checkpoint[2]
                     current = records[-1]
                     if (

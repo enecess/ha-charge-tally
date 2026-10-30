@@ -207,6 +207,38 @@ def test_summary_cache_keeps_scope_calendar_and_edits_separate(tmp_path, freezer
     store.ledger.close()
 
 
+@pytest.mark.parametrize("operation", ["void", "reassign"])
+def test_removing_earlier_record_commits_with_warm_runtime_summaries(
+    tmp_path, operation
+):
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    store, _ = configured(tmp_path, at)
+    store.ledger.put_identity({"id": "other", "name": "Other"})
+    historical = save_report_record(store, energy="2")
+    start = at + timedelta(days=1)
+    store.accounting.start("p", "i", start, "active-start", timezone="UTC")
+    store.accounting.add_interval(
+        "p", start, start + timedelta(seconds=1), Decimal(1), [(start, Decimal(2))]
+    )
+    store.snapshot()
+    payload = {
+        "record_id": historical["id"],
+        "expected_revision": historical["revision"],
+    }
+    if operation == "reassign":
+        payload["identity_id"] = "other"
+    _, snapshot = store.apply(
+        "command", operation, payload, start + timedelta(seconds=1)
+    )
+    identity = next(item for item in snapshot["identities"] if item["id"] == "i")
+    assert identity["summaries"]["total"]["energy_kwh"] == "1"
+    assert snapshot["summary"]["energy_kwh"] == ("1" if operation == "void" else "3")
+    saved = store.ledger.get_record(historical["id"])
+    assert saved["status"] == ("void" if operation == "void" else "ended")
+    assert saved["identity_id"] == ("other" if operation == "reassign" else "i")
+    store.ledger.close()
+
+
 def test_rolled_back_summary_is_not_reused_by_next_measurement(tmp_path, monkeypatch):
     at = datetime(2026, 1, 1, tzinfo=UTC)
     store, _ = configured(tmp_path, at)

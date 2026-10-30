@@ -321,6 +321,39 @@ def test_summary_rebuilds_changed_suffix(tmp_path, monkeypatch, change):
     ledger.close()
 
 
+@pytest.mark.parametrize("operation", ["void", "reassign"])
+def test_removing_earlier_record_does_not_resume_stable_checkpoint_as_tail(
+    tmp_path, operation
+):
+    ledger = Ledger(str(tmp_path / "ledger.sqlite3"))
+    ledger.put_identity({"id": "i", "name": "Car"})
+    ledger.put_identity({"id": "other", "name": "Other"})
+    ledger.put_point({"id": "p", "name": "Point"})
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    first = summary_record(ledger, "p", start, summary_parts(start, 1, energy="2"))
+    start += timedelta(days=1)
+    summary_record(ledger, "p", start, summary_parts(start, 1, energy="1"), active=True)
+    cache = {}
+    options = {"identity_id": "i", "bucket_period": "day"}
+    assert (
+        queries.summarize(ledger, None, None, cache=cache, **options)["energy_kwh"]
+        == "3"
+    )
+    accounting = Accounting(ledger)
+    if operation == "void":
+        accounting.void(first["id"], first["revision"])
+    else:
+        accounting.reassign(first["id"], "other", first["revision"])
+    uncached = queries.summarize(ledger, None, None, **options)
+    assert uncached["energy_kwh"] == "1"
+    cached = queries.summarize(ledger, None, None, cache=cache, **options)
+    assert cached == uncached
+    assert cached["matched_count"] == cached["active_count"] == 1
+    assert cached["completed_count"] == 0
+    assert [bucket["energy_kwh"] for bucket in cached["buckets"]] == ["1"]
+    ledger.close()
+
+
 def test_summary_resumed_dst_fold_retains_both_hours(tmp_path):
     ledger = Ledger(str(tmp_path / "ledger.sqlite3"))
     ledger.put_identity({"id": "i", "name": "Car"})
