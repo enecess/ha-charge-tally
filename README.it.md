@@ -251,7 +251,7 @@ Ogni punto corrente mostra nome, stato, **Potenza**, **Prezzo attuale** e stato 
 
 In **Statistiche delle registrazioni → Periodo delle statistiche**, scegli **Oggi / Questo mese / Quest’anno / Dall’inizio / Intervallo personalizzato**. Per date personalizzate, indica **Inizio** e **Fine (esclusa)**, poi **Applica intervallo**. Per tutto il 1° settembre, per esempio, imposta inizio al 1° e fine al 2 settembre.
 
-Il riepilogo mostra **Energia**, **Costo**, **Attive / completate** e qualità. **Aggiorna** carica i risultati più recenti. Il grafico raggruppa secondo l’intervallo scelto; **Misura del grafico** alterna **Energia / Costo**. Espandi **Dettagli** sotto il grafico per la tabella per intervalli.
+Il riepilogo mostra **Energia**, **Costo** (o **Costo calcolato** se incompleto) e **Attive / completate**. I problemi effettivi compaiono nelle registrazioni corrispondenti. **Aggiorna** carica i risultati più recenti. Il grafico raggruppa secondo l’intervallo scelto; **Misura del grafico** alterna **Energia / Costo**. Espandi **Dettagli** sotto il grafico per la tabella per intervalli.
 
 **Esporta PDF** scarica un rapporto A4 con testo ricercabile nella lingua della scheda, usando punto, identità e periodo applicati al momento del clic. Le bozze di date non applicate non lo modificano. Include tutte le registrazioni corrispondenti e leggibili, anche con l’elenco nascosto o su un’altra pagina. Seleziona **Tutti** per le identità per un rapporto combinato. Le modifiche successive ai filtri e gli aggiornamenti non cambiano l’esportazione in corso.
 
@@ -263,7 +263,7 @@ Attendi la generazione del PDF; un’altra esportazione può essere riprovata al
 
 ### Registrazioni · tutte le date
 
-L’elenco contiene registrazioni attive e terminate, ordinate dall’inizio più recente, 25 per pagina. Usa **Precedente / Successiva**. Ogni riga mostra punto, identità, inizio, stato, energia, costo e qualità; fai clic sulla riga per i dettagli.
+L’elenco contiene registrazioni attive e terminate, ordinate dall’inizio più recente, 25 per pagina. Usa **Precedente / Successiva**. Ogni riga mostra punto, identità, inizio, stato, energia, costo e problemi effettivi; fai clic sulla riga per i dettagli.
 
 Valgono solo i filtri per punto e identità: **le date delle statistiche non filtrano questo elenco**. Le registrazioni precedenti restano visibili anche con Oggi selezionato. **Aggiungi registrazione passata** è accanto al titolo; l’elenco vuoto mostra **Nessuna registrazione**.
 
@@ -292,6 +292,7 @@ Prima di sospendere con **Rilevamento**, termina le registrazioni attive e le co
 I dettagli mostrano attribuzione, energia, costo, un intervallo compatto di date e orari con durata, fuso contabile, stato, origine e nota. Gli avvisi indicano energia o tariffe mancanti. Un costo sconosciuto non viene mostrato come zero; un costo manuale conserva il totale inserito anche con copertura delle misure incompleta.
 
 - **Dettaglio dei costi** è inizialmente chiuso. Aprilo per vedere i periodi tariffari in ordine cronologico con orari, tariffa, energia, costo e indicazioni separate delle lacune energetiche. Le date sono raggruppate; oltre 12 periodi è possibile espandere i rimanenti.
+- L’attesa normale dell’ultimo campione mostra **Calcolo in corso** senza avvisi; prima della prima misura **Costo attuale** mostra **—**. Energia mancante, tariffe mancanti e chiusura per fonte indisponibile restano problemi distinti, ciascuno indicato una volta. **Energia inserita manualmente** conserva i periodi tariffari senza un costo fisso. Un costo manuale appare una volta nel riepilogo; energia e costo interamente manuali non creano una sezione vuota. **Prima / Dopo** conservano ciascuno il proprio importo.
 - Le registrazioni attive consentono **Cambia identità della registrazione**; solo quelle terminate mostrano **Modifica registrazione** e **Annulla registrazione**.
 
 > Segnaposto immagine 12: Registrazione terminata con dettaglio dei costi espandibile e azioni.
@@ -312,7 +313,7 @@ Su una registrazione terminata scegli **Annulla registrazione**, verifica e prem
 2. Inserisci data e ora di **Inizio** e **Fine (esclusa)**; la fine deve essere successiva all’inizio.
 3. Compila o lascia vuota l’energia manuale e scegli la base di costo descritta sotto.
 4. Aggiungi eventualmente una **Nota**, fino a 2000 caratteri.
-5. Premi **Anteprima delle modifiche**. In **Anteprima · verifica prima di salvare**, controlla importi, segmenti, qualità e **Copertura delle misurazioni**. Le modifiche mostrano anche **Prima / Dopo**.
+5. Premi **Anteprima delle modifiche**. In **Anteprima · verifica prima di salvare**, controlla importi, dettaglio dei costi, problemi effettivi e **Copertura delle misurazioni**. Le modifiche mostrano anche **Prima / Dopo**.
 6. Se non ci sono sovrapposizioni, premi **Salva anteprima**. Cambiare il modulo richiede una nuova anteprima; **Chiudi** non salva.
 
 | Campo o opzione | Comportamento |
@@ -326,7 +327,7 @@ Su una registrazione terminata scegli **Annulla registrazione**, verifica e prem
 
 Le registrazioni dello stesso punto non possono sovrapporsi. Un’anteprima con sovrapposizioni non è salvabile. Se non è più aggiornata o la registrazione è cambiata, aggiorna e genera una nuova anteprima.
 
-La ricostruzione dipende dai dati conservati da HA e dal registro: non è garantita per qualunque data passata. Se mancano dati, puoi inserire energia e costo totali dalla ricevuta del caricatore. La ripartizione temporale dei totali manuali genera le indicazioni **Valore impostato manualmente / Stimato**, che ne descrivono la base.
+La ricostruzione dipende dai dati conservati da HA e dal registro: non è garantita per qualunque data passata. Se mancano dati, puoi inserire energia e costo totali dalla ricevuta del caricatore. I valori manuali hanno etichette brevi; ripartizione normale, arrotondamento e interruzioni storiche risolte non aggiungono spiegazioni.
 
 Gli orari usano il fuso contabile indicato, non quello del browser. Per ore locali ripetute al cambio dell’ora legale, scegli **Ora locale ripetuta: seleziona l’istante UTC**. Ore locali inesistenti non possono essere inviate.
 
@@ -336,12 +337,12 @@ Gli orari usano il fuso contabile indicato, non quello del browser. Per ore loca
 
 | Indicazione | Significato |
 | --- | --- |
-| **Provvisorio / In attesa del calcolo definitivo** | Registrazione o confini delle misurazioni non definitivi; nuove letture possono cambiare il risultato |
-| **subtotale noto · in attesa** | Solo costo noto, non una fattura completa; sconosciuto non significa zero |
+| **Costo attuale / Calcolo in corso** | Registrazione attiva o attesa del solo ultimo campione; nuove letture possono aggiornare l’importo |
+| **Costo calcolato** | Importo incompleto; le cause effettive sono nella registrazione corrispondente; sconosciuto non significa zero |
 | **Prezzo mancante / Prezzo sconosciuto** | Prezzo non valido nel periodo; controlla valuta, unità, disponibilità e storico |
 | **Energia mancante / Intervallo senza misurazioni** | Dati insufficienti o letture troppo distanti; verifica e inserisci valori manuali se necessario |
 | **Azzeramento del contatore** | Una lettura in calo ha reso incompleto l’intervallo |
-| **Valore impostato manualmente / Stimato** | Valori manuali o ripartizione temporale, non misurazioni effettive in ogni istante |
+| **Energia inserita manualmente / Costo totale inserito manualmente** | Valori manuali; un costo fisso resta tale durante l’attesa delle misure |
 
 L’energia viene ripartita nei giorni, mesi e anni in cui si consuma: una ricarica oltre mezzanotte non ricade interamente sul giorno iniziale. Le registrazioni conservano il proprio fuso contabile. Il numero di completate in **Attive / completate** segue l’orario iniziale: una registrazione può contribuire energia a un intervallo senza aumentarne il conteggio delle completate.
 

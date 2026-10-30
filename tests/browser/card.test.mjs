@@ -3,6 +3,58 @@ import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {createCardFixture,openCompactDetails} from './card-fixture.mjs';
 
+test('backend mixed reset and pending span keeps its real loss in details and record rows',async t=>{
+  const detail=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',`
+import json
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+from custom_components.charge_tally.ledger import Ledger
+from custom_components.charge_tally.accounting import Accounting
+from custom_components.charge_tally.record_views import detail_view
+ledger = Ledger(':memory:')
+ledger.put_point({'id': 'p'})
+ledger.put_identity({'id': 'i', 'name': 'Family'})
+start = datetime(2026, 1, 1, tzinfo=UTC)
+app = Accounting(ledger)
+record = app.start('p', 'i', start, 'start')
+app.add_interval('p', start, start + timedelta(seconds=30), Decimal('1'), [(start, Decimal('0.5'))])
+app.add_interval('p', start + timedelta(seconds=30), start + timedelta(seconds=40), Decimal('0'), [(start, Decimal('0.5'))], ('reset',))
+record = app.end(record['id'], start + timedelta(seconds=50), 'end')
+print(json.dumps(detail_view(record, ledger.list_segments(record['id']), [], include_history=False)))
+ledger.close()
+`],{encoding:'utf8'}));
+  assert.deepEqual(detail.record.quality_spans.map(span=>span.quality),[['missing_energy','pending_settlement','reset']]);
+  const {page}=await createCardFixture(t);
+  await page.evaluate(detail=>{const c=fixture.card;c.expanded.records=true;c.page={records:[detail.record],total:1,limit:25};c.render();c.openDialog('details',detail);},detail);
+  assert.match(await page.locator('[data-record-id]').innerText(),/A meter reset caused missing energy data/);
+  assert.match(await page.locator('dialog .record-overview').innerText(),/A meter reset caused missing energy data/);
+  await page.locator('dialog details summary').click();
+  assert.equal(await page.locator('dialog .billing-gap').count(),1);
+  assert.match(await page.locator('dialog .billing-gap').innerText(),/20 s/);
+});
+
+test('normal settlement and recovered records stay quiet while current point failures remain visible',async t=>{
+  const {page}=await createCardFixture(t);
+  for(const [overrides,label,value]of [
+    [{quality:['missing_energy','pending_settlement'],quality_spans:[{start:'2026-10-29T19:29:10Z',end:'2026-10-29T19:29:15Z',quality:['missing_energy','pending_settlement']}],has_known_cost:false,known_cost:'0'},'Settling','—'],
+    [{status:'active',end:null,quality:['provisional'],quality_spans:[],has_known_cost:false,known_cost:'0'},'Current cost','—'],
+    [{quality:['unavailable','estimated','manual'],quality_spans:[],cost_complete:true},'Cost','EUR 5.29'],
+  ]){
+    await openCompactDetails(page,overrides);
+    assert.equal(await page.locator('dialog .record-issue').count(),0);
+    assert.match(await page.locator('dialog .record-metrics').innerText(),new RegExp(label));
+    assert.match(await page.locator('dialog .record-metrics').innerText(),new RegExp(value));
+    await page.locator('dialog details summary').click();
+    assert.equal(await page.locator('dialog .billing-gap').count(),0);
+    await page.evaluate(()=>{const c=fixture.card;c.dialog.close();c.expanded.records=true;c.expanded.statistics=true;c.page={records:[fixture.compact.record],total:1,limit:25};c.summary={energy_kwh:'17.675',known_cost:'5.29',has_known_cost:true,quality:['missing_energy','pending_settlement','reset','estimated','unavailable'],cost_complete:false,matched_count:1,has_energy_data:true,bucket_period:'hour',buckets:[]};c.render();});
+    assert.doesNotMatch(await page.locator('[data-record-id]').innerText(),/Some data|Unavailable|Pending settlement|Cost to be added|missing energy/);
+    assert.equal(await page.locator('[data-section=statistics] .quality').count(),0);
+    assert.match(await page.locator('[data-section=statistics] .metric').nth(1).innerText(),/Calculated cost/);
+  }
+  await page.evaluate(()=>fixture.card.onSnapshot({...fixture.snapshot,generation:2,points:[{...fixture.snapshot.points[0],available:false,detection_state:'unavailable',quality:['unavailable'],error:'Energy sensor unavailable'}]}));
+  assert.match(await page.locator('[data-point-id]').innerText(),/Waiting for valid energy and power data.*Energy sensor unavailable.*Unavailable/s);
+});
+
 test('backend manual energy shows tariff periods in shared details and preview',async t=>{
   const detail=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',`
 import json
@@ -30,7 +82,7 @@ ledger.close()
   assert.equal(await page.locator('dialog .billing-period:visible').count(),2);
   assert.match(await page.locator('dialog .billing-period').nth(0).innerText(),/00:00:00–01:00:00.*0.25.*2 kWh.*0.50/s);
   assert.match(await page.locator('dialog .billing-period').nth(1).innerText(),/01:00:00–03:00:00.*0.5.*4 kWh.*2.00/s);
-  assert.match(await page.locator('dialog .billing-details').innerText(),/Energy was entered manually; it does not establish measurement coverage/);
+  assert.match(await page.locator('dialog .record-overview').innerText(),/^Manual energy/m);
   assert.doesNotMatch(await page.locator('dialog .billing-details').innerText(),/allocated from sampling intervals/);
   assert.equal(await page.locator('dialog .measurement-period').count(),0);
   await page.getByRole('button',{name:'Edit record',exact:true}).click();
@@ -42,7 +94,7 @@ ledger.close()
   await page.locator('dialog .preview details summary').click();
   assert.equal(await page.locator('dialog .preview .billing-period:visible').count(),2);
   assert.match(await page.locator('dialog .preview .billing-details').innerText(),/0.25.*0.50.*0.5.*2.00/s);
-  assert.match(await page.locator('dialog .preview .billing-details').innerText(),/does not establish measurement coverage/);
+  assert.match(await page.locator('dialog .preview .record-overview').innerText(),/^Manual energy/m);
   assert.doesNotMatch(await page.locator('dialog .preview .billing-details').innerText(),/allocated from sampling intervals/);
 });
 
@@ -53,49 +105,40 @@ for(const width of [736,320])test(`compact details keep chronological periods an
   assert.equal(await page.evaluate(()=>fixture.pending.length),0);
   assert.doesNotMatch(await page.locator('dialog').innerText(),/Record history/);
   assert.doesNotMatch(await page.locator('dialog').innerText(),/1797|Revision|estimated|Unavailable|Status:|Source:/);
-  assert.match(await page.locator('dialog').innerText(),/2026-10-29 · 16:57–19:29 · 2 h 32 min/);
+  assert.match(await page.locator('dialog').innerText(),/17.675.*EUR 5.29.*2026-10-29 · 16:57–19:29 · 2 h 32 min.*A meter reset caused missing energy data/s);
   await page.locator('dialog details').first().locator('summary').click();
   assert.equal(await page.evaluate(()=>fixture.pending.length),0);
   assert.equal(await page.locator('dialog .billing-period').count(),3);
   assert.equal(await page.locator('dialog .billing-gap').count(),1);
   assert.match(await page.locator('dialog .billing-gap').innerText(),/19:04:11–19:04:16.*5 s/);
   assert.match(await page.locator('dialog .billing-details').innerText(),/0.25.*0.319.*0.08/s);
-  assert.match(await page.locator('dialog .billing-details').innerText(),/rounded/);
+  assert.doesNotMatch(await page.locator('dialog .billing-details').innerText(),/allocated from sampling intervals|rounded|does not establish/);
   assert.equal(await page.evaluate(()=>{const d=fixture.card.dialog.node;return d.scrollWidth<=d.clientWidth&&d.getBoundingClientRect().width<=innerWidth;}),true);
   const {mkdir}=await import('node:fs/promises');await mkdir('.superpowers/card-qa',{recursive:true});
-  await page.screenshot({path:`.superpowers/card-qa/task3-${width}-periods.png`,fullPage:true});
+  await page.screenshot({path:`.superpowers/card-qa/task2-${width}-periods.png`,fullPage:true});
+  if(width===320){await page.locator('dialog').evaluate(node=>{node.scrollTop=node.scrollHeight;});await page.screenshot({path:'.superpowers/card-qa/task2-320-periods-bottom.png',fullPage:true});}
 });
-test('billing details render exponent fallback amounts without losing ordinary rounding checks',async t=>{
-  const {page}=await createCardFixture(t);await openCompactDetails(page);
-  await page.evaluate(()=>{
-    const d=fixture.compact;d.record.known_cost='1e309';d.record.energy_kwh='17.674';
-    d.billing_periods=d.billing_periods.map(part=>({...part,cost:'1e309',unit_price:'1e309'}));
-    fixture.card.dialog.render();
-  });
-  await page.locator('dialog details').first().locator('summary').click();
-  assert.equal(await page.locator('dialog .billing-period').count(),3);
-  assert.match(await page.locator('dialog .billing-details').innerText(),/1e309/);
-  assert.doesNotMatch(await page.locator('dialog .billing-details').innerText(),/rounded/);
-  await page.evaluate(()=>{fixture.compact.record.energy_kwh='17.675';fixture.card.dialog.render();});
-  await page.locator('dialog details').first().locator('summary').click();
-  assert.match(await page.locator('dialog .billing-details').innerText(),/rounded/);
-});
-
 test('manual totals keep measured coverage and exclude allocated gap money',async t=>{
   const {page}=await createCardFixture(t);await openCompactDetails(page,{manual_fee_override:true,manual_cost:'12.00'});
   await page.evaluate(()=>{const d=fixture.compact;d.segments=[d.segments[0],{start:d.record.quality_spans[0].start,end:d.record.quality_spans[0].end,energy_kwh:'0',cost:'3',cost_basis:'manual',unit_price:null,quality:['missing_energy','manual']},...d.segments.slice(1)];fixture.card.dialog.detail=d;fixture.card.dialog.render();});
   await page.locator('dialog details').first().locator('summary').click();
   assert.equal(await page.locator('dialog .billing-period').count(),3);
   assert.equal(await page.locator('dialog .billing-gap').count(),1);
-  const text=await page.locator('dialog .billing-details').innerText();assert.match(text,/EUR 12.00/);assert.doesNotMatch(text,/EUR 3.00|EUR\/kWh|0.08|4.35/);
+  const text=await page.locator('dialog .billing-details').innerText();assert.doesNotMatch(text,/EUR 3.00|EUR\/kWh|0.08|4.35/);
+  assert.equal((await page.locator('dialog').innerText()).match(/EUR 12.00/g)?.length,1);
   await page.evaluate(()=>{fixture.card.dialog.close();});await openCompactDetails(page,{manual_override:true,manual_energy:'17.675',manual_cost:null,has_known_cost:false,known_cost:'0'});
   assert.match(await page.locator('dialog').innerText(),/Cost to be added/);
-  await page.locator('dialog details').first().locator('summary').click();
-  assert.equal(await page.locator('dialog .billing-period').count(),0);
+  assert.equal(await page.locator('dialog details').count(),0);
   await page.evaluate(()=>fixture.card.dialog.close());await openCompactDetails(page,{manual_override:true,manual_energy:'17.675',manual_cost:'12.00',known_cost:'12.00'});
-  await page.locator('dialog details').first().locator('summary').click();
-  assert.equal(await page.locator('dialog .billing-period').count(),0);
-  assert.equal((await page.locator('dialog .billing-details').innerText()).match(/EUR 12.00/g)?.length,1);
+  assert.equal(await page.locator('dialog details').count(),0);
+  assert.equal((await page.locator('dialog').innerText()).match(/EUR 12.00/g)?.length,1);
+  assert.match(await page.locator('dialog .record-metrics').innerText(),/^Manual energy/m);
+  await page.getByRole('button',{name:'Edit record',exact:true}).click();
+  await page.getByRole('button',{name:'Preview changes',exact:true}).click();
+  await page.waitForFunction(()=>fixture.pending.length===1);
+  await page.evaluate(()=>fixture.pending[0].resolve({...fixture.compact,token:'manual-total',coverage:[],overlaps:[]}));
+  assert.equal(await page.locator('dialog .preview details').count(),0);
+  assert.equal((await page.locator('dialog .preview').innerText()).match(/EUR 12.00/g)?.length,2);
 });
 test('real tariff periods expand beyond twelve and preserve negative and unknown prices',async t=>{
   const {page}=await createCardFixture(t);await openCompactDetails(page,{quality:[],quality_spans:[]});
@@ -473,12 +516,13 @@ for(const viewport of [{width:900,height:700},{width:390,height:844}])test(`comp
   }
 });
 
-test('record details consolidate sampling explanations inside fee details',async t=>{
+test('record details show each actual problem once without routine explanations',async t=>{
   const {page}=await createCardFixture(t);
   for(const [kind,flags,basis]of [['normal',[],'tariff'],['price',['missing_price'],'unknown'],['sampling',['gap'],'tariff'],['manual',['estimated','manual'],'manual']]){
     await page.evaluate(({flags,basis})=>{const c=fixture.card;c.hass={...fixture.hass,language:'zh-Hans'};const record={id:'r',revision:90,point_id:'p',identity_id:'i',start:'2026-09-22T08:00:00Z',end:'2026-09-22T09:00:00Z',timezone:'UTC',status:'ended',source:'manual',energy_kwh:'1',known_cost:'1',cost_complete:basis!=='unknown',quality:flags};c.openDialog('details',{record,segments:[{start:record.start,end:record.end,energy_kwh:'1',cost:basis==='unknown'?null:'1',cost_basis:basis,quality:flags}],revisions:[{record}]});},{flags,basis});
     const text=await page.locator('dialog').innerText();assert.doesNotMatch(text,/记录历史|修改记录 \(|版本|部分数据为估算值/);assert.equal(await page.locator('dialog details').count(),1);if(kind==='price')assert.match(text,/部分时段未计价/);
-    await page.locator('dialog details').first().locator('summary').click();if(kind==='manual')assert.match(await page.locator('dialog .billing-details').innerText(),/部分时段按采样区间分配/);if(kind==='normal')assert.equal(await page.locator('dialog .quality').count(),0);
+    await page.locator('dialog details').first().locator('summary').click();assert.equal(await page.locator('dialog .quality').count(),0);
+    if(kind==='price')assert.equal((await page.locator('dialog').innerText()).match(/部分时段未计价/g)?.length,1);
     await page.evaluate(()=>fixture.card.dialog.close());
   }
 });

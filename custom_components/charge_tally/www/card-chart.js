@@ -19,7 +19,7 @@ const svgNode=(tag,attrs={})=>{const node=document.createElementNS('http://www.w
 export class ChartView{
   constructor({onMetricChange}){
     this.node=el('div',null,{class:'stack'});this.metric=new SelectControl({onChange:onMetricChange});this.metric.label=field('',this.metric.node);
-    this.hint=el('small');this.message=el('p',null,{role:'status'});this.plot=el('div');this.incomplete=el('p',null,{class:'quality'});
+    this.hint=el('small');this.message=el('p',null,{role:'status'});this.plot=el('div');this.incomplete=el('small');
     this.details=el('details');this.toggle=el('summary');this.scroll=el('div',null,{class:'table-wrap'});this.details.append(this.toggle,this.scroll);
     this.node.append(this.metric.label,this.hint,this.message,this.plot,this.incomplete,this.details);
   }
@@ -29,7 +29,7 @@ export class ChartView{
     this.metric.label.firstChild.textContent=t('chartMetric');this.metric.update({options:[{id:'energy_kwh',name:t('energy')},{id:'known_cost',name:t('cost')}],value:metric});
     this.hint.textContent=t('group_'+summary.bucket_period);this.toggle.textContent=t('chartData');
     this.message.hidden=state==='ready';this.message.textContent=t('chart_'+state);this.plot.hidden=state!=='ready';this.plot.replaceChildren();
-    this.incomplete.hidden=metric!=='known_cost'||summary.cost_complete;this.incomplete.textContent=t('chartIncomplete');
+    this.incomplete.hidden=metric!=='known_cost'||summary.cost_complete;this.incomplete.textContent=t('calculatedCost');
     const value=b=>metric==='energy_kwh'?`${formatDecimal(b.energy_kwh,language)} kWh`:b.has_known_cost?formatCost(b,currency,language):t('chart_unknown_cost');
     if(state==='ready'){
       // Decimal strings remain untouched; only geometry uses Number values.

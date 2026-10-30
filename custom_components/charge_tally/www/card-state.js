@@ -11,20 +11,23 @@ export function formatDecimal(value,language='en',digits=3,minimum=0){
   return parts.map(part=>part.value).join('');
 }
 export function formatCost(summary, currency = '', language = 'en') {
-  const value = `${currency} ${formatDecimal(summary?.known_cost,language,2,2)}`.trim();
-  return summary?.cost_complete === true ? value : tr('costIncomplete',language,{value});
+  return summary?.has_known_cost===false||summary?.known_cost==null?'—':`${currency} ${formatDecimal(summary.known_cost,language,2,2)}`.trim();
 }
-// Record presentation explains completeness without changing accounting flags.
+// Pending tails can share a span with an actual reset or unrecoverable gap.
+export function permanentEnergyGap(span){
+  return span.quality.includes('missing_energy')&&(!span.quality.includes('pending_settlement')||span.quality.some(flag=>['reset','gap','unavailable'].includes(flag)));
+}
+// Record presentation classifies problems without changing accounting flags.
 export function recordCostState(record,currency,language){
-  const manual=(record.manual_fee_override||record.manual_override)&&Object.hasOwn(record,'manual_cost');
-  const missing=(record.quality||[]).includes('missing_energy');
-  const permanent=(record.quality_spans||[]).some(span=>span.quality.includes('missing_energy')&&!span.quality.includes('pending_settlement'));
-  const loss=permanent||(missing&&!(record.quality||[]).includes('pending_settlement'));
+  const manual=(record.manual_fee_override||record.manual_override)&&Object.hasOwn(record,'manual_cost'),flags=record.quality||[],gaps=(record.quality_spans||[]).filter(permanentEnergyGap);
+  const loss=gaps.length>0||(!record.quality_spans?.length&&flags.includes('missing_energy')&&(!flags.includes('pending_settlement')||flags.some(flag=>['reset','gap'].includes(flag))));
+  const price=!manual&&flags.some(flag=>['missing_price','price_unknown'].includes(flag)),source=record.end_reason==='source_unavailable';
   const known=manual?record.manual_cost!=null:record.has_known_cost!==false&&record.known_cost!=null;
+  const waiting=!manual&&!loss&&!price&&!source&&(record.status==='active'||flags.includes('pending_settlement'));
   return {
-    label:manual&&known?'manualAmount':!known?'cost':record.status==='active'?'currentCost':record.cost_complete?'cost':'calculatedCost',
-    issue:manual&&missing?'energyMissingManual':loss?'energyMissing':!known?'amountMissing':!manual&&missing?'waitingFinalSample':!manual&&(record.quality||[]).some(flag=>['missing_price','price_unknown'].includes(flag))?'priceMissing':null,
-    value:known?`${currency} ${formatDecimal(manual?record.manual_cost:record.known_cost,language,2,2)}`.trim():tr('amountMissing',language),
+    label:manual&&known?'manualAmount':record.status==='active'&&!manual?'currentCost':waiting?'settling':!known?'cost':record.cost_complete?'cost':'calculatedCost',
+    value:known?`${currency} ${formatDecimal(manual?record.manual_cost:record.known_cost,language,2,2)}`.trim():waiting?'—':tr('amountMissing',language),
+    issues:[loss?(manual?'energyMissingManual':flags.includes('reset')||gaps.some(span=>span.quality.includes('reset'))?'energyMissingReset':'energyMissing'):null,price?'priceMissing':null,!known&&!waiting&&!price?(manual?'manualAmountMissing':'amountMissing'):null,source?'ended_source_unavailable':null].filter(Boolean),
   };
 }
 export function localInput(instant, timezone) {

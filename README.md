@@ -251,7 +251,7 @@ Each current point shows its name, status, **Power**, **Current price** and **De
 
 In **Record statistics → Statistics period**, choose **Today / This month / This year / All time / Custom range**. For custom dates, enter **Start** and **End (exclusive)**, then **Apply range**. To view September 1 in full, choose September 1 as start and September 2 as end.
 
-The summary shows **Energy**, **Cost**, **Active / completed** and quality notices. **Refresh** fetches current results. Charts group values by the selected range; **Chart metric** switches **Energy / Cost**. Expand **Details** below the chart for values by bucket.
+The summary shows **Energy**, **Cost** (or **Calculated cost** when incomplete) and **Active / completed**. Actual problems appear on the corresponding record rows and details. **Refresh** fetches current results. Charts group values by the selected range; **Chart metric** switches **Energy / Cost**. Expand **Details** below the chart for values by bucket.
 
 **Export PDF** downloads a searchable A4 report in the card’s language, using the point, identity and statistics range applied when you click. Unapplied date drafts do not change it. All matching readable records are included, even when the records panel is hidden or on another page. Choose **All** identities for a combined report; later filter changes and live updates do not change an export already in progress.
 
@@ -263,7 +263,7 @@ Wait while the PDF is generated; another export can be retried after it finishes
 
 ### Records · all dates
 
-Active and ended records appear newest start first, 25 per page, with **Previous / Next** controls. Each row shows point, identity, start, status, energy, cost and quality; click the row for details.
+Active and ended records appear newest start first, 25 per page, with **Previous / Next** controls. Each row shows point, identity, start, status, energy, cost and actual problems; click the row for details.
 
 Only point and identity filters apply: **statistics dates do not filter this list**. Older records remain visible with Today selected. **Add history** is beside the heading. An empty list displays **No records**.
 
@@ -299,9 +299,9 @@ Before pausing with the native **Detection** switch, finish active records and p
 
 ### View record details
 
-Details show ownership, energy, cost, a compact date range and duration, accounting timezone, status, source and any note. One main notice explains missing energy, missing prices or a pending final sample. An unknown cost is not shown as zero; a manual cost remains the specified total even when measurement coverage is incomplete.
+Details show ownership, energy, cost, a compact date range and duration, accounting timezone, status, source and any note. Missing energy, missing prices and source-unavailable closure remain distinct problems, each shown once. Normal final-sample waiting uses **Settling** without a warning; a new active record awaiting its first reading shows **Current cost** and **—**. Unknown costs are not zero.
 
-- **Fee details** starts collapsed. Expand it to see chronological price periods with energy and cost, separate gap notices and shared sampling explanations. Dates are grouped; more than 12 periods can be expanded. A rounding note appears only when displayed items differ from the displayed total. Manual fees show one total and measured energy coverage; manually entered energy does not imply measurement coverage.
+- **Fee details** starts collapsed. Expand it to see chronological price periods with energy and cost and separate actual gap notices. Dates are grouped; more than 12 periods can be expanded. **Manual energy** uses a short source label and retains tariff periods when priced automatically. A manual fee appears once in the overview, with measured energy coverage below when available; a fully manual energy and fee record has no empty fee section. Preview **Before / After** each retain their own amount.
 - Active records allow **Change record identity**; only ended records show **Edit record** and **Void record**.
 
 > Screenshot placeholder 12: An ended record with expandable fee details and actions.
@@ -338,7 +338,7 @@ Records at the same point cannot overlap. Overlapping previews cannot be saved. 
 
 Previews expire 30 minutes after creation. After upgrading, create a new preview for any draft opened before the upgrade. Successful saves remain safe to retry with the same request ID.
 
-Reconstruction depends on data retained by Home Assistant and the ledger; arbitrary old dates cannot be guaranteed. With missing data, enter total energy and cost from the charger’s bill. Allocating manual totals over time produces **Manual override / Estimated** notices explaining the basis.
+Reconstruction depends on data retained by Home Assistant and the ledger; arbitrary old dates cannot be guaranteed. With missing data, enter total energy and cost from the charger’s bill. Manual values use short source labels; ordinary allocation, rounding and recovered historical outages add no explanatory notices.
 
 Times use the displayed accounting timezone, not the browser timezone. For repeated local times at daylight-saving transitions, choose **Repeated local time: select UTC instant**. Nonexistent local times cannot be submitted.
 
@@ -348,13 +348,12 @@ Times use the displayed accounting timezone, not the browser timezone. For repea
 
 | Notice | Meaning |
 | --- | --- |
-| **Provisional / Pending settlement** | Record or measurement boundaries are not final; later readings may update results |
-| **known subtotal · pending** | Only known cost, not a complete bill; unknown does not mean zero |
+| **Current cost / Settling** | An active record or an ended record awaiting only its final sample; later readings may update the amount |
+| **Calculated cost** | The calculated amount is incomplete; review the corresponding record problems; unknown does not mean zero |
 | **Missing price / Unknown price** | No valid price; check currency, units, availability and retained history |
 | **Missing energy** | Energy coverage cannot be established; review and add manual values if appropriate |
-| **Observation gap / Estimated** | A sampling interruption or long interval; a valid cumulative increment may still be allocated proportionally |
 | **Meter reset** | A falling reading made the affected interval incomplete |
-| **Manual override / Estimated** | Manual values or time allocation, not actual measurements at every instant |
+| **Manual energy / Manual total cost** | Values entered manually; a fixed manual fee does not become unsettled while awaiting measurements |
 
 Energy is split into the days, months and years where it occurs; a charge crossing midnight is not all counted on its starting day. History retains its own accounting timezone. The completed count in **Active / completed** groups by record start: a record may contribute energy across a boundary without increasing that range’s completed count.
 

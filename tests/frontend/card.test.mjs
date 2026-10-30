@@ -5,10 +5,12 @@ import {formatCost, validateRange, localCandidates, localInput, resolveLocal, va
   queryRequest, recordsRequest, previewRequest, commitRequest, liveRequest, identityRequest,
   errorMessage, Latest, Subscription, periodRange} from '../../custom_components/charge_tally/www/card-state.js';
 
-test('unknown cost formats the known subtotal, including negative prices', () => {
-  assert.equal(formatCost({known_cost:'2.500000000000000001',cost_complete:false},'CNY','zh-Hans'), 'CNY 2.50（已知小计 · 待补充）');
+test('cost formatting preserves known, unknown, zero and negative amounts without commentary', () => {
+  assert.equal(formatCost({known_cost:'2.500000000000000001',cost_complete:false},'CNY','zh-Hans'), 'CNY 2.50');
   assert.equal(formatCost({known_cost:'-2.50',cost_complete:true},'CNY','en'), 'CNY -2.50');
-  assert.match(formatCost({},'USD','en'), /pending/);
+  assert.equal(formatCost({known_cost:'0',has_known_cost:true},'USD','en'),'USD 0.00');
+  assert.equal(formatCost({known_cost:'0',has_known_cost:false},'USD','en'),'—');
+  assert.equal(formatCost({},'USD','en'),'—');
 });
 test('datetime input is interpreted in accounting timezone, not browser timezone', () => {
   assert.deepEqual(localCandidates('2026-09-09T10:00','Asia/Shanghai'), ['2026-09-09T02:00:00.000Z']);
@@ -161,22 +163,31 @@ const {ChargeTallyCard}=await import('../../custom_components/charge_tally/www/c
 const {RecordDialog}=await import('../../custom_components/charge_tally/www/card-dialog.js?v=0.1.2-13');
 const {ChargeTallyEditor}=await import('../../custom_components/charge_tally/www/card-editor.js?v=0.1.2-13');
 const state=await import('../../custom_components/charge_tally/www/card-state.js');
-const {summaryView,segmentTable}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.2-13');
+const {summaryView,billingDetails}=await import('../../custom_components/charge_tally/www/card-ui.js?v=0.1.2-13');
 
 const visibleText=node=>[node.textContent||'',...(node.children||[]).map(visibleText)].join(' ');
-test('cost presentation separates final sampling, permanent loss, missing prices and manual totals',()=>{
+test('cost presentation keeps independent real problems while treating ordinary settlement as normal',async t=>{
   assert.equal(typeof state.recordCostState,'function');
   const record={status:'ended',cost_complete:false,has_known_cost:true,known_cost:'5.29',quality:['missing_energy','pending_settlement'],quality_spans:[{quality:['missing_energy','pending_settlement']}]};
-  for(const [change,label,issue,value]of [
-    [{},'calculatedCost','waitingFinalSample','EUR 5.29'],
-    [{quality_spans:[{quality:['missing_energy']},{quality:['missing_energy','pending_settlement']}]},'calculatedCost','energyMissing','EUR 5.29'],
-    [{quality:['missing_price'],quality_spans:[]},'calculatedCost','priceMissing','EUR 5.29'],
-    [{quality:['estimated','unavailable'],quality_spans:[],cost_complete:true},'cost',null,'EUR 5.29'],
-    [{manual_fee_override:true,manual_cost:'8.00'},'manualAmount','energyMissingManual','EUR 8.00'],
-    [{manual_fee_override:true,manual_cost:null,known_cost:'0',has_known_cost:false},'cost','energyMissingManual','Cost to be added'],
-    [{has_known_cost:false,known_cost:'0',quality:['missing_price'],quality_spans:[]},'cost','amountMissing','Cost to be added'],
-    [{status:'active',cost_complete:true,quality:[],quality_spans:[]},'currentCost',null,'EUR 5.29'],
-  ])assert.deepEqual(state.recordCostState({...record,...change},'EUR','en'),{label,issue,value});
+  for(const [change,label,issues,value]of [
+    [{},'settling',[],'EUR 5.29'],
+    [{quality:['missing_energy','pending_settlement','unavailable','estimated']},'settling',[],'EUR 5.29'],
+    [{has_known_cost:false,known_cost:'0'},'settling',[],'—'],
+    [{quality:['missing_energy','reset','pending_settlement','missing_price'],quality_spans:[{quality:['missing_energy','reset']},{quality:['missing_energy','pending_settlement']}]},'calculatedCost',['energyMissingReset','priceMissing'],'EUR 5.29'],
+    [{quality:['missing_energy','reset','pending_settlement'],quality_spans:[{quality:['missing_energy','reset','pending_settlement']}]},'calculatedCost',['energyMissingReset'],'EUR 5.29'],
+    [{quality:['missing_energy','gap','pending_settlement'],quality_spans:[{quality:['missing_energy','gap','pending_settlement']}]},'calculatedCost',['energyMissing'],'EUR 5.29'],
+    [{quality:['missing_price'],quality_spans:[]},'calculatedCost',['priceMissing'],'EUR 5.29'],
+    [{quality:['estimated','unavailable','manual'],quality_spans:[],cost_complete:true},'cost',[],'EUR 5.29'],
+    [{manual_fee_override:true,manual_cost:'8.00'},'manualAmount',[],'EUR 8.00'],
+    [{manual_fee_override:true,manual_cost:'0',quality:['missing_price','missing_energy','reset'],quality_spans:[{quality:['missing_energy','reset']}]},'manualAmount',['energyMissingManual'],'EUR 0.00'],
+    [{manual_fee_override:true,manual_cost:null,known_cost:'0',has_known_cost:false},'cost',['manualAmountMissing'],'Cost to be added'],
+    [{has_known_cost:false,known_cost:'0',quality:['missing_price'],quality_spans:[]},'cost',['priceMissing'],'Cost to be added'],
+    [{has_known_cost:false,known_cost:null,quality:[],quality_spans:[]},'cost',['amountMissing'],'Cost to be added'],
+    [{status:'active',cost_complete:true,quality:[],quality_spans:[]},'currentCost',[],'EUR 5.29'],
+    [{status:'active',has_known_cost:false,known_cost:'0',quality:['provisional'],quality_spans:[]},'currentCost',[],'—'],
+    [{status:'active',has_known_cost:false,known_cost:'0',quality:['provisional','missing_price'],quality_spans:[]},'currentCost',['priceMissing'],'Cost to be added'],
+    [{end_reason:'source_unavailable',quality:['missing_energy'],quality_spans:[{quality:['missing_energy']}]},'calculatedCost',['energyMissing','ended_source_unavailable'],'EUR 5.29'],
+  ])await t.test(JSON.stringify(change),()=>assert.deepEqual(state.recordCostState({...record,...change},'EUR','en'),{label,value,issues}));
 });
 test('detail requests omit eager audit snapshots',async t=>{
   t.mock.method(RecordDialog.prototype,'render',()=>{});
@@ -192,12 +203,13 @@ test('record details show only fee details and hide technical revision counters'
   assert.equal(dialog.node.querySelectorAll('details').length,1);
   assert.ok(dialog.node.querySelectorAll('details').every(node=>!node.open));
 });
-test('segment ranges use the record accounting timezone without altering UTC data',()=>{
-  const segments=[{local_date:'2025-12-31',start:'2025-12-31T15:00:00+00:00',end:'2025-12-31T16:00:00+00:00',energy_kwh:'7',cost:null}];
-  const before=structuredClone(segments);
-  const table=segmentTable(segments,'zh-Hans','CNY','Asia/Shanghai');
-  assert.equal(table.children[0].children[1].children[0].textContent,'2025-12-31 23:00:00 → 2026-01-01 00:00:00 (Asia/Shanghai)');
-  assert.deepEqual(segments,before);
+test('billing periods retain timezone and real mixed-loss gaps while pending-only gaps stay quiet',()=>{
+  const period={start:'2025-12-31T15:00:00+00:00',end:'2025-12-31T16:00:00+00:00',energy_kwh:'7',cost:null,unit_price:null};
+  const detail={record:{timezone:'Asia/Shanghai',quality:[],quality_spans:[{...period,quality:['missing_energy','pending_settlement']},{...period,quality:['missing_energy','reset','pending_settlement']}]},billing_periods:[period]};
+  const before=structuredClone(detail),view=billingDetails(detail,'en','EUR');
+  assert.match(visibleText(view),/2025-12-31.*23:00:00–00:00:00/s);
+  assert.equal(view.querySelectorAll('p').filter(node=>node.className==='billing-gap muted').length,1);
+  assert.deepEqual(detail,before);
 });
 test('long server decimals are formatted for display without changing payloads',()=>{
   const summary={energy_kwh:'0.285887930259482529870184281103830795',known_cost:'0.142943965129741264935092140551915398',cost_complete:false};
@@ -205,14 +217,12 @@ test('long server decimals are formatted for display without changing payloads',
   assert.equal(typeof state.formatDecimal,'function');
   assert.equal(state.formatDecimal(summary.energy_kwh,'zh-Hans'),'0.286');
   assert.equal(state.formatDecimal('9007199254740993.125','en'),'9,007,199,254,740,993.125');
-  assert.equal(formatCost(summary,'CNY','zh-Hans'),'CNY 0.14（已知小计 · 待补充）');
+  assert.equal(formatCost(summary,'CNY','zh-Hans'),'CNY 0.14');
   assert.equal(formatCost({...summary,known_cost:'-2.555',cost_complete:true},'CNY','en'),'CNY -2.56');
   const view=summaryView(summary,'CNY','zh-Hans');
   assert.equal(view.children[0].children[1].textContent,'0.286 kWh');
-  assert.equal(view.children[1].children[1].textContent,'CNY 0.14（已知小计 · 待补充）');
-  const table=segmentTable([{energy_kwh:summary.energy_kwh,cost:summary.known_cost}], 'en','CNY');
-  assert.equal(table.children[0].children[1].children[1].textContent,'0.286 kWh');
-  assert.equal(table.children[0].children[1].children[2].textContent,'CNY 0.14');
+  assert.equal(view.children[1].children[0].textContent,'已计算费用');
+  assert.equal(view.children[1].children[1].textContent,'CNY 0.14');
   assert.deepEqual(summary,original);
   const request=previewRequest({...form,energy_kwh:summary.energy_kwh,cost:summary.known_cost},'Asia/Shanghai');
   assert.equal(request.energy_kwh,summary.energy_kwh);assert.equal(request.cost,summary.known_cost);

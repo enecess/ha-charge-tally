@@ -251,7 +251,7 @@ Chaque point actuel affiche son nom, son état, la **Puissance**, le **Prix actu
 
 Dans **Statistiques des enregistrements → Période des statistiques**, choisissez **Aujourd’hui / Ce mois-ci / Cette année / Toute la période / Période personnalisée**. Pour une période personnalisée, renseignez **Début** et **Fin (exclue)**, puis cliquez sur **Appliquer la période**. Pour consulter toute la journée du 1er septembre, choisissez le 1er septembre comme début et le 2 septembre comme fin.
 
-Le récapitulatif affiche **Énergie**, **Coût**, le nombre **Actifs / terminés** et les indications de qualité. **Actualiser** récupère les derniers résultats. Le graphique est regroupé selon la plage choisie ; **Mesure du graphique** permet de choisir **Énergie** ou **Coût**. Développez **Détails** sous le graphique pour consulter les valeurs par intervalle dans un tableau.
+Le récapitulatif affiche **Énergie**, **Coût** (ou **Coût calculé** si incomplet) et le nombre **Actifs / terminés**. Les problèmes réels figurent sur les enregistrements correspondants. **Actualiser** récupère les derniers résultats. Le graphique est regroupé selon la plage choisie ; **Mesure du graphique** permet de choisir **Énergie** ou **Coût**. Développez **Détails** sous le graphique pour consulter les valeurs par intervalle dans un tableau.
 
 **Exporter en PDF** télécharge un rapport A4 avec texte consultable dans la langue de la carte, selon le point, l’identité et la période appliqués au clic. Les dates modifiées mais non appliquées ne comptent pas. Tous les enregistrements correspondants et accessibles sont inclus, même si la liste est masquée ou affiche une autre page. Sélectionnez **Tous** pour réunir les identités. Les changements de filtre et mises à jour ultérieurs ne modifient pas l’exportation en cours.
 
@@ -263,7 +263,7 @@ Patientez pendant la génération ; une autre exportation pourra être lancée e
 
 ### Enregistrements · toutes les dates
 
-Cette liste contient les enregistrements actifs et terminés, du début le plus récent au plus ancien, par pages de 25. Utilisez **Précédent / Suivant** pour changer de page. Chaque ligne affiche le point, l’identité, le début, l’état, l’énergie, le coût et les indications de qualité ; cliquez sur la ligne pour ouvrir les détails.
+Cette liste contient les enregistrements actifs et terminés, du début le plus récent au plus ancien, par pages de 25. Utilisez **Précédent / Suivant** pour changer de page. Chaque ligne affiche le point, l’identité, le début, l’état, l’énergie, le coût et les problèmes réels ; cliquez sur la ligne pour ouvrir les détails.
 
 Seuls les filtres de point et d’identité s’appliquent : **les dates des statistiques ne limitent pas cette liste**. Même avec « Aujourd’hui », les anciens enregistrements restent visibles ici. **Ajouter un enregistrement passé** se trouve près du titre de la liste ; si elle est vide, **Aucun enregistrement** apparaît.
 
@@ -292,6 +292,7 @@ Avant de suspendre la détection avec **Détection de la recharge**, terminez le
 Les détails présentent l’attribution, l’énergie, le coût, une plage compacte de dates et d’heures avec sa durée, le fuseau de comptabilisation, l’état, la source et la note. Des indications signalent l’énergie ou les tarifs manquants. Un coût inconnu n’est pas affiché comme nul ; un coût manuel conserve le total saisi même si la couverture des mesures est incomplète.
 
 - **Détail des coûts** est initialement replié. Développez-le pour voir les périodes tarifaires dans l’ordre chronologique, avec horaires, tarif, énergie, coût et lacunes d’énergie signalées séparément. Les dates sont regroupées ; au-delà de 12 périodes, les suivantes peuvent être dépliées.
+- L’attente normale du dernier relevé affiche **Calcul en cours** sans avertissement ; avant le premier relevé, **Coût actuel** affiche **—**. Les pertes d’énergie, tarifs manquants et fins dues à une source indisponible restent distincts, chacun signalé une fois. **Énergie saisie manuellement** conserve les périodes tarifaires sans coût fixe. Un coût manuel apparaît une fois dans le récapitulatif ; énergie et coût entièrement manuels ne créent pas de section vide. **Avant / Après** conservent chacun leur montant.
 - Un enregistrement actif permet de **Changer l’identité de l’enregistrement** ; seuls les enregistrements terminés proposent **Modifier l’enregistrement** et **Invalider l’enregistrement**.
 
 > Emplacement de capture 12 : enregistrement terminé avec détail des coûts dépliable et actions.
@@ -312,7 +313,7 @@ Dans les détails d’un enregistrement terminé, choisissez **Invalider l’enr
 2. Saisissez les dates et heures de **Début** et de **Fin (exclue)** ; la fin doit être postérieure au début.
 3. Renseignez ou laissez vide l’énergie manuelle, puis choisissez la base de calcul du coût, selon le tableau ci-dessous.
 4. Ajoutez si nécessaire une **Note**, limitée à 2000 caractères.
-5. Cliquez sur **Aperçu des modifications**, puis vérifiez **Aperçu · vérifier avant d’enregistrer** : montant obtenu, segments, qualité des données et **Couverture des mesures**. En modification, les valeurs **Avant / Après** sont également affichées.
+5. Cliquez sur **Aperçu des modifications**, puis vérifiez **Aperçu · vérifier avant d’enregistrer** : montant obtenu, détail des coûts, problèmes réels et **Couverture des mesures**. En modification, les valeurs **Avant / Après** sont également affichées.
 6. Vérifiez l’absence de chevauchement, puis cliquez sur **Enregistrer l’aperçu**. Toute modification du formulaire nécessite un nouvel aperçu ; **Fermer** ne sauvegarde pas.
 
 | Champ ou choix | Comportement |
@@ -326,7 +327,7 @@ Dans les détails d’un enregistrement terminé, choisissez **Invalider l’enr
 
 Les enregistrements d’un même point ne peuvent pas se chevaucher. Si l’aperçu signale un chevauchement, l’enregistrement est impossible. Si l’aperçu est périmé ou si l’enregistrement a changé, actualisez et générez un nouvel aperçu.
 
-La reconstitution dépend des données encore conservées dans Home Assistant et dans le registre ; elle ne garantit pas la récupération de n’importe quelle date ancienne. Si les données manquent, utilisez par exemple le relevé du chargeur pour saisir l’énergie et le coût totaux manuels. Leur répartition temporelle entre les segments peut afficher **Remplacement manuel / Estimé**, qui indique la méthode de calcul.
+La reconstitution dépend des données encore conservées dans Home Assistant et dans le registre ; elle ne garantit pas la récupération de n’importe quelle date ancienne. Si les données manquent, utilisez par exemple le relevé du chargeur pour saisir l’énergie et le coût totaux manuels. Les valeurs manuelles portent des libellés courts ; la répartition normale, l’arrondi et les anciennes interruptions résolues n’ajoutent aucune explication.
 
 Les dates et heures utilisent le fuseau affiché, et non celui du navigateur. Lorsqu’une heure locale se répète au changement d’heure, choisissez l’instant dans **Heure locale répétée : sélectionner l’instant UTC**. Une heure locale inexistante ne peut pas être validée.
 
@@ -336,12 +337,12 @@ Les dates et heures utilisent le fuseau affiché, et non celui du navigateur. Lo
 
 | Indication ou situation | Interprétation |
 | --- | --- |
-| **Provisoire / En attente de finalisation** | L’enregistrement ou ses limites de mesure ne sont pas encore entièrement déterminés ; de nouveaux relevés peuvent modifier le résultat |
-| **sous-total connu · en attente** | Seule la part connue du coût est affichée ; la part inconnue n’est pas nulle |
+| **Coût actuel / Calcul en cours** | Enregistrement actif ou attente du seul dernier relevé ; de nouveaux relevés peuvent modifier le montant |
+| **Coût calculé** | Montant incomplet ; consultez les problèmes de l’enregistrement correspondant ; inconnu ne signifie pas nul |
 | **Prix manquant / Prix inconnu** | Aucun prix valide pour la période ; vérifiez devise, unité, disponibilité et conservation de l’historique |
 | **Énergie manquante / Interruption des observations** | Données insuffisantes ou relevés trop espacés ; vérifiez et complétez manuellement si nécessaire |
 | **Compteur réinitialisé** | Une baisse du relevé rend l’intervalle concerné incomplet |
-| **Remplacement manuel / Estimé** | Valeurs manuelles ou répartition temporelle ; il ne s’agit pas forcément de mesures réelles pour chaque instant |
+| **Énergie saisie manuellement / Coût total manuel** | Valeurs saisies ; un montant manuel fixe reste fixe pendant l’attente de mesures |
 
 L’énergie est répartie entre les jours, mois et années auxquels elle appartient ; une recharge passant minuit n’est pas entièrement affectée au jour de son début. Chaque enregistrement historique conserve son propre fuseau de comptabilisation. Le nombre d’enregistrements terminés est affecté selon leur heure de début : une recharge traversant la limite d’une période peut contribuer à son énergie sans augmenter son nombre d’enregistrements terminés.
 

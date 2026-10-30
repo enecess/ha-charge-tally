@@ -1,7 +1,7 @@
 import {tr} from './card-i18n.js?v=0.1.2-13';
 import {newRequestId} from './request-id.js?v=0.1.2-13';
 import {Latest,localInput,localCandidates,errorMessage,previewRequest,commitRequest} from './card-state.js?v=0.1.2-13';
-import {el,button,field,select,input,summaryView,recordOverview,billingDetails,quality,dateText,updateLabels} from './card-ui.js?v=0.1.2-13';
+import {el,button,field,select,input,summaryView,recordOverview,billingDetails,dateText,updateLabels} from './card-ui.js?v=0.1.2-13';
 
 export class RecordDialog {
   constructor(host,options){
@@ -41,8 +41,8 @@ export class RecordDialog {
     this.node.scrollTop=0;
   }
   renderDetails(){
-    const {record}=this.detail;this.record=record;
-    this.content.append(el('p',`${this.pointName(record.point_id)} · ${this.identityName(record.identity_id)}`,{class:'muted'}),recordOverview(record,this.currency,this.language),billingDetails(this.detail,this.language,this.currency));
+    const {record}=this.detail,fees=billingDetails(this.detail,this.language,this.currency);this.record=record;
+    this.content.append(el('p',`${this.pointName(record.point_id)} · ${this.identityName(record.identity_id)}`,{class:'muted'}),recordOverview(record,this.currency,this.language),...(fees?[fees]:[]));
     const actions=el('div',null,{class:'row dialog-actions'});
     if(record.status!=='void')actions.append(button(this.t('reassign'),()=>{this.mode='reassign';this.render();}));
     if(record.status==='ended')actions.append(button(this.t('edit'),()=>{this.mode='edit';this.render();}),button(this.t('void'),()=>{this.mode='void';this.render();},false,'danger'));this.content.append(actions);
@@ -90,11 +90,11 @@ export class RecordDialog {
   }
   invalidatePreview(){this.preview=null;this.previewBox?.replaceChildren();this.updateButtons();}
   renderPreview(){
-    const p=this.preview,box=el('div',null,{class:'preview stack'});box.append(el('h3',this.t('impact')));
+    const p=this.preview,box=el('div',null,{class:'preview stack'}),fees=billingDetails(p,this.language,this.currency);box.append(el('h3',this.t('impact')));
     if(this.record)box.append(el('p',this.t('before')),summaryView(this.record,this.currency,this.language));
-    box.append(el('p',this.t('after')),el('p',`${this.pointName(p.record.point_id)} · ${this.identityName(p.record.identity_id)}`),recordOverview(p.record,this.currency,this.language),billingDetails(p,this.language,this.currency));
+    box.append(el('p',this.t('after')),el('p',`${this.pointName(p.record.point_id)} · ${this.identityName(p.record.identity_id)}`),recordOverview(p.record,this.currency,this.language),...(fees?[fees]:[]));
     box.append(el('h3',this.t('coverage')));
-    if(p.coverage?.length)for(const span of p.coverage)box.append(el('p',`${span.start} → ${span.end} · ${quality(span.quality,this.language)}`));else box.append(el('p',this.t('noCoverage')));
+    if(p.coverage?.length)for(const span of p.coverage)box.append(el('p',`${span.start} → ${span.end}`));else box.append(el('p',this.t('noCoverage')));
     box.append(el('p',`${this.t('overlaps')}: ${p.overlaps?.join(', ')||this.t('none')}`));if(p.overlaps?.length)this.fail({code:'overlap'});
     this.previewBox.replaceChildren(box);
   }

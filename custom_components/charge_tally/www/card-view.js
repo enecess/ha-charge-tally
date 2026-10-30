@@ -2,7 +2,7 @@ import {exportErrorMessage} from './card-export.js?v=0.1.2-13';
 import {ChartView} from './card-chart.js?v=0.1.2-13';
 import {SelectControl} from './card-controls.js?v=0.1.2-13';
 import {el,button,field,input,summaryView,quality,dateText} from './card-ui.js?v=0.1.2-13';
-import {formatDecimal,formatCost,errorMessage} from './card-state.js?v=0.1.2-13';
+import {formatDecimal,recordCostState,errorMessage} from './card-state.js?v=0.1.2-13';
 
 const text=(node,value)=>{if(node.textContent!==String(value))node.textContent=value;};
 const label=(control,value)=>text(control.label.firstChild,value);
@@ -40,7 +40,7 @@ export class CardView {
     text(this.export,t(c.exportBusy?'exportingPdf':'exportPdf'));this.export.disabled=!!c.exportBusy||!c.canExport();this.exportError.hidden=!c.exportError;text(this.exportError,c.exportError?exportErrorMessage(c.exportError,c.language):'');
     if(c.expanded.statistics||!s){
       const key=JSON.stringify([c.summary,s?.currency,c.language]);
-      if(this.summaryKey!==key){this.summaryKey=key;if(c.summary&&s)this.summary.replaceChildren(summaryView(c.summary,s.currency,c.language),el('p',`${t('count')}: ${c.summary.active_count??'—'} / ${c.summary.completed_count??'—'}`,{class:'muted'}),...(c.summary.quality?.length?[el('p',quality(c.summary.quality,c.language),{class:'quality'})]:[]));else text(this.summary,t(online?'loading':'offline'));}
+      if(this.summaryKey!==key){this.summaryKey=key;if(c.summary&&s)this.summary.replaceChildren(summaryView(c.summary,s.currency,c.language),el('p',`${t('count')}: ${c.summary.active_count??'—'} / ${c.summary.completed_count??'—'}`,{class:'muted'}));else text(this.summary,t(online?'loading':'offline'));}
       this.updateChart();
     }
     if(c.expanded.records&&c.config.show_records!==false||!s)this.updateRecords(online);
@@ -73,7 +73,7 @@ export class CardView {
 
   updateRecords(online){
     const c=this.card,t=key=>c.t(key);text(this.add,t('add'));this.add.disabled=!online||!!c.busy;text(this.historyHint,t('historyHint'));text(this.loading,t(online?'loading':'offline'));this.loading.hidden=!!c.page;this.pager.hidden=!c.page;this.noRecords.hidden=!c.page||!!c.page.records.length;text(this.noRecords,t('empty'));
-    const ids=new Set();for(const record of c.page?.records||[]){ids.add(record.id);let v=this.records.get(record.id);if(!v){const node=el('li',null,{class:'row','data-record-id':record.id}),open=button('',()=>{const current=c.page?.records.find(r=>r.id===record.id);if(current)c.details(current);},false,'record-open');node.append(open);v={node,open};this.records.set(record.id,v);this.list.append(node);}const key=JSON.stringify([record,c.pointName(record.point_id),c.identityName(record.identity_id),c.language,c.snapshot.currency]);if(v.key!==key){v.key=key;v.open.replaceChildren(el('strong',`${c.pointName(record.point_id)} · ${c.identityName(record.identity_id)}`),el('small',`${dateText(record.start,record.timezone)} · ${t(record.status)}`),el('span',`${formatDecimal(record.energy_kwh,c.language)} kWh · ${formatCost(record,c.snapshot.currency,c.language)}`),...(record.quality?.length?[el('small',quality(record.quality,c.language))]:[]));}}
+    const ids=new Set();for(const record of c.page?.records||[]){ids.add(record.id);let v=this.records.get(record.id);if(!v){const node=el('li',null,{class:'row','data-record-id':record.id}),open=button('',()=>{const current=c.page?.records.find(r=>r.id===record.id);if(current)c.details(current);},false,'record-open');node.append(open);v={node,open};this.records.set(record.id,v);this.list.append(node);}const key=JSON.stringify([record,c.pointName(record.point_id),c.identityName(record.identity_id),c.language,c.snapshot.currency]);if(v.key!==key){v.key=key;const cost=recordCostState(record,c.snapshot.currency,c.language);v.open.replaceChildren(el('strong',`${c.pointName(record.point_id)} · ${c.identityName(record.identity_id)}`),el('small',`${dateText(record.start,record.timezone)} · ${t(record.status)}`),el('span',`${formatDecimal(record.energy_kwh,c.language)} kWh · ${t(cost.label)}: ${cost.value}`),...cost.issues.map(issue=>el('small',t(issue))));}}
     for(const [id,v]of this.records)if(!ids.has(id)){v.node.remove();this.records.delete(id);}
     const focused=c.shadowRoot.activeElement;
     (c.page?.records||[]).forEach((record,index)=>{const node=this.records.get(record.id).node;if(this.list.children[index]!==node)this.list.insertBefore(node,this.list.children[index]||null);});

@@ -251,7 +251,7 @@ Każdy bieżący punkt pokazuje nazwę, stan, **Moc**, **Bieżąca cena** i **Wy
 
 W **Statystyki wpisów → Okres statystyk** wybierz **Dzisiaj / Ten miesiąc / Ten rok / Cały okres / Własny zakres**. Dla własnego zakresu podaj **Początek** i **Koniec (wyłącznie)**, następnie **Zastosuj zakres**. Cały 1 września oznacza początek 1 września, koniec 2 września.
 
-Podsumowanie pokazuje **Energia**, **Koszt**, **Aktywne / zakończone** i jakość. **Odśwież** pobiera nowe wyniki. **Miara na wykresie** przełącza **Energia** i **Koszt** na wykresie grupowanym według zakresu. **Szczegóły** pod wykresem rozwijają tabelę wartości przedziałów.
+Podsumowanie pokazuje **Energia**, **Koszt** (lub **Obliczony koszt**, gdy niepełny) i **Aktywne / zakończone**. Rzeczywiste problemy znajdują się przy odpowiednich wpisach. **Odśwież** pobiera nowe wyniki. **Miara na wykresie** przełącza **Energia** i **Koszt** na wykresie grupowanym według zakresu. **Szczegóły** pod wykresem rozwijają tabelę wartości przedziałów.
 
 **Eksportuj PDF** pobiera raport A4 z przeszukiwalnym tekstem w języku karty. Używa punktu, tożsamości i okresu zastosowanych w chwili kliknięcia. Niezastosowane zmiany dat nie wpływają na raport. Obejmuje wszystkie pasujące i dostępne rekordy, nawet gdy lista jest ukryta lub pokazuje inną stronę. Wybierz **Wszystkie** tożsamości, aby uzyskać wspólny raport. Późniejsze zmiany filtrów i aktualizacje nie zmieniają trwającego eksportu.
 
@@ -263,7 +263,7 @@ Poczekaj na wygenerowanie PDF; kolejny eksport można ponowić po jego zakończe
 
 ### Wpisy · wszystkie daty
 
-Lista zawiera aktywne i zakończone wpisy, malejąco według początku, po 25 na stronę. **Poprzednia / Następna** zmienia stronę. Wiersz pokazuje punkt, tożsamość, początek, stan, energię, koszt i jakość; kliknięcie całego wiersza otwiera szczegóły.
+Lista zawiera aktywne i zakończone wpisy, malejąco według początku, po 25 na stronę. **Poprzednia / Następna** zmienia stronę. Wiersz pokazuje punkt, tożsamość, początek, stan, energię, koszt i rzeczywiste problemy; kliknięcie całego wiersza otwiera szczegóły.
 
 Działają tylko filtry punktu i tożsamości: **Daty statystyk nie filtrują tej listy.** Przy „Dzisiaj” nadal widać stare wpisy. Obok tytułu jest **Dodaj wpis historyczny**; pusta lista pokazuje **Brak wpisów**.
 
@@ -292,6 +292,7 @@ Przed wstrzymaniem przez **Wykrywanie ładowania** zakończ aktywne wpisy i potw
 Szczegóły pokazują przypisanie, energię, koszt, zwięzły zakres dat i godzin z czasem trwania, strefę rozliczeń, stan, źródło i notatkę. Komunikaty wskazują braki energii lub cen. Nieznany koszt nie jest pokazywany jako zero; koszt ręczny zachowuje podaną sumę również przy niepełnym pokryciu pomiarami.
 
 - **Szczegóły opłat** są początkowo zwinięte. Po rozwinięciu pokazują okresy cenowe chronologicznie, z czasem, ceną, energią i kosztem oraz osobnymi wskazaniami braków danych energii. Daty są grupowane; przy więcej niż 12 okresach można rozwinąć pozostałe.
+- Zwykłe oczekiwanie na ostatni pomiar pokazuje **Rozliczanie** bez ostrzeżenia; przed pierwszym odczytem **Bieżący koszt** pokazuje **—**. Braki energii, cen i zakończenie z powodu niedostępnego źródła są osobnymi problemami, każdy pokazany raz. **Energia wpisana ręcznie** zachowuje okresy cenowe bez stałego kosztu. Koszt ręczny jest raz w podsumowaniu; całkowicie ręczne energia i koszt nie tworzą pustej sekcji. **Przed / Po** zachowują własne kwoty.
 - Aktywne wpisy pozwalają na **Zmień tożsamość wpisu**; tylko zakończone pokazują **Edytuj wpis** i **Unieważnij wpis**.
 
 > Miejsce na zrzut ekranu 12: Zakończony wpis z rozwijanymi szczegółami opłat i działaniami.
@@ -312,7 +313,7 @@ W zakończonym wpisie wybierz **Unieważnij wpis**, sprawdź i kliknij **Potwier
 2. Podaj datę i czas **Początek** oraz **Koniec (wyłącznie)**; koniec musi być późniejszy.
 3. Podaj energię ręcznie lub pozostaw pustą i wybierz podstawę kosztu.
 4. Opcjonalna **Notatka** ma maksymalnie 2000 znaków.
-5. Kliknij **Podgląd zmian**. W **Podgląd · sprawdź przed zapisaniem** sprawdź kwoty, segmenty, jakość i **Pokrycie pomiarami**, a przy edycji także **Przed / Po**.
+5. Kliknij **Podgląd zmian**. W **Podgląd · sprawdź przed zapisaniem** sprawdź kwoty, szczegóły opłat, rzeczywiste problemy i **Pokrycie pomiarami**, a przy edycji także **Przed / Po**.
 6. Bez nakładania wpisów kliknij **Zapisz podgląd**. Po zmianie formularza wygeneruj podgląd ponownie. **Zamknij** nie zapisuje.
 
 | Pole lub opcja | Działanie |
@@ -326,7 +327,7 @@ W zakończonym wpisie wybierz **Unieważnij wpis**, sprawdź i kliknij **Potwier
 
 Wpisy tego samego punktu nie mogą nakładać się w czasie. Nakładanie w podglądzie blokuje zapis. Przy nieaktualnym podglądzie lub zmienionym wpisie odśwież i wygeneruj nowy podgląd.
 
-Odtwarzanie historii zależy od danych zachowanych przez HA i księgę; nie ma gwarancji odtworzenia dowolnie starego okresu. Braki można uzupełnić z rachunku ładowarki. Ręczne sumy energii lub kosztów są rozdzielane w czasie; **Ręczne nadpisanie / Szacowane** opisuje tę podstawę obliczeń.
+Odtwarzanie historii zależy od danych zachowanych przez HA i księgę; nie ma gwarancji odtworzenia dowolnie starego okresu. Braki można uzupełnić z rachunku ładowarki. Wartości ręczne mają krótkie etykiety; zwykły podział, zaokrąglenia i zakończone przerwy w dostępności nie dodają objaśnień.
 
 Czasy dotyczą pokazanej strefy rozliczeń, nie strefy przeglądarki. Przy powtórzeniu czasu lokalnego podczas zmiany czasu wybierz **Powtórzony czas lokalny: wybierz chwilę UTC**. Nieistniejące czasy lokalne nie są akceptowane.
 
@@ -336,12 +337,12 @@ Czasy dotyczą pokazanej strefy rozliczeń, nie strefy przeglądarki. Przy powt�
 
 | Wskazówka | Znaczenie |
 | --- | --- |
-| **Wstępne / Oczekuje na rozliczenie** | Wpis lub granice pomiaru nie są ostateczne; późniejsze odczyty mogą zmienić wynik |
-| **znana suma częściowa · oczekuje na rozliczenie** | Znana część kosztu, nie pełny rachunek; nieznane nie oznacza zera |
+| **Bieżący koszt / Rozliczanie** | Aktywny wpis lub oczekiwanie tylko na ostatni pomiar; kolejne odczyty mogą zmienić kwotę |
+| **Obliczony koszt** | Kwota niepełna; przyczyny są przy odpowiednim wpisie; nieznane nie oznacza zera |
 | **Brak ceny / Nieznana cena** | Brak prawidłowej ceny; sprawdź walutę, jednostkę, dostępność i historię |
 | **Brak danych o energii / Luka w obserwacjach** | Za mało danych lub zbyt długi odstęp; sprawdź i ewentualnie uzupełnij ręcznie |
 | **Reset licznika** | Spadek odczytu powoduje niekompletność danego przedziału |
-| **Ręczne nadpisanie / Szacowane** | Wartości ręczne lub podział w czasie, a nie ciągły rzeczywisty pomiar |
+| **Energia wpisana ręcznie / Ręczny koszt całkowity** | Ręczne wartości; stały koszt ręczny pozostaje stały podczas oczekiwania na pomiary |
 
 Energia jest dzielona między dni, miesiące i lata; ładowanie przez północ nie trafia całe do dnia rozpoczęcia. Historyczne wpisy zachowują swoją strefę rozliczeń. Liczba zakończonych wpisów jest przypisywana według czasu rozpoczęcia: wpis może wnosić energię do zakresu bez zwiększania liczby zakończonych wpisów w nim.
 

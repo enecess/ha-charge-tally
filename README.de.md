@@ -251,7 +251,7 @@ Jeder aktuelle Punkt zeigt Name, Status, **Leistung**, **Aktueller Preis** und *
 
 Wähle unter **Eintragsstatistik → Statistikzeitraum** zwischen **Heute / Dieser Monat / Dieses Jahr / Gesamter Zeitraum / Benutzerdefinierter Zeitraum**. Für eigene Daten fülle **Beginn** und **Ende (ausschließlich)** aus und wähle **Zeitraum anwenden**. Für den ganzen 1. September gilt Beginn 1. September, Ende 2. September.
 
-Die Zusammenfassung zeigt **Energie**, **Kosten**, **Aktiv / abgeschlossen** und Qualität. **Aktualisieren** lädt neue Ergebnisse. **Diagrammkennzahl** wechselt zwischen **Energie** und **Kosten** im nach Zeitraum gruppierten Diagramm. **Details** darunter öffnet die Tabelle mit Werten je Zeitabschnitt.
+Die Zusammenfassung zeigt **Energie**, **Kosten** (bei unvollständigen Beträgen **Berechnete Kosten**) und **Aktiv / abgeschlossen**. Tatsächliche Probleme stehen beim jeweiligen Eintrag. **Aktualisieren** lädt neue Ergebnisse. **Diagrammkennzahl** wechselt zwischen **Energie** und **Kosten** im nach Zeitraum gruppierten Diagramm. **Details** darunter öffnet die Tabelle mit Werten je Zeitabschnitt.
 
 **PDF exportieren** lädt einen durchsuchbaren A4-Bericht in der Sprache der Karte herunter. Es gelten Ladepunkt, Identität und Statistikzeitraum beim Klicken; noch nicht übernommene Datumsentwürfe zählen nicht. Alle passenden lesbaren Einträge sind enthalten, auch bei ausgeblendeter Eintragsliste oder einer anderen Listenseite. **Alle** Identitäten erstellt einen gemeinsamen Bericht. Spätere Filteränderungen und Live-Aktualisierungen ändern den laufenden Export nicht.
 
@@ -263,7 +263,7 @@ Warten Sie auf die PDF-Erstellung; danach kann ein weiterer Export versucht werd
 
 ### Einträge · alle Zeiträume
 
-Die Liste zeigt aktive und beendete Einträge, absteigend nach Beginn, 25 pro Seite. **Zurück / Weiter** blättert. Zeilen enthalten Punkt, Identität, Beginn, Status, Energie, Kosten und Qualität; die ganze Zeile öffnet Details.
+Die Liste zeigt aktive und beendete Einträge, absteigend nach Beginn, 25 pro Seite. **Zurück / Weiter** blättert. Zeilen enthalten Punkt, Identität, Beginn, Status, Energie, Kosten und tatsächliche Probleme; die ganze Zeile öffnet Details.
 
 Nur Punkt- und Identitätsfilter gelten: **Der Statistikzeitraum schränkt die Liste nicht ein.** „Heute“ lässt ältere Einträge sichtbar. Neben dem Titel steht **Historischen Eintrag hinzufügen**; eine leere Liste zeigt **Keine Einträge**.
 
@@ -292,6 +292,7 @@ Beende vor dem Pausieren mit **Ladeerkennung** aktive Einträge und offene Best�
 Details zeigen Zuordnung, Energie, Kosten, einen kompakten Datums- und Zeitbereich mit Dauer, Abrechnungszeitzone, Status, Quelle und Notiz. Hinweise nennen fehlende Energie oder Preise. Unbekannte Kosten erscheinen nicht als null; manuelle Kosten behalten auch bei unvollständiger Messabdeckung den eingegebenen Gesamtbetrag.
 
 - **Kostendetails** sind zunächst eingeklappt. Aufgeklappt zeigen sie Preiszeiträume chronologisch mit Zeit, Preis, Energie und Kosten sowie gesonderte Energielücken. Datumsangaben sind gruppiert; bei mehr als 12 Zeiträumen lassen sich die übrigen aufklappen.
+- Normales Warten auf die letzte Messung zeigt **Abrechnung läuft** ohne Warnung; vor der ersten Messung stehen **Aktuelle Kosten** und **—**. Fehlende Energie, Preise und ein Ausfall als Endgrund bleiben getrennte Hinweise, jeweils einmal. **Manuelle Energie** behält ohne feste Gebühr die Preiszeiträume. Eine manuelle Gebühr steht einmal in der Übersicht; vollständig manuelle Energie und Kosten erzeugen keinen leeren Detailbereich. **Vorher / Nachher** behalten jeweils ihren Betrag.
 - Aktive Einträge erlauben **Identität des Eintrags ändern**; nur beendete bieten **Eintrag bearbeiten** und **Eintrag stornieren**.
 
 > Screenshot-Platzhalter 12: Beendeter Eintrag mit aufklappbaren Kostendetails und Aktionen.
@@ -312,7 +313,7 @@ Wähle beim beendeten Eintrag **Eintrag stornieren**, prüfe und wähle **Storni
 2. Gib Datum und Uhrzeit für **Beginn** und **Ende (ausschließlich)** ein; das Ende muss später liegen.
 3. Gib manuelle Energie ein oder lasse sie leer und wähle die Kostengrundlage.
 4. Ergänze bei Bedarf **Notiz**, maximal 2000 Zeichen.
-5. Wähle **Änderungen in der Vorschau anzeigen**. Prüfe unter **Vorschau · vor dem Speichern prüfen** Beträge, Abschnitte, Qualität und **Messabdeckung**; beim Bearbeiten auch **Vorher / Nachher**.
+5. Wähle **Änderungen in der Vorschau anzeigen**. Prüfe unter **Vorschau · vor dem Speichern prüfen** Beträge, Kostendetails, tatsächliche Probleme und **Messabdeckung**; beim Bearbeiten auch **Vorher / Nachher**.
 6. Ohne Überschneidung kannst du **Vorschau speichern** wählen. Formularänderungen erfordern eine neue Vorschau; **Schließen** speichert nicht.
 
 | Feld oder Option | Verhalten |
@@ -326,7 +327,7 @@ Wähle beim beendeten Eintrag **Eintrag stornieren**, prüfe und wähle **Storni
 
 Einträge desselben Punkts dürfen sich nicht überschneiden. Überschneidungen verhindern Speichern. Bei veralteter Vorschau oder geändertem Eintrag aktualisiere und erstelle eine neue Vorschau.
 
-Historische Ergänzung hängt von erhaltenen HA- und Buchdaten ab; beliebig alte Zeiträume sind nicht garantiert wiederherstellbar. Fehlende Energie und Kosten können anhand einer Laderabrechnung ergänzt werden. Manuelle Gesamtwerte werden zeitlich verteilt; **Manuell überschrieben / Geschätzt** beschreibt diese Berechnungsgrundlage.
+Historische Ergänzung hängt von erhaltenen HA- und Buchdaten ab; beliebig alte Zeiträume sind nicht garantiert wiederherstellbar. Fehlende Energie und Kosten können anhand einer Laderabrechnung ergänzt werden. Manuelle Werte tragen kurze Quellenbezeichnungen; normale Verteilung, Rundung und behobene historische Ausfälle erzeugen keine zusätzlichen Hinweise.
 
 Zeiten gelten in der angezeigten Abrechnungszeitzone, nicht der Browserzeitzone. Bei Sommerzeit-Dopplungen wähle unter **Doppelte Ortszeit: UTC-Zeitpunkt auswählen** den passenden Zeitpunkt. Nicht existierende Ortszeiten sind unzulässig.
 
@@ -336,12 +337,12 @@ Zeiten gelten in der angezeigten Abrechnungszeitzone, nicht der Browserzeitzone.
 
 | Hinweis | Bedeutung |
 | --- | --- |
-| **Vorläufig / Abrechnung ausstehend** | Eintrag oder Messgrenzen noch nicht endgültig; spätere Werte können Ergebnisse ändern |
-| **bekannte Teilsumme · ausstehend** | Bekannte Kosten, keine vollständige Rechnung; unbekannt ist nicht null |
+| **Aktuelle Kosten / Abrechnung läuft** | Aktiver Eintrag oder ausschließlich ausstehende letzte Messung; weitere Messungen können den Betrag ändern |
+| **Berechnete Kosten** | Unvollständiger Betrag; tatsächliche Probleme stehen beim jeweiligen Eintrag; unbekannt ist nicht null |
 | **Preis fehlt / Preis unbekannt** | Kein gültiger Preis; Währung, Einheit, Verfügbarkeit und Historie prüfen |
 | **Energiedaten fehlen / Erfassungslücke** | Fehlende Daten oder zu großer Messabstand; prüfen und nötigenfalls ergänzen |
 | **Zähler zurückgesetzt** | Fallender Zählerstand macht das Intervall unvollständig |
-| **Manuell überschrieben / Geschätzt** | Manuelle Werte oder zeitliche Verteilung, keine durchgehende reale Messung |
+| **Manuelle Energie / Manuelle Gesamtkosten** | Manuelle Werte; eine feste Gebühr bleibt auch bei ausstehenden Messungen fest |
 
 Energie wird auf Tage, Monate und Jahre verteilt; Mitternacht überschreitende Ladung gehört nicht komplett zum Starttag. Historische Einträge behalten ihre Abrechnungszeitzone. Die Anzahl abgeschlossener Einträge folgt dem Beginn: Ein Eintrag kann Energie zum Bereich beitragen, ohne dessen Anzahl abgeschlossener Einträge zu erhöhen.
 

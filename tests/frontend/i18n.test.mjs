@@ -43,13 +43,13 @@ test('errors are localized and unknown server messages are not rendered', () => 
   }
 });
 
-test('incomplete cost uses a translated template and preserves decimal precision', () => {
+test('incomplete cost keeps localized decimal precision without explanatory text', () => {
   const value={known_cost:'-1234.565000000000000001',cost_complete:false};
   const before=structuredClone(value);
-  assert.match(formatCost(value,'EUR','de'),/^EUR -1\.234,57.*bekannte Teilsumme/);
-  assert.match(formatCost(value,'EUR','fr'),/sous-total connu/);
-  assert.match(formatCost(value,'PLN','pl'),/znana suma częściowa/);
-  assert.match(formatCost(value,'EUR','it-IT'),/^EUR -1234,57.*subtotale noto/);
+  assert.equal(formatCost(value,'EUR','de'),'EUR -1.234,57');
+  assert.equal(formatCost(value,'EUR','fr'),'EUR -1 234,57');
+  assert.equal(formatCost(value,'PLN','pl'),'PLN -1234,57');
+  assert.equal(formatCost(value,'EUR','it-IT'),'EUR -1234,57');
   assert.equal(formatCost({...value,cost_complete:true},'EUR','de'),'EUR -1.234,57');
   assert.deepEqual(value,before);
 });
@@ -86,13 +86,4 @@ test('a missing translated key falls back to English in an installed module grap
 test('interpolated values remain literal text and unresolved placeholders stay visible', () => {
   assert.equal(tr('error.configString','en',{field:'<img>$&{value}'}),'<img>$&{value} must be a string');
   assert.equal(tr('error.configString','en'),'{field} must be a string');
-});
-
-test('plain Chinese copy explains estimate causes without implementation terms',async()=>{
-  const {quality}=await import('../../custom_components/charge_tally/www/card-ui.js');
-  assert.equal(tr('scope','zh-Hans'),'这里只统计充电记录，电表总电量可能还包含待机等用电。');
-  assert.equal(quality(['estimated'],'zh-Hans'),'部分数据为估算值');
-  assert.equal(quality(['estimated'],'zh-Hans',{kind:'segment'}),'根据采样间隔估算');
-  assert.match(quality(['estimated','manual'],'zh-Hans',{kind:'segment'}),/按时间分配手动填写的总量/);
-  assert.match(quality(['estimated'],'zh-Hans',{kind:'segment',cost_basis:'manual'}),/按时间分配手动填写的总量/);
 });

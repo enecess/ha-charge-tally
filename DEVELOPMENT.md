@@ -145,7 +145,7 @@ environments, verify the installed HA and test-plugin versions against
 
 ```sh
 python -m pytest -q tests/ha/test_export_api.py tests/core/test_nfc_rules.py tests/ha/test_nfc_manager.py tests/ha/test_config_flow.py
-node --test --test-name-pattern='billing details render exponent fallback' tests/browser/card.test.mjs
+node --test --test-name-pattern='backend mixed reset|normal settlement|manual totals|compact details' tests/browser/card.test.mjs
 ```
 
 The export regressions require a controlled HTTP error and exactly one integration
@@ -153,10 +153,16 @@ traceback for unexpected renderer failures, including a renderer that finishes
 after its HTTP handler is cancelled. Expected PDF size, glyph, and content errors
 keep their existing client responses. Access is rechecked after rendering.
 
-The browser regression uses real billing details with finite decimal strings such
-as `1e309`. If Intl returns the original exponent text, the amount remains visible
-and only that optional rounding-note comparison is skipped. Ordinary displayed
-amounts still use exact integer comparisons for rounding explanations.
+Record presentation uses `recordCostState` for concise amount labels and distinct
+actual problems. Pending-only gaps and initial active records have no warning;
+reset/gap spans remain actual losses even if they also contain
+`pending_settlement`. Recovered historical quality flags do not imply a current
+fault. Aggregate summaries lack gap spans and use a calculated-cost label when
+incomplete. Fee details retain actual periods, gaps and original precision;
+sampling, rounding and manual-energy explanation paragraphs are not rendered.
+Manual energy keeps its tariff periods without an explicit fee. A full manual
+fee appears once per record state; preview Before and After each keep their
+amount. No empty fee section is rendered for fully manual energy and cost.
 
 HA tests set only the `sqlalchemy.engine` logger to WARNING to avoid the test
 plugin's SQL INFO chatter; warnings, errors, tracebacks, and test failures remain
