@@ -9,7 +9,7 @@ Rejestruj energię i koszty ładowania w Home Assistant według punktu i tożsam
 - Ceny stałe, dynamiczne i dzienne taryfy czasowe, również zerowe i ujemne.
 - Wykrywanie automatyczne lub rozpoczynanie i kończenie wpisów przez kartę i automatyzacje HA.
 - Bieżące ładowanie, statystyki dzienne, miesięczne, roczne, całkowite i wybranego zakresu oraz wykresy grupowane według zakresu.
-- Dodawanie historii, edycja zakończonych wpisów, zmiana tożsamości, unieważnianie błędów oraz przegląd segmentów i wersji.
+- Dodawanie historii, edycja zakończonych wpisów, zmiana tożsamości, unieważnianie błędów oraz przegląd szczegółów opłat.
 - Zarządzanie archiwalnymi punktami i tożsamościami oraz trwałe usuwanie zbędnych danych księgi.
 
 Konfiguracją zarządza się przez **Ustawienia → Urządzenia oraz usługi → Charge Tally**. Karta **Charge Tally** w pulpicie służy do przeglądania i obsługi wpisów. Zawiera kilka obszarów na jednej stronie; szczegóły i edycja otwierają się w oknach dialogowych.
@@ -22,7 +22,7 @@ Po otwarciu strony rozwinięte jest tylko sterowanie ładowaniem. Statystyki i r
 
 Wykresy grupują Dzisiaj według godzin, Ten miesiąc według dni, Ten rok według miesięcy, a Łącznie według lat. Dla własnego zakresu decyduje różnica lokalnych dat kalendarzowych: do 2 dni według godzin, do 90 dni według dni, do 730 dni według miesięcy, powyżej według lat. Obowiązuje strefa czasowa księgi i zmiany czasu. Wykresy i podsumowanie obejmują ten sam zakres; nieznany koszt pozostaje nieznany.
 
-Segmenty rozliczeń w podglądzie i szczegółach łączą sąsiednie przedziały o tej samej podstawie rozliczenia, cenie i jakości. Wyjaśniają rachunek, zamiast przedstawiać każdy odczyt. Statystyki zakresów nadal korzystają z pierwotnych przedziałów pomiarowych. Historia zmian zapisuje migawki przy rozpoczęciu, zakończeniu i jawnych zmianach, w tym zmianie tożsamości lub unieważnieniu. Bieżące próbki aktualizują rekord bez kolejnej migawki; numery rewizji mogą mieć luki.
+Szczegóły opłat w podglądzie i szczegółach wpisu łączą sąsiednie okresy o tej samej podstawie rozliczenia i cenie. Zmiany jakości pomiarów nie dzielą okresu cenowego; rzeczywiste braki danych energii są wskazywane osobno. Statystyki zakresów nadal korzystają z pierwotnych przedziałów pomiarowych. Księga zapisuje wewnętrzne migawki audytowe przy rozpoczęciu, zakończeniu i jawnych zmianach, w tym zmianie tożsamości lub unieważnieniu. Bieżące próbki aktualizują rekord bez kolejnej migawki; wewnętrzne numery rewizji mogą mieć luki.
 
 Usunięcie konfiguracji punktu zachowuje niezakończone rekordy. W **Konfiguruj → Zarządzaj danymi archiwalnymi → Zarchiwizowane punkty ładowania** wybierz usunięty punkt, sprawdź liczbę niezakończonych rekordów i zakres danych, a następnie jawnie potwierdź trwałe usunięcie. Anulowanie zachowuje dane. Czyszczenie obejmuje rekordy, rewizje, próbki i ceny punktu, ale nie dane HA Recorder ani kopie zapasowe.
 
@@ -287,15 +287,14 @@ Po jawnym zakończeniu wykrywanie zwykle czeka na moc poniżej progu zakończeni
 
 Przed wstrzymaniem przez **Wykrywanie ładowania** zakończ aktywne wpisy i potwierdzanie. Jeśli brakuje progów, uzupełnij je w **Skonfiguruj punkt ładowania**.
 
-### Szczegóły i historia zmian
+### Szczegóły wpisu
 
-Szczegóły zawierają przypisanie, energię, koszt, czasy, strefę rozliczeń, **Stan**, **Źródło**, **Wersja**, notatkę i jakość.
+Szczegóły pokazują przypisanie, energię, koszt, zwięzły zakres dat i godzin z czasem trwania, strefę rozliczeń, stan, źródło i notatkę. Komunikaty wskazują braki energii lub cen. Nieznany koszt nie jest pokazywany jako zero; koszt ręczny zachowuje podaną sumę również przy niepełnym pokryciu pomiarami.
 
-- **Segmenty rozliczeniowe** pokazują czas, energię, koszt i **Jakość danych**, przydatne przy zmianie daty lub ceny.
-- **Historia zmian** pokazuje tożsamość, stan, kwoty i notatkę każdej wersji. Nie ma przycisku cofającego do starej wersji.
+- **Szczegóły opłat** są początkowo zwinięte. Po rozwinięciu pokazują okresy cenowe chronologicznie, z czasem, ceną, energią i kosztem oraz osobnymi wskazaniami braków danych energii. Daty są grupowane; przy więcej niż 12 okresach można rozwinąć pozostałe.
 - Aktywne wpisy pozwalają na **Zmień tożsamość wpisu**; tylko zakończone pokazują **Edytuj wpis** i **Unieważnij wpis**.
 
-> Miejsce na zrzut ekranu 12: Zakończony wpis, segmenty, rozwinięta historia zmian i działania.
+> Miejsce na zrzut ekranu 12: Zakończony wpis z rozwijanymi szczegółami opłat i działaniami.
 
 ### Korekta tożsamości
 

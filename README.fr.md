@@ -9,7 +9,7 @@ Comptabilisez l’énergie et le coût des recharges dans Home Assistant, par po
 - Prix fixes, dynamiques ou par plages horaires quotidiennes, y compris les prix nuls et négatifs.
 - Détection automatique, ou démarrage et fin des enregistrements depuis la carte ou les automatisations Home Assistant.
 - Suivi en direct, statistiques du jour, du mois, de l’année, de toute la période ou d’une période personnalisée, et graphiques regroupés par plage.
-- Ajout d’enregistrements passés, modification des enregistrements terminés, changement d’identité, invalidation des erreurs, consultation des segments et de l’historique des modifications.
+- Ajout d’enregistrements passés, modification des enregistrements terminés, changement d’identité, invalidation des erreurs et consultation du détail des coûts.
 - Gestion des points et identités archivés, et suppression définitive des données devenues inutiles.
 
 Deux accès principaux : **Paramètres → Appareils et services → Charge Tally** pour la configuration, et la carte **Charge Tally** du tableau de bord pour consulter et gérer les enregistrements. La carte réunit plusieurs zones sur une même page ; les détails et formulaires s’ouvrent dans des fenêtres de dialogue.
@@ -22,7 +22,7 @@ Deux accès principaux : **Paramètres → Appareils et services → Charge Tall
 
 Les graphiques regroupent Aujourd’hui par heure, Ce mois par jour, Cette année par mois et Total par année. Pour une plage personnalisée, l’écart entre les dates du calendrier local détermine le regroupement : jusqu’à 2 jours par heure, jusqu’à 90 jours par jour, jusqu’à 730 jours par mois, puis par année. Les intervalles suivent le fuseau du registre et les changements d’heure. Graphiques et totaux couvrent la même plage ; un coût inconnu reste inconnu.
 
-Les segments de facturation des aperçus et détails fusionnent les intervalles adjacents dont la base de facturation, le tarif et la qualité sont identiques. Ils expliquent la facture, sans représenter chaque relevé. Les statistiques temporelles utilisent toujours les intervalles de mesure d’origine. L’historique des modifications conserve un instantané au démarrage, à la fin ou lors d’une modification explicite, y compris réaffectation et annulation. Les relevés courants modifient l’enregistrement sans nouvel instantané ; les numéros de révision peuvent donc comporter des sauts.
+Le détail des coûts des aperçus et des enregistrements regroupe les périodes adjacentes dont la base de facturation et le tarif sont identiques. Les changements de qualité des mesures ne divisent pas une période tarifaire ; les lacunes réelles d’énergie sont signalées séparément. Les statistiques temporelles utilisent toujours les intervalles de mesure d’origine. Le registre conserve en interne un instantané d’audit au démarrage, à la fin ou lors d’une modification explicite, y compris réaffectation et annulation. Les relevés courants modifient l’enregistrement sans nouvel instantané ; les numéros de révision internes peuvent donc comporter des sauts.
 
 Supprimer la configuration d’un point conserve ses enregistrements inachevés. Dans **Configurer → Gérer les données archivées → Points de charge archivés**, sélectionnez le point supprimé, vérifiez le nombre d’enregistrements inachevés et les données concernées, puis confirmez explicitement la suppression définitive. Annuler préserve les données. Le nettoyage supprime les enregistrements, révisions, mesures et tarifs du point, sans supprimer les données Recorder de HA ni les sauvegardes.
 
@@ -287,15 +287,14 @@ Après une fin explicite, la détection attend normalement une puissance inféri
 
 Avant de suspendre la détection avec **Détection de la recharge**, terminez les enregistrements actifs et les confirmations. Si les seuils manquent, ouvrez **Configurer le point de recharge**.
 
-### Consulter les détails et les modifications
+### Consulter les détails d’un enregistrement
 
-Les détails présentent l’attribution, l’énergie, le coût, les horaires, le fuseau de comptabilisation, l’**État**, la **Source**, la **Révision**, la note et les indications de qualité.
+Les détails présentent l’attribution, l’énergie, le coût, une plage compacte de dates et d’heures avec sa durée, le fuseau de comptabilisation, l’état, la source et la note. Des indications signalent l’énergie ou les tarifs manquants. Un coût inconnu n’est pas affiché comme nul ; un coût manuel conserve le total saisi même si la couverture des mesures est incomplète.
 
-- **Segments de comptabilisation** : horaires, énergie, coût et **Qualité des données** de chaque segment, pour vérifier notamment les répartitions à minuit ou lors d’un changement de prix.
-- **Historique des modifications** : développez cette section pour voir l’identité, l’état, les montants et la note de chaque révision. Il s’agit d’une trace d’audit, sans bouton de retour à une ancienne version.
+- **Détail des coûts** est initialement replié. Développez-le pour voir les périodes tarifaires dans l’ordre chronologique, avec horaires, tarif, énergie, coût et lacunes d’énergie signalées séparément. Les dates sont regroupées ; au-delà de 12 périodes, les suivantes peuvent être dépliées.
 - Un enregistrement actif permet de **Changer l’identité de l’enregistrement** ; seuls les enregistrements terminés proposent **Modifier l’enregistrement** et **Invalider l’enregistrement**.
 
-> Emplacement de capture 12 : détails d’un enregistrement terminé, segments, historique des modifications développé et actions.
+> Emplacement de capture 12 : enregistrement terminé avec détail des coûts dépliable et actions.
 
 ### Corriger l’identité
 

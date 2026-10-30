@@ -9,7 +9,7 @@ Erfasse Ladeenergie und Kosten in Home Assistant nach Ladepunkt und Identität u
 - Feste, dynamische und tägliche zeitabhängige Preise, einschließlich null und negativer Preise.
 - Automatische Erkennung oder Start und Ende über Karte und HA-Automationen.
 - Live-Werte, Tages-, Monats-, Jahres-, Gesamt- und Bereichsstatistik mit nach Zeitraum gruppierten Diagrammen.
-- Historische Einträge ergänzen, beendete Einträge bearbeiten, Identitäten ändern, Fehler stornieren sowie Abrechnungsabschnitte und Revisionen prüfen.
+- Historische Einträge ergänzen, beendete Einträge bearbeiten, Identitäten ändern, Fehler stornieren und Kostendetails prüfen.
 - Archivierte Punkte und Identitäten verwalten und Buchungsdaten dauerhaft entfernen.
 
 **Einstellungen → Geräte & Dienste → Charge Tally** verwaltet die Konfiguration. Die **Charge Tally**-Karte im Dashboard zeigt und bearbeitet Einträge. Sie enthält mehrere Bereiche; Details und Bearbeitung öffnen sich in Dialogen.
@@ -22,7 +22,7 @@ Beim Öffnen sind nur die Ladesteuerungen aufgeklappt. Statistik und Datensätze
 
 Diagramme gruppieren Heute nach Stunden, Diesen Monat nach Tagen, Dieses Jahr nach Monaten und Gesamt nach Jahren. Bei einem eigenen Zeitraum zählt die Differenz der lokalen Kalendertage: bis 2 Tage stündlich, bis 90 Tage täglich, bis 730 Tage monatlich, darüber jährlich. Es gelten die Zeitzone des Kontobuchs und Sommerzeitwechsel. Diagramme und Summen verwenden denselben Zeitraum; unbekannte Kosten bleiben unbekannt.
 
-Abrechnungsabschnitte in Vorschau und Details fassen benachbarte Intervalle mit gleicher Abrechnungsgrundlage, gleichem Preis und gleicher Qualität zusammen. Sie erklären die Rechnung und sind keine einzelnen Messmeldungen. Zeitraumstatistiken verwenden weiterhin die ursprünglichen Messintervalle. Änderungsschnappschüsse entstehen beim Start, Ende und bei ausdrücklichen Änderungen, einschließlich Zuordnung und Stornierung. Laufende Messwerte aktualisieren den Datensatz ohne weiteren Schnappschuss; Revisionsnummern können Lücken haben.
+Kostendetails in Vorschau und Details fassen benachbarte Zeiträume mit gleicher Abrechnungsgrundlage und gleichem Preis zusammen. Änderungen der Messqualität teilen einen Preiszeitraum nicht auf; tatsächliche Energielücken werden gesondert angezeigt. Zeitraumstatistiken verwenden weiterhin die ursprünglichen Messintervalle. Das Kontobuch speichert intern Prüfschnappschüsse beim Start, Ende und bei ausdrücklichen Änderungen, einschließlich Zuordnung und Stornierung. Laufende Messwerte aktualisieren den Datensatz ohne weiteren Schnappschuss; interne Revisionsnummern können Lücken haben.
 
 Nach Entfernen einer Ladepunktkonfiguration bleiben offene Datensätze erhalten. Unter **Konfigurieren → Archivierte Daten verwalten → Archivierte Ladepunkte** den entfernten Punkt wählen, Anzahl offener Datensätze und Umfang prüfen und die endgültige Löschung ausdrücklich bestätigen. Abbrechen erhält die Daten. Gelöscht werden zugehörige Datensätze, Revisionen, Messwerte und Preise, jedoch keine HA-Recorder-Daten oder Backups.
 
@@ -287,15 +287,14 @@ Nach ausdrücklichem Beenden wartet die Erkennung normalerweise auf Leistung unt
 
 Beende vor dem Pausieren mit **Ladeerkennung** aktive Einträge und offene Bestätigungen. Fehlen Schwellenwerte, ergänze sie unter **Ladepunkt konfigurieren**.
 
-### Details und Revisionen ansehen
+### Eintragsdetails ansehen
 
-Details zeigen Zuordnung, Energie, Kosten, Zeitpunkte, Abrechnungszeitzone, **Status**, **Quelle**, **Revision**, Notiz und Qualität.
+Details zeigen Zuordnung, Energie, Kosten, einen kompakten Datums- und Zeitbereich mit Dauer, Abrechnungszeitzone, Status, Quelle und Notiz. Hinweise nennen fehlende Energie oder Preise. Unbekannte Kosten erscheinen nicht als null; manuelle Kosten behalten auch bei unvollständiger Messabdeckung den eingegebenen Gesamtbetrag.
 
-- **Abrechnungsabschnitte** zeigt Zeiten, Energie, Kosten und **Datenqualität**, etwa zur Prüfung von Tages- und Preiswechseln.
-- **Änderungsverlauf** zeigt Identität, Status, Betrag und Notiz je Revision; es gibt kein Zurückrollen per Knopfdruck.
+- **Kostendetails** sind zunächst eingeklappt. Aufgeklappt zeigen sie Preiszeiträume chronologisch mit Zeit, Preis, Energie und Kosten sowie gesonderte Energielücken. Datumsangaben sind gruppiert; bei mehr als 12 Zeiträumen lassen sich die übrigen aufklappen.
 - Aktive Einträge erlauben **Identität des Eintrags ändern**; nur beendete bieten **Eintrag bearbeiten** und **Eintrag stornieren**.
 
-> Screenshot-Platzhalter 12: Beendeter Eintrag mit Abschnitten, Änderungsverlauf und Aktionen.
+> Screenshot-Platzhalter 12: Beendeter Eintrag mit aufklappbaren Kostendetails und Aktionen.
 
 ### Identität korrigieren
 

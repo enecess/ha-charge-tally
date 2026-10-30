@@ -9,7 +9,7 @@ Registra energia e costi delle ricariche per punto e identità in Home Assistant
 - Prezzi fissi, dinamici o a fasce giornaliere, anche nulli o negativi.
 - Rilevamento automatico oppure avvio e fine dalla scheda o dalle automazioni di Home Assistant.
 - Stato in tempo reale, statistiche odierne, mensili, annuali, complessive o personalizzate e grafici raggruppati per intervallo.
-- Inserimento di registrazioni passate, modifica di quelle terminate, riassegnazione, annullamento, segmenti di contabilizzazione e revisioni.
+- Inserimento di registrazioni passate, modifica di quelle terminate, riassegnazione, annullamento e consultazione del dettaglio dei costi.
 - Gestione dei punti e delle identità archiviati, con eliminazione permanente dei dati non più necessari.
 
 Usa **Impostazioni → Dispositivi e servizi → Charge Tally** per la configurazione e la scheda **Charge Tally** nella dashboard per le registrazioni. La scheda riunisce più sezioni in una pagina; dettagli e modifiche si aprono in finestre di dialogo.
@@ -22,7 +22,7 @@ All’apertura sono espansi solo i controlli di ricarica. Statistiche e registra
 
 I grafici raggruppano Oggi per ora, Questo mese per giorno, Quest’anno per mese e Totale per anno. Per un intervallo personalizzato conta la differenza tra le date del calendario locale: fino a 2 giorni per ora, fino a 90 giorni per giorno, fino a 730 giorni per mese e oltre per anno. Si applicano il fuso del registro e i cambi dell’ora legale. Grafici e riepilogo coprono lo stesso intervallo; un costo sconosciuto resta sconosciuto.
 
-I segmenti di fatturazione nelle anteprime e nei dettagli uniscono intervalli adiacenti con la stessa base di calcolo, tariffa e qualità. Descrivono la fattura, non ogni singola lettura. Le statistiche temporali continuano a usare gli intervalli di misura originali. La cronologia delle modifiche salva un’istantanea all’avvio, alla fine e per modifiche esplicite, comprese riassegnazione e annullamento. I campioni correnti aggiornano la registrazione senza altre istantanee; i numeri di revisione possono quindi avere salti.
+Il dettaglio dei costi nelle anteprime e nelle registrazioni unisce periodi adiacenti con la stessa base di calcolo e tariffa. Le variazioni della qualità delle misure non dividono un periodo tariffario; le effettive lacune energetiche sono indicate separatamente. Le statistiche temporali continuano a usare gli intervalli di misura originali. Il registro conserva internamente un’istantanea di audit all’avvio, alla fine e per modifiche esplicite, comprese riassegnazione e annullamento. I campioni correnti aggiornano la registrazione senza altre istantanee; i numeri di revisione interni possono quindi avere salti.
 
 Rimuovere la configurazione di un punto conserva le registrazioni non terminate. In **Configura → Gestisci dati archiviati → Punti di ricarica archiviati**, seleziona il punto rimosso, controlla il numero di registrazioni non terminate e i dati coinvolti, quindi conferma esplicitamente l’eliminazione definitiva. Annullare conserva i dati. La pulizia elimina registrazioni, revisioni, campioni e prezzi del punto, ma non i dati Recorder di HA né i backup.
 
@@ -287,15 +287,14 @@ Dopo una fine esplicita, il rilevamento normalmente attende una potenza inferior
 
 Prima di sospendere con **Rilevamento**, termina le registrazioni attive e le conferme in sospeso. Se mancano le soglie, apri **Configura punto di ricarica**.
 
-### Consultare dettagli e revisioni
+### Consultare i dettagli della registrazione
 
-I dettagli comprendono attribuzione, energia, costo, orari, fuso contabile, **Stato**, **Origine**, **Revisione**, nota e qualità.
+I dettagli mostrano attribuzione, energia, costo, un intervallo compatto di date e orari con durata, fuso contabile, stato, origine e nota. Gli avvisi indicano energia o tariffe mancanti. Un costo sconosciuto non viene mostrato come zero; un costo manuale conserva il totale inserito anche con copertura delle misure incompleta.
 
-- **Segmenti di contabilizzazione** mostra tempi, energia, costo e **Qualità dei dati** per segmento, utile per verificare mezzanotte e variazioni di prezzo.
-- **Storico delle revisioni** mostra identità, stato, importi e note precedenti. È una traccia di verifica; non esiste un pulsante di ripristino della revisione.
+- **Dettaglio dei costi** è inizialmente chiuso. Aprilo per vedere i periodi tariffari in ordine cronologico con orari, tariffa, energia, costo e indicazioni separate delle lacune energetiche. Le date sono raggruppate; oltre 12 periodi è possibile espandere i rimanenti.
 - Le registrazioni attive consentono **Cambia identità della registrazione**; solo quelle terminate mostrano **Modifica registrazione** e **Annulla registrazione**.
 
-> Segnaposto immagine 12: Registrazione terminata, segmenti, revisioni espanse e azioni.
+> Segnaposto immagine 12: Registrazione terminata con dettaglio dei costi espandibile e azioni.
 
 ### Correggere l’identità
 
