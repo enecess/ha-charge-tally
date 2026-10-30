@@ -71,6 +71,64 @@ def display_parts(parts: list[dict], timezone: ZoneInfo) -> list[dict]:
     return result
 
 
+def reconcile_display_totals(parts: list[dict], *projections: list[dict]) -> None:
+    """Conserve raw totals after display merging changes Decimal addition order."""
+    with localcontext() as context:
+        context.prec = 36
+        for field in ("energy_kwh", "cost"):
+            total = sum(
+                (Decimal(part[field]) for part in parts if part[field] is not None),
+                Decimal(0),
+            )
+            for rows in projections:
+                values = [
+                    Decimal(row[field]) if row[field] is not None else Decimal(0)
+                    for row in rows
+                ]
+                last = next(
+                    (
+                        index
+                        for index in range(len(values) - 1, -1, -1)
+                        if values[index]
+                    ),
+                    None,
+                )
+                if last is None:
+                    continue
+                prefix = sum(values[:last], Decimal(0))
+                with localcontext() as exact:
+                    exact.prec = (
+                        max(total.adjusted(), prefix.adjusted())
+                        - min(
+                            value.as_tuple().exponent
+                            for value in (total, prefix, *values)
+                        )
+                        + 2
+                    )
+                    # A tiny final value cannot absorb an opposite-sign remainder.
+                    # Adjust earlier nonzero values without reversing row signs.
+                    if (values[last] > 0 and prefix > total) or (
+                        values[last] < 0 and prefix < total
+                    ):
+                        for index in range(last - 1, -1, -1):
+                            if not values[index]:
+                                continue
+                            values[index] = (
+                                max(Decimal(0), values[index] + total - prefix)
+                                if values[index] > 0
+                                else min(Decimal(0), values[index] + total - prefix)
+                            )
+                            rows[index][field] = str(values[index])
+                            with localcontext() as rounded:
+                                rounded.prec = 36
+                                prefix = sum(values[:last], Decimal(0))
+                            if (values[last] > 0 and prefix <= total) or (
+                                values[last] < 0 and prefix >= total
+                            ):
+                                break
+                    rows[last][field] = str(total - prefix)
+
+
 def billing_segments(parts: list[dict]) -> list[dict]:
     """Merge consecutive equivalent parts without altering stored evidence."""
     result = []

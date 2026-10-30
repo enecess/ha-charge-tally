@@ -2,7 +2,12 @@
 
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from .core.billing import billing_periods, billing_segments, display_parts
+from .core.billing import (
+    billing_periods,
+    billing_segments,
+    display_parts,
+    reconcile_display_totals,
+)
 
 
 class InvalidDisplayTimezone(ValueError):
@@ -64,5 +69,8 @@ def detail_view(
         result.update(
             display_timezone=display_timezone.key,
             display_segments=billing_segments(localized),
+        )
+        reconcile_display_totals(
+            parts, result["display_segments"], result["billing_periods"]
         )
     return result

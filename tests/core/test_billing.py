@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 from custom_components.charge_tally.core import billing
 from custom_components.charge_tally.core.billing import billing_segments
+from custom_components.charge_tally.record_views import detail_view
 
 
 def sample(index, **overrides):
@@ -111,6 +112,141 @@ class BillingTests(unittest.TestCase):
 
 
 class BillingPeriodTests(unittest.TestCase):
+    def test_merged_display_rows_conserve_reported_multisample_rounding_case(self):
+        start = datetime(2026, 1, 1, 23, 59, 59, tzinfo=UTC)
+        for sign, basis, price in (
+            ("", "tariff", "0.7"),
+            ("-", "tariff", "-0.7"),
+            ("", "manual", None),
+        ):
+            with self.subTest(sign=sign, basis=basis):
+                parts = [
+                    sample(
+                        index,
+                        start=(start + timedelta(seconds=index * 3)).isoformat(),
+                        end=(start + timedelta(seconds=(index + 1) * 3)).isoformat(),
+                        local_date="2026-01-02",
+                        energy_kwh=energy,
+                        cost=sign + cost,
+                        unit_price=price,
+                        cost_basis=basis,
+                    )
+                    for index, (energy, cost) in enumerate(
+                        (
+                            ("2", "1.4"),
+                            (
+                                "0.333333333333333333333333333333333333",
+                                "0.233333333333333333333333333333333333",
+                            ),
+                        )
+                    )
+                ]
+                record = {"timezone": "Asia/Shanghai"}
+                revisions = [{"record": dict(record), "segments": copy.deepcopy(parts)}]
+                before = copy.deepcopy((record, parts, revisions))
+                legacy = detail_view(record, parts, revisions)
+                result = detail_view(
+                    record, parts, revisions, display_timezone=ZoneInfo("UTC")
+                )
+                self.assertEqual(result["segments"], legacy["segments"])
+                self.assertEqual(result["revisions"], legacy["revisions"])
+                with localcontext() as context:
+                    context.prec = 36
+                    self.assertEqual(
+                        sum(Decimal(part["cost"]) for part in parts),
+                        Decimal(sign + "1.63333333333333333333333333333333333"),
+                    )
+                    for field in ("energy_kwh", "cost"):
+                        expected = sum(Decimal(part[field]) for part in parts)
+                        for projection in ("display_segments", "billing_periods"):
+                            self.assertEqual(
+                                sum(Decimal(row[field]) for row in result[projection]),
+                                expected,
+                            )
+                self.assertEqual((record, parts, revisions), before)
+
+    def test_final_display_residual_preserves_zero_unknown_and_row_signs(self):
+        start = datetime(2026, 1, 1, 23, 59, 59, tzinfo=UTC)
+        for sign, tiny_cost in (("", None), ("", "1E-50"), ("-", "-1E-50")):
+            with self.subTest(sign=sign, tiny_cost=tiny_cost):
+                parts = [
+                    sample(
+                        index,
+                        start=(
+                            start + timedelta(seconds=index * 3 + (index >= 2))
+                        ).isoformat(),
+                        end=(
+                            start + timedelta(seconds=(index + 1) * 3 + (index >= 2))
+                        ).isoformat(),
+                        local_date="2026-01-02",
+                        energy_kwh=energy,
+                        cost=cost,
+                        unit_price=price,
+                    )
+                    for index, (energy, cost, price) in enumerate(
+                        (
+                            ("1.4", sign + "1.4", sign + "1"),
+                            (
+                                "0.233333333333333333333333333333333333",
+                                sign + "0.233333333333333333333333333333333333",
+                                sign + "1",
+                            ),
+                            (
+                                "1E-50",
+                                tiny_cost,
+                                None if tiny_cost is None else sign + "1",
+                            ),
+                            ("0", "0", "0"),
+                        )
+                    )
+                ]
+                before = copy.deepcopy(parts)
+                result = detail_view(
+                    {"timezone": "Asia/Shanghai"},
+                    parts,
+                    [],
+                    display_timezone=ZoneInfo("UTC"),
+                )
+                with localcontext() as context:
+                    context.prec = 36
+                    for projection in ("display_segments", "billing_periods"):
+                        rows = result[projection]
+                        self.assertEqual(
+                            sum(Decimal(row["energy_kwh"]) for row in rows),
+                            Decimal("1.63333333333333333333333333333333333"),
+                        )
+                        self.assertEqual(
+                            sum(
+                                Decimal(row["cost"])
+                                for row in rows
+                                if row["cost"] is not None
+                            ),
+                            Decimal(sign + "1.63333333333333333333333333333333333"),
+                        )
+                        self.assertTrue(
+                            all(Decimal(row["energy_kwh"]) >= 0 for row in rows)
+                        )
+                        if tiny_cost is None:
+                            self.assertIsNone(rows[-2]["cost"])
+                        else:
+                            self.assertTrue(
+                                all(
+                                    Decimal(row["cost"]) <= 0
+                                    if sign
+                                    else Decimal(row["cost"]) >= 0
+                                    for row in rows
+                                )
+                            )
+                            self.assertFalse(
+                                Decimal(rows[-2]["cost"]).is_zero()
+                                and Decimal(rows[-2]["cost"]).is_signed()
+                            )
+                        self.assertEqual(rows[-3]["end"], "2026-01-02T00:00:05+00:00")
+                        self.assertEqual(rows[-2]["start"], "2026-01-02T00:00:06+00:00")
+                        self.assertEqual(Decimal(rows[-1]["energy_kwh"]), 0)
+                        self.assertEqual(Decimal(rows[-1]["cost"]), 0)
+                self.assertEqual(parts, before)
+
     def test_display_midnight_splits_raw_uneven_samples_before_merging(self):
         parts = [
             sample(
