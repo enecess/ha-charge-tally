@@ -1,5 +1,6 @@
 """Read current record revisions, independent of Home Assistant Recorder."""
 
+from copy import deepcopy
 from datetime import datetime, timedelta
 from decimal import Decimal, localcontext
 from zoneinfo import ZoneInfo
@@ -42,6 +43,7 @@ def summarize(
     include_records=False,
     max_records=None,
     max_segments=None,
+    cache=None,
 ):
     if calendar is not None and (start is not None or end is not None):
         raise ValueError("Calendar and absolute range are mutually exclusive")
@@ -71,6 +73,11 @@ def summarize(
     hourly_windows = {}
     calendar_windows = {}
     contributions, segment_count = [], 0
+    if include_records:
+        cache = None
+    query = (start, end, identity_id, point_id, calendar, period, timezone)
+    if cache is not None and cache.get("query") != query:
+        cache.clear()
 
     def windows_for(a, b, record_timezone):
         if period != "hour":
@@ -117,7 +124,104 @@ def summarize(
 
     with ledger.transaction(), localcontext() as ctx:
         ctx.prec = 36
-        for record in ledger.list_records(point_id, identity_id):
+        records = ledger.list_records(point_id, identity_id)
+        position, resume, tail, stable = 0, None, None, None
+        if cache is not None:
+            # Metadata comparisons never regroup the original Decimal additions.
+            signatures = [
+                (
+                    record["id"],
+                    record["revision"],
+                    ledger.segment_generation(record["id"]),
+                )
+                for record in records
+            ]
+            tail_fields = (
+                "id",
+                "point_id",
+                "identity_id",
+                "start",
+                "end",
+                "status",
+                "timezone",
+                "manual_override",
+                "manual_fee_override",
+                "quality_spans",
+            )
+            tail_record = (
+                {
+                    **{field: records[-1].get(field) for field in tail_fields},
+                    "_accounted_until": records[-1].get("_accounted_until"),
+                    "_segment_count": records[-1].get("_segment_count"),
+                }
+                if records
+                else None
+            )
+            stable_position = next(
+                (i for i, record in enumerate(records) if record["status"] == "active"),
+                max(0, len(records) - 1),
+            )
+            previous_stable = cache.get("stable")
+            if (
+                previous_stable is not None
+                and len(previous_stable[0]) == stable_position
+                and previous_stable[0] == signatures[:stable_position]
+            ):
+                stable = previous_stable
+            for checkpoint in sorted(
+                (value for name in ("full", "stable") if (value := cache.get(name))),
+                key=lambda value: len(value[0]),
+                reverse=True,
+            ):
+                count = len(checkpoint[0])
+                if checkpoint[0] == signatures[:count]:
+                    position = count
+                elif count and count == len(records):
+                    previous = checkpoint[2]
+                    current = records[-1]
+                    if (
+                        checkpoint[0][:-1] != signatures[:-1]
+                        or checkpoint[0][-1][2] != signatures[-1][2]
+                        or previous["status"] != "active"
+                        or previous.get("manual_override")
+                        or previous.get("manual_fee_override")
+                        or not previous.get("_accounted_until")
+                        or previous.get("_segment_count") is None
+                        or current.get("_segment_count", 0)
+                        <= previous["_segment_count"]
+                        or any(
+                            previous[field] != current.get(field)
+                            for field in tail_fields
+                        )
+                    ):
+                        continue
+                    # A stable generation proves the old positions were not
+                    # replaced, even if count and accounting horizon both grew.
+                    tail = ledger.list_segments(
+                        current["id"], start_position=previous["_segment_count"]
+                    )
+                    if (
+                        len(tail)
+                        != current["_segment_count"] - previous["_segment_count"]
+                        or not tail
+                        or tail[0]["start"] != previous["_accounted_until"]
+                        or tail[-1]["end"] != current.get("_accounted_until")
+                        or any(a["end"] != b["start"] for a, b in zip(tail, tail[1:]))
+                    ):
+                        tail = None
+                        continue
+                    position = resume = count - 1
+                else:
+                    continue
+                result, energy, cost, quality, buckets = deepcopy(checkpoint[1])
+                break
+        for index, record in enumerate(records[position:], position):
+            if cache is not None and index == stable_position and resume != index:
+                stable = (
+                    signatures[:index],
+                    deepcopy((result, energy, cost, quality, buckets)),
+                    None,
+                )
             start, end = (
                 calendar_bounds(calendar, record["timezone"])
                 if calendar is not None
@@ -127,20 +231,25 @@ def summarize(
             finishes = instant(record["end"]) if record["end"] else None
             if (end and begins >= end) or (start and finishes and finishes <= start):
                 continue
-            result["matched_count"] += 1
+            if index != resume:
+                result["matched_count"] += 1
             if include_records and max_records is not None:
                 if result["matched_count"] > max_records:
                     raise ValueError("export_too_large")
             row_energy, row_cost, row_quality = Decimal(0), Decimal(0), set()
             row_complete, row_has_energy, row_has_cost = True, False, False
             active = record["status"] == "active"
-            if active:
+            if active and index != resume:
                 result["active_count"] += 1
                 quality.add("provisional")
                 row_quality.add("provisional")
-            elif (start is None or begins >= start) and (end is None or begins < end):
+            elif (
+                not active
+                and (start is None or begins >= start)
+                and (end is None or begins < end)
+            ):
                 result["completed_count"] += 1
-            for span in record.get("quality_spans", []):
+            for span in record.get("quality_spans", []) if index != resume else []:
                 a = (
                     max(instant(span["start"]), start)
                     if start
@@ -160,7 +269,7 @@ def summarize(
                     if active:
                         item["quality"].add("provisional")
             # Raw ledger segments preserve the actual sample distribution.
-            parts = ledger.list_segments(record["id"])
+            parts = tail if index == resume else ledger.list_segments(record["id"])
             if include_records and max_segments is not None:
                 segment_count += len(parts)
                 if segment_count > max_segments:
@@ -237,6 +346,16 @@ def summarize(
                         has_known_cost=row_has_cost,
                     )
                 )
+        if cache is not None:
+            # Bucket remainder correction below mutates the public projection.
+            # Resume only from these unfinalized values and their original order.
+            full = (
+                signatures,
+                deepcopy((result, energy, cost, quality, buckets)),
+                deepcopy(tail_record),
+            )
+    if cache is not None:
+        cache.update(query=query, stable=stable, full=full)
     ordered = sorted(
         buckets.values(), key=lambda item: (item.get("start", item["key"]), item["key"])
     )

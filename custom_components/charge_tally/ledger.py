@@ -54,6 +54,7 @@ def retained_currency(path):
 class Ledger:
     def __init__(self, path: str):
         self._db = sqlite3.connect(path, isolation_level=None)
+        self._segment_generations = {}
         self._db.execute("PRAGMA foreign_keys=ON")
         try:
             _schema_version(self._db)
@@ -495,6 +496,9 @@ class Ledger:
                 ),
             )
             self._db.execute("DELETE FROM segments WHERE record_id=?", (record["id"],))
+            self._segment_generations[record["id"]] = (
+                self.segment_generation(record["id"]) + 1
+            )
             for index, segment in enumerate(segments):
                 self._db.execute(
                     "INSERT INTO segments VALUES (?,?,?,?)",
@@ -566,12 +570,16 @@ class Ledger:
             ).fetchone()[0]
         )
 
-    def list_segments(self, record_id: str):
+    def segment_generation(self, record_id: str):
+        """Distinguish replacements from contiguous appends for in-memory readers."""
+        return self._segment_generations.get(record_id, 0)
+
+    def list_segments(self, record_id: str, *, start_position=0):
         return [
             json.loads(r[0])
             for r in self._db.execute(
-                "SELECT data FROM segments WHERE record_id=? ORDER BY position",
-                (record_id,),
+                "SELECT data FROM segments WHERE record_id=? AND position>=? ORDER BY position",
+                (record_id, start_position),
             )
         ]
 

@@ -29,6 +29,56 @@ def test_snapshots_and_queries_reuse_unchanged_statistics(tmp_path):
     store.ledger.close()
 
 
+def test_unrelated_catalog_and_price_writes_keep_ordered_summary_prefix(tmp_path):
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    store, _ = configured(tmp_path, at)
+    save_report_record(store)
+    store.query("summary", {}, ["p"])
+    store.ledger.put_identity({"id": "unused", "name": "Unused"})
+    store.ledger.put_price_version(
+        {"id": "next-price", "point_id": "p", "at": at.isoformat(), "price": "7"}
+    )
+    statements = []
+    store.ledger._db.set_trace_callback(statements.append)
+    assert store.query("summary", {}, ["p"])["energy_kwh"] == "1"
+    assert not any("SELECT data FROM segments" in sql for sql in statements)
+    store.ledger.close()
+
+
+def test_summary_projection_lru_evicts_old_ranges(tmp_path):
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    store, _ = configured(tmp_path, at)
+    save_report_record(store)
+    for days in range(1, 131):
+        summary = store.query(
+            "summary", {"start": at, "end": at + timedelta(days=days)}, ["p"]
+        )
+        assert summary["energy_kwh"] == "1"
+    statements = []
+    store.ledger._db.set_trace_callback(statements.append)
+    store.query("summary", {"start": at, "end": at + timedelta(days=130)}, ["p"])
+    assert not any("SELECT data FROM segments" in sql for sql in statements)
+    statements.clear()
+    store.query("summary", {"start": at, "end": at + timedelta(days=1)}, ["p"])
+    assert sum("SELECT data FROM segments" in sql for sql in statements) == 1
+    store.ledger.close()
+
+
+def test_warm_summary_does_not_bypass_report_evidence_limits(tmp_path):
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    store, _ = configured(tmp_path, at)
+    save_report_record(store)
+    store.query("summary", {}, ["p"])
+    with pytest.raises(ValueError, match="export_too_large"):
+        store.scoped_summary(["p"], {}, include_records=True, max_segments=0)
+    with pytest.raises(ValueError, match="export_too_large"):
+        store.scoped_summary(["p"], {}, include_records=True, max_records=0)
+    report = store.scoped_summary(["p"], {}, include_records=True)
+    assert report["energy_kwh"] == "1"
+    assert len(report["records"]) == 1
+    store.ledger.close()
+
+
 def test_power_observation_updates_live_value_without_rescanning_segments(tmp_path):
     at = datetime(2026, 1, 1, tzinfo=UTC)
     store, _ = configured(tmp_path, at)
@@ -41,6 +91,42 @@ def test_power_observation_updates_live_value_without_rescanning_segments(tmp_pa
     )
     assert snapshot["points"][0]["power_w"] == "123"
     assert Decimal(snapshot["summary"]["energy_kwh"]) == 1
+    assert not any("SELECT data FROM segments" in sql for sql in statements)
+    store.ledger.close()
+
+
+def test_unchanged_version_skips_summary_record_metadata_reads(tmp_path):
+    at = datetime(2026, 1, 1, tzinfo=UTC)
+    store, _ = configured(tmp_path, at)
+    save_report_record(store)
+    store.snapshot()
+    statements = []
+    store.ledger._db.set_trace_callback(statements.append)
+    assert store.query("summary", {}, ["p"])["energy_kwh"] == "1"
+    assert not any("SELECT data FROM records" in sql for sql in statements)
+    statements.clear()
+    store.snapshot(["p"])
+    # Point active/last-record and published record projections still read metadata.
+    assert (
+        sum(
+            "SELECT data FROM records" in sql and "ORDER BY start,id" in sql
+            for sql in statements
+        )
+        == 2
+    )
+    statements.clear()
+    _, snapshot = store.apply(
+        "observe", "p", "power", {"at": at.isoformat(), "value": "123", "unit": "W"}
+    )
+    assert snapshot["points"][0]["power_w"] == "123"
+    # Observation handling also checks the point's current active record.
+    assert (
+        sum(
+            "SELECT data FROM records" in sql and "ORDER BY start,id" in sql
+            for sql in statements
+        )
+        == 3
+    )
     assert not any("SELECT data FROM segments" in sql for sql in statements)
     store.ledger.close()
 

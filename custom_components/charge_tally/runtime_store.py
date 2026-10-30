@@ -45,14 +45,17 @@ class ScopedLedger:
     def list_records(self, point_id=None, identity_id=None):
         return self.ledger.list_records(point_id, identity_id, point_ids=self.point_ids)
 
-    def list_segments(self, record_id):
+    def list_segments(self, record_id, *, start_position=0):
         if record_id in self._segment_cache:
-            return self._segment_cache[record_id]
-        parts = self.ledger.list_segments(record_id)
-        if max(1, len(parts)) <= self._segment_budget:
+            return self._segment_cache[record_id][start_position:]
+        parts = self.ledger.list_segments(record_id, start_position=start_position)
+        if start_position == 0 and max(1, len(parts)) <= self._segment_budget:
             self._segment_cache[record_id] = parts
             self._segment_budget -= max(1, len(parts))
         return parts
+
+    def segment_generation(self, record_id):
+        return self.ledger.segment_generation(record_id)
 
     def get_point(self, point_id):
         if point_id not in self.point_ids:
@@ -83,7 +86,6 @@ class RuntimeStore:
             self.ledger, self.preview_prices, self.preview_price_basis
         )
         self.currency, self.timezone = currency, timezone
-        self._summary_version = None
         self._summary_cache = OrderedDict()
         self._record_cost_cache = {}
         self.states = self.ledger.get_checkpoint("runtime") or {}
@@ -104,6 +106,7 @@ class RuntimeStore:
         """Update the cached currency only after the ledger accepts the change."""
         self.ledger.change_currency(currency, expected_currency)
         self.currency = currency
+        self._summary_cache.clear()
 
     def archive_catalog(self, points, identities):
         from .archive import ArchiveManager
@@ -190,8 +193,8 @@ class RuntimeStore:
                 transaction.__exit__(type(error), error, None)
         finally:
             self._record_cost_cache.clear()
+            self._summary_cache.clear()
             if not committed:
-                self._summary_cache.clear()
                 if self.ledger._db.in_transaction:
                     self.ledger._db.rollback()
                 self.states = previous
@@ -1020,10 +1023,6 @@ class RuntimeStore:
         start = instant(data["start"]) if data.get("start") else None
         end = instant(data["end"]) if data.get("end") else None
         calendar = self.calendar_label(data, now=now)
-        version = self.ledger.data_version()
-        if self._summary_version != version:
-            self._summary_cache.clear()
-            self._summary_version = version
         key = (
             tuple(sorted(set(point_ids))),
             start,
@@ -1034,9 +1033,15 @@ class RuntimeStore:
             data.get("bucket_period", "auto"),
             self.timezone,
         )
-        if not include_records and key in self._summary_cache:
+        cache = None
+        if not include_records:
+            cache = self._summary_cache.setdefault(key, {})
             self._summary_cache.move_to_end(key)
-            return deepcopy(self._summary_cache[key])
+            if len(self._summary_cache) > 128:
+                self._summary_cache.popitem(last=False)
+            version = self.ledger.data_version()
+            if cache.get("version") == version:
+                return deepcopy(cache["result"])
         result = summarize(
             scoped_ledger
             if scoped_ledger is not None
@@ -1051,11 +1056,10 @@ class RuntimeStore:
             include_records=include_records,
             max_records=max_records,
             max_segments=max_segments,
+            cache=cache,
         )
-        if not include_records:
-            self._summary_cache[key] = deepcopy(result)
-            if len(self._summary_cache) > 128:
-                self._summary_cache.popitem(last=False)
+        if cache is not None:
+            cache.update(version=version, result=deepcopy(result))
         return result
 
     def query(self, command, data, point_ids):
