@@ -1,6 +1,94 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createCardFixture} from './card-fixture.mjs';
+import {createCardFixture,openCompactDetails} from './card-fixture.mjs';
+
+for(const width of [736,320])test(`compact details keep chronological periods and a distinct gap at ${width}px`,async t=>{
+  const {page}=await createCardFixture(t);await page.setViewportSize({width,height:900});
+  await openCompactDetails(page);
+  assert.deepEqual(await page.locator('dialog details').evaluateAll(nodes=>nodes.map(node=>node.open)),[false,false]);
+  assert.doesNotMatch(await page.locator('dialog').innerText(),/1797|Revision|estimated|Unavailable|Status:|Source:/);
+  assert.match(await page.locator('dialog').innerText(),/2026-10-29 · 16:57–19:29 · 2 h 32 min/);
+  await page.locator('dialog details').first().locator('summary').click();
+  assert.equal(await page.locator('dialog .billing-period').count(),3);
+  assert.equal(await page.locator('dialog .billing-gap').count(),1);
+  assert.match(await page.locator('dialog .billing-gap').innerText(),/19:04:11–19:04:16.*5 s/);
+  assert.match(await page.locator('dialog .billing-details').innerText(),/0.25.*0.319.*0.08/s);
+  assert.match(await page.locator('dialog .billing-details').innerText(),/rounded/);
+  assert.equal(await page.evaluate(()=>{const d=fixture.card.dialog.node;return d.scrollWidth<=d.clientWidth&&d.getBoundingClientRect().width<=innerWidth;}),true);
+  const {mkdir}=await import('node:fs/promises');await mkdir('.superpowers/card-qa',{recursive:true});
+  await page.screenshot({path:`.superpowers/card-qa/task3-${width}-periods.png`,fullPage:true});
+});
+test('history loads once, survives pending translation, and retries permission and service failures',async t=>{
+  const {page}=await createCardFixture(t);await openCompactDetails(page);
+  assert.equal(await page.evaluate(()=>fixture.pending.length),0);
+  const history=page.locator('dialog details').nth(1);await history.locator('summary').click();
+  await page.waitForFunction(()=>fixture.pending.length===1);
+  assert.deepEqual(await page.evaluate(()=>fixture.pending[0].request),{type:'charge_tally/record_history',record_id:'r',point_id:'p'});
+  await page.evaluate(()=>{fixture.card.hass={...fixture.hass,language:'zh-Hans'};fixture.pending[0].reject({code:'unauthorized'});});
+  await history.getByRole('button',{name:'重试',exact:true}).click();
+  await page.waitForFunction(()=>fixture.pending.length===2);
+  await page.evaluate(()=>fixture.pending[1].reject({code:'home_assistant_error'}));
+  await history.getByRole('button',{name:'重试',exact:true}).click();
+  await page.waitForFunction(()=>fixture.pending.length===3);
+  await page.evaluate(()=>{const record=fixture.compact.record;fixture.card.hass={...fixture.hass,language:'fr'};fixture.pending[2].resolve({record_id:'r',revision:1797,records:[{...record,revision:1,energy_kwh:'0',known_cost:'0'},{...record,revision:1796,quality:[]},record]});});
+  await history.locator('li').first().waitFor();
+  assert.equal(await history.getAttribute('open'),'');
+  assert.doesNotMatch(await history.innerText(),/1797|1796|2026-10-29|16:57/);
+  await history.locator('summary').click();await history.locator('summary').click();
+  assert.equal(await page.evaluate(()=>fixture.pending.length),3);
+});
+test('manual totals keep measured coverage and exclude allocated gap money',async t=>{
+  const {page}=await createCardFixture(t);await openCompactDetails(page,{manual_fee_override:true,manual_cost:'12.00'});
+  await page.evaluate(()=>{const d=fixture.compact;d.segments=[d.segments[0],{start:d.record.quality_spans[0].start,end:d.record.quality_spans[0].end,energy_kwh:'0',cost:'3',cost_basis:'manual',unit_price:null,quality:['missing_energy','manual']},...d.segments.slice(1)];fixture.card.dialog.detail=d;fixture.card.dialog.render();});
+  await page.locator('dialog details').first().locator('summary').click();
+  assert.equal(await page.locator('dialog .billing-period').count(),3);
+  assert.equal(await page.locator('dialog .billing-gap').count(),1);
+  const text=await page.locator('dialog .billing-details').innerText();assert.match(text,/EUR 12.00/);assert.doesNotMatch(text,/EUR 3.00|EUR\/kWh|0.08|4.35/);
+  await page.evaluate(()=>{fixture.card.dialog.close();});await openCompactDetails(page,{manual_override:true,manual_energy:'17.675',manual_cost:null,has_known_cost:false,known_cost:'0'});
+  assert.match(await page.locator('dialog').innerText(),/Cost to be added/);
+  await page.locator('dialog details').first().locator('summary').click();
+  assert.equal(await page.locator('dialog .billing-period').count(),0);
+});
+test('real tariff periods expand beyond twelve and preserve negative and unknown prices',async t=>{
+  const {page}=await createCardFixture(t);await openCompactDetails(page,{quality:[],quality_spans:[]});
+  await page.evaluate(()=>{const d=fixture.compact;d.billing_periods=Array.from({length:13},(_,i)=>({...d.billing_periods[0],start:`2026-10-29T${String(i).padStart(2,'0')}:00:00Z`,end:`2026-10-29T${String(i+1).padStart(2,'0')}:00:00Z`,unit_price:i===0?'-0.25':i===1?null:'0.3',cost:i===0?'-0.5':i===1?null:'0.3'}));fixture.card.dialog.render();});
+  await page.locator('dialog details').first().locator(':scope > summary').click();
+  assert.equal(await page.locator('dialog .billing-period:visible').count(),12);
+  assert.match(await page.locator('dialog .billing-period').nth(0).innerText(),/-0.25.*-0.50/s);
+  assert.match(await page.locator('dialog .billing-period').nth(1).innerText(),/Unknown price.*Cost to be added/s);
+  await page.locator('dialog .more-periods > summary').click();
+  assert.equal(await page.locator('dialog .billing-period:visible').count(),13);
+  await page.evaluate(()=>fixture.card.hass={...fixture.hass,language:'de'});
+  assert.equal(await page.locator('dialog .billing-period:visible').count(),13);
+});
+test('unchanged subsecond edit boundaries survive compact details and shared preview',async t=>{
+  const {page}=await createCardFixture(t);await openCompactDetails(page);
+  await page.getByRole('button',{name:'Edit record',exact:true}).click();
+  await page.locator('dialog textarea').fill('A note change');
+  await page.getByRole('button',{name:'Preview changes',exact:true}).click();
+  await page.waitForFunction(()=>fixture.pending.length===1);
+  const request=await page.evaluate(()=>fixture.pending[0].request);
+  assert.equal(request.expected_revision,1797);assert.equal('start'in request,false);assert.equal('end'in request,false);
+  await page.evaluate(()=>fixture.pending[0].resolve({...fixture.compact,token:'preview-token',expected_revision:1797,coverage:[],overlaps:[]}));
+  await page.locator('dialog .preview').waitFor();
+  assert.equal(await page.locator('dialog .preview details').getAttribute('open'),null);
+  await page.locator('dialog .preview details summary').click();
+  assert.equal(await page.locator('dialog .preview .billing-period').count(),3);
+  assert.equal(await page.locator('dialog .preview .billing-gap').count(),1);
+});
+test('compact detail language updates retain sections, grouped dates and final history',async t=>{
+  const {page}=await createCardFixture(t);await page.setViewportSize({width:320,height:900});await openCompactDetails(page,{quality:[],quality_spans:[],cost_complete:true});
+  await page.locator('dialog details').first().locator('summary').click();
+  assert.equal(await page.locator('dialog .billing-date').count(),1);
+  await page.evaluate(()=>{const d=fixture.compact;d.billing_periods=[...d.billing_periods,{...d.billing_periods[2],start:'2026-10-30T00:00:00Z',end:'2026-10-30T01:00:00Z',local_date:'2026-10-30'}];fixture.card.dialog.render();});
+  await page.locator('dialog details').first().locator('summary').click();
+  for(const language of ['zh-Hans','de','fr','pl','it','en']){
+    await page.evaluate(language=>fixture.card.hass={...fixture.hass,language},language);
+    assert.equal(await page.locator('dialog details').first().getAttribute('open'),'');
+    assert.equal(await page.locator('dialog .billing-date').count(),2);
+    assert.equal(await page.evaluate(()=>fixture.card.dialog.node.scrollWidth<=fixture.card.dialog.node.clientWidth),true);
+  }
+});
 
 test('record details show the source outage end reason',async t=>{
   const {page}=await createCardFixture(t);
@@ -8,6 +96,8 @@ test('record details show the source outage end reason',async t=>{
     const record={id:'r',revision:2,point_id:'p',identity_id:'i',start:'2026-10-29T10:00:00Z',end:'2026-10-29T10:01:00Z',timezone:'UTC',status:'ended',source:'automatic',end_reason:'source_unavailable',energy_kwh:'1',known_cost:'0.5',cost_complete:false,quality:['missing_energy']};
     fixture.card.openDialog('details',{record,segments:[],revisions:[]});
   });
+  assert.match(await page.locator('dialog').innerText(),/Some energy is missing/);
+  await page.locator('dialog details').first().locator('summary').click();
   assert.match(await page.locator('dialog').innerText(),/Ended after the source remained unavailable for 5 minutes/);
 });
 
@@ -122,7 +212,7 @@ test('dialog language updates retain focused drafts and operations',async t=>{
   const {page}=await createCardFixture(t);
   assert.deepEqual(await page.evaluate(()=>{
     const c=fixture.card;c.openDialog('create');const d=c.dialog,note=d.node.querySelector('textarea');note.value='draft';note.dispatchEvent(new Event('input'));note.focus();
-    d.requestId='request';d.preview={token:'token',record:{point_id:'p',identity_id:'i',timezone:'UTC',start:'2026-01-01T00:00:00Z',end:'2026-01-01T01:00:00Z',source:'manual'},segments:[],overlaps:[]};d.renderPreview();const before=d.node;d.node.scrollTop=40;const scroll=d.node.scrollTop;
+    d.requestId='request';d.preview={token:'token',record:{point_id:'p',identity_id:'i',timezone:'UTC',start:'2026-01-01T00:00:00Z',end:'2026-01-01T01:00:00Z',status:'ended',source:'manual',energy_kwh:'1',known_cost:'0',has_known_cost:false,cost_complete:false,quality:[]},segments:[],billing_periods:[],overlaps:[]};d.renderPreview();const before=d.node;d.node.scrollTop=40;const scroll=d.node.scrollTop;
     c.hass={...fixture.hass,language:'fr'};
     return {dialog:before===d.node,note:note===d.node.querySelector('textarea'),focused:c.shadowRoot.activeElement===note,draft:d.form.note,request:d.requestId,token:d.preview.token,scroll:d.node.scrollTop===scroll};
   }),{dialog:true,note:true,focused:true,draft:'draft',request:'request',token:'token',scroll:true});
@@ -247,7 +337,7 @@ test('period and page versions independently reject late responses',async t=>{
 test('select protection clones the latest queued options and dispose drops pending changes',async t=>{
   const {page}=await createCardFixture(t);
   assert.deepEqual(await page.evaluate(async()=>{
-    const {SelectControl}=await import('/card-controls.js?v=0.1.2-11');const control=new SelectControl();document.body.append(control.node);control.update({options:[{id:'a',name:'A'}],value:'a'});const original=control.node.firstChild;control.update({options:[{id:'a',name:'A'}],value:'a'});const untouched=original===control.node.firstChild;control.node.focus();const options=[{id:'b',name:'B'}];control.update({options,value:'b'});options[0].name='Changed outside';control.node.blur();const name=control.node.firstChild.textContent;control.node.focus();control.update({options:[{id:'c',name:'C'}],value:'c'});control.dispose();control.node.blur();return {untouched,name,value:control.node.value,pending:control.pending,editing:control.editing};
+    const {SelectControl}=await import('/card-controls.js?v=0.1.2-12');const control=new SelectControl();document.body.append(control.node);control.update({options:[{id:'a',name:'A'}],value:'a'});const original=control.node.firstChild;control.update({options:[{id:'a',name:'A'}],value:'a'});const untouched=original===control.node.firstChild;control.node.focus();const options=[{id:'b',name:'B'}];control.update({options,value:'b'});options[0].name='Changed outside';control.node.blur();const name=control.node.firstChild.textContent;control.node.focus();control.update({options:[{id:'c',name:'C'}],value:'c'});control.dispose();control.node.blur();return {untouched,name,value:control.node.value,pending:control.pending,editing:control.editing};
   }),{untouched:true,name:'B',value:'b',pending:null,editing:false});
 });
 test('selection failure stays visible through a background push',async t=>{
@@ -335,11 +425,12 @@ for(const viewport of [{width:900,height:700},{width:390,height:844}])test(`comp
   }
 });
 
-test('real record details explain missing data and manual estimates with snapshot count',async t=>{
+test('record details consolidate sampling explanations inside fee details',async t=>{
   const {page}=await createCardFixture(t);
   for(const [kind,flags,basis]of [['normal',[],'tariff'],['price',['missing_price'],'unknown'],['sampling',['gap'],'tariff'],['manual',['estimated','manual'],'manual']]){
     await page.evaluate(({flags,basis})=>{const c=fixture.card;c.hass={...fixture.hass,language:'zh-Hans'};const record={id:'r',revision:90,point_id:'p',identity_id:'i',start:'2026-09-22T08:00:00Z',end:'2026-09-22T09:00:00Z',timezone:'UTC',status:'ended',source:'manual',energy_kwh:'1',known_cost:'1',cost_complete:basis!=='unknown',quality:flags};c.openDialog('details',{record,segments:[{start:record.start,end:record.end,energy_kwh:'1',cost:basis==='unknown'?null:'1',cost_basis:basis,quality:flags}],revisions:[{record}]});},{flags,basis});
-    const text=await page.locator('dialog').innerText();assert.match(text,/修改记录 \(1\)/);if(kind==='manual'){assert.match(text,/部分数据为估算值/);assert.match(text,/按时间分配手动填写的总量/);}if(kind==='sampling')assert.match(text,/部分时段缺少电量数据/);if(kind==='price')assert.match(text,/缺少电价/);if(kind==='normal')assert.equal(await page.locator('dialog .quality').isVisible(),false);
+    const text=await page.locator('dialog').innerText();assert.match(text,/记录历史/);assert.doesNotMatch(text,/修改记录 \(|版本|部分数据为估算值/);if(kind==='price')assert.match(text,/部分时段未计价/);
+    await page.locator('dialog details').first().locator('summary').click();if(kind==='manual')assert.match(await page.locator('dialog .billing-details').innerText(),/部分时段按采样区间分配/);if(kind==='normal')assert.equal(await page.locator('dialog .quality').count(),0);
     await page.evaluate(()=>fixture.card.dialog.close());
   }
 });
@@ -349,7 +440,8 @@ test('chart translations keep metric and table state and narrow details stay bou
   const {page}=await createCardFixture(t);await page.setViewportSize({width:390,height:844});
   assert.deepEqual(await page.evaluate(()=>{const c=fixture.card;c.expanded.statistics=true;c.summary={matched_count:1,active_count:0,completed_count:1,energy_kwh:'1',known_cost:'1',cost_complete:true,has_energy_data:true,has_known_cost:true,bucket_period:'hour',buckets:[{label:'2026-10-25 02:00 +02:00',energy_kwh:'1',known_cost:'1',cost_complete:true,has_energy_data:true,has_known_cost:true}]};c.render();const v=c.view.chartView;v.details.open=true;v.toggle.focus();c.hass={...fixture.hass,language:'zh-Hans'};return {title:c.view.sections.statistics.toggle.textContent,hint:v.hint.textContent,table:v.toggle.textContent,focus:c.shadowRoot.activeElement===v.toggle,open:v.details.open};}),{title:'记录统计',hint:'按小时统计；重复的当地时间用 UTC 偏移区分。',table:'图表数据',focus:true,open:true});
   await page.evaluate(()=>{const record={id:'r',revision:1,point_id:'p',identity_id:'i',start:'2026-09-22T08:00:00Z',end:'2026-09-22T09:00:00Z',timezone:'UTC',status:'ended',source:'automatic',energy_kwh:'1',known_cost:'1',cost_complete:true,quality:[]};fixture.card.openDialog('details',{record,segments:[{...record,cost:'1',cost_basis:'tariff'}],revisions:[]});});
-  assert.equal(await page.evaluate(()=>{const d=fixture.card.dialog.node;const table=d.querySelector('.table-wrap');return d.getBoundingClientRect().width<=innerWidth&&d.scrollWidth<=d.clientWidth&&table.scrollWidth>table.clientWidth;}),true);
+  await page.locator('dialog details').first().locator('summary').click();
+  assert.equal(await page.evaluate(()=>{const d=fixture.card.dialog.node;return d.getBoundingClientRect().width<=innerWidth&&d.scrollWidth<=d.clientWidth;}),true);
   await page.screenshot({path:'.superpowers/card-qa/task8-390-details.png',fullPage:true});
 });
 

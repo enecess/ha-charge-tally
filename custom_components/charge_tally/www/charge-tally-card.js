@@ -1,12 +1,12 @@
-import {exportRequest,fetchReport} from './card-export.js?v=0.1.2-11';
-import {CardView} from './card-view.js?v=0.1.2-11';
-import {newRequestId} from './request-id.js?v=0.1.2-11';
-import {tr} from './card-i18n.js?v=0.1.2-11';
-import {styles} from './card-styles.js?v=0.1.2-11';
-import {Latest,Subscription,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.2-11';
-import {el} from './card-ui.js?v=0.1.2-11';
-import {RecordDialog} from './card-dialog.js?v=0.1.2-11';
-import './card-editor.js?v=0.1.2-11';
+import {exportRequest,fetchReport} from './card-export.js?v=0.1.2-12';
+import {CardView} from './card-view.js?v=0.1.2-12';
+import {newRequestId} from './request-id.js?v=0.1.2-12';
+import {tr} from './card-i18n.js?v=0.1.2-12';
+import {styles} from './card-styles.js?v=0.1.2-12';
+import {Latest,Subscription,resolveLocal,queryRequest,recordsRequest,liveRequest,identityRequest} from './card-state.js?v=0.1.2-12';
+import {el} from './card-ui.js?v=0.1.2-12';
+import {RecordDialog} from './card-dialog.js?v=0.1.2-12';
+import './card-editor.js?v=0.1.2-12';
 
 export class ChargeTallyCard extends HTMLElement {
   static getConfigElement(){return document.createElement('charge-tally-card-editor');}
@@ -145,7 +145,7 @@ export class ChargeTallyCard extends HTMLElement {
   }
   details(record){
     const epoch=++this.dialogEpoch;
-    return this.latest.run('detail',()=>this.call({type:'charge_tally/records',record_id:record.id}),
+    return this.latest.run('detail',()=>this.call({type:'charge_tally/records',record_id:record.id,include_history:false}),
       detail=>{if(epoch===this.dialogEpoch)this.openDialog('details',detail);},
       error=>{if(epoch===this.dialogEpoch){this.error=error;this.render();}});
   }

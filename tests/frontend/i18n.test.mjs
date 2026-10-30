@@ -16,6 +16,14 @@ test('regional HA languages select localized card text', () => {
   assert.equal(tr('point','zh-CN'),'充电点');
   assert.equal(tr('point','en-GB'),'Charging point');
 });
+test('compact record issues and native section titles follow every supported language',()=>{
+  for(const [language,title,unknown,seconds]of [['en','Fee details','Cost to be added','Missing energy data · about 5 s'],['zh-Hans','费用明细','费用待补充','电量数据缺失约 5 秒'],['de','Kostendetails','Kosten ergänzen','Fehlende Energiedaten · etwa 5 s'],['fr','Détail des coûts','Coût à compléter','Données d’énergie manquantes · environ 5 s'],['pl','Szczegóły opłat','Koszt do uzupełnienia','Brak danych energii · około 5 s'],['it','Dettaglio dei costi','Costo da completare','Dati energetici mancanti · circa 5 s']]){
+    assert.equal(tr('feeDetails',language),title);
+    assert.equal(tr('amountMissing',language),unknown);
+    assert.equal(tr('dataGap',language,{seconds:5}),seconds);
+    assert.notEqual(tr('recordHistory',language),'recordHistory');
+  }
+});
 
 test('unsupported or invalid languages and unknown keys have safe fallbacks', () => {
   for (const language of ['es-MX','',null,'invalid_locale_!']) assert.equal(tr('point',language),'Charging point');

@@ -6,6 +6,15 @@ import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const root=resolve('custom_components/charge_tally/www');
+export async function openCompactDetails(page,overrides={}){
+  await page.evaluate(overrides=>{
+    const record={id:'r',revision:1797,point_id:'p',identity_id:'i',start:'2026-10-29T16:57:02.002070Z',end:'2026-10-29T19:29:15.123456Z',timezone:'UTC',status:'ended',source:'automatic',energy_kwh:'17.675',known_cost:'5.286525',cost_complete:false,has_known_cost:true,quality:['estimated','unavailable','missing_energy','reset'],quality_spans:[{start:'2026-10-29T19:04:11.106208Z',end:'2026-10-29T19:04:16.207151Z',quality:['missing_energy','reset']}]};
+    const period=(start,end,energy_kwh,cost,unit_price)=>({start:`2026-10-29T${start}Z`,end:`2026-10-29T${end}Z`,local_date:'2026-10-29',energy_kwh,cost,unit_price,cost_basis:'tariff',quality:['estimated']});
+    const billing_periods=[period('16:57:02.002070','17:00:00','0.3194','0.07985','0.25'),period('17:00:00','19:04:11.106208','14.4884','4.34652','0.3'),period('19:04:16.207151','19:29:15.123456','2.8672','0.86016','0.3')];
+    fixture.compact={record:{...record,...overrides},billing_periods,segments:billing_periods,revisions:[]};
+    fixture.card.snapshot={...fixture.card.snapshot,currency:'EUR'};fixture.card.openDialog('details',fixture.compact);
+  },overrides);
+}
 export async function createCardFixture(t,config={},{insecure=false}={}){
   const server=createServer(async(req,res)=>{
     try{

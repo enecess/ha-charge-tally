@@ -1,8 +1,8 @@
-import {tr} from './card-i18n.js?v=0.1.2-11';
-import {styles} from './card-styles.js?v=0.1.2-11';
-import {Latest,errorMessage} from './card-state.js?v=0.1.2-11';
-import {el,field,input} from './card-ui.js?v=0.1.2-11';
-import {SelectControl} from './card-controls.js?v=0.1.2-11';
+import {tr} from './card-i18n.js?v=0.1.2-12';
+import {styles} from './card-styles.js?v=0.1.2-12';
+import {Latest,errorMessage} from './card-state.js?v=0.1.2-12';
+import {el,field,input} from './card-ui.js?v=0.1.2-12';
+import {SelectControl} from './card-controls.js?v=0.1.2-12';
 export class ChargeTallyEditor extends HTMLElement {
   constructor(){super();this.attachShadow({mode:'open'});this.latest=new Latest();this.config={};}
   setConfig(config){this.config={...config};this.render();}

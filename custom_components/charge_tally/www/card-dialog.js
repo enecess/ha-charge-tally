@@ -1,7 +1,7 @@
-import {tr} from './card-i18n.js?v=0.1.2-11';
-import {newRequestId} from './request-id.js?v=0.1.2-11';
-import {Latest,localInput,localCandidates,errorMessage,previewRequest,commitRequest} from './card-state.js?v=0.1.2-11';
-import {el,button,field,select,input,summaryView,segmentTable,quality,dateText,updateLabels} from './card-ui.js?v=0.1.2-11';
+import {tr} from './card-i18n.js?v=0.1.2-12';
+import {newRequestId} from './request-id.js?v=0.1.2-12';
+import {Latest,localInput,localCandidates,errorMessage,previewRequest,commitRequest,historyEntries} from './card-state.js?v=0.1.2-12';
+import {el,button,field,select,input,summaryView,recordOverview,billingDetails,quality,dateText,updateLabels} from './card-ui.js?v=0.1.2-12';
 
 export class RecordDialog {
   constructor(host,options){
@@ -17,7 +17,7 @@ export class RecordDialog {
     if(this.language===language||this.closed)return;
     const node=this.node;this.language=language;this.node=el('dialog');this.render();
     const mapping=updateLabels(node,this.node);this.node=node;
-    for(const key of ['content','error','previewBox','saveButton'])if(mapping.has(this[key]))this[key]=mapping.get(this[key]);
+    for(const key of ['content','error','previewBox','saveButton','historyBox','historySection'])if(mapping.has(this[key]))this[key]=mapping.get(this[key]);
     this.updateButtons();
   }
   fail(error){this.lastError=error;this.error.textContent=errorMessage(error,this.language);this.error.hidden=false;}
@@ -41,14 +41,29 @@ export class RecordDialog {
     this.node.scrollTop=0;
   }
   renderDetails(){
-    const {record,segments,revisions}=this.detail;this.record=record;
-    this.content.append(el('p',`${this.pointName(record.point_id)} · ${this.identityName(record.identity_id)}`),summaryView(record,this.currency,this.language),el('p',`${dateText(record.start,record.timezone)} → ${dateText(record.end,record.timezone)} (${record.timezone})`),el('p',`${this.t('status')}: ${tr(record.status,this.language)} · ${this.t('source')}: ${tr(record.source==='manual'?'manual_source':record.source,this.language)} · ${this.t('revision')}: ${record.revision}`),el('p',quality(record.quality,this.language),{class:'quality'}),el('p',record.note||''),el('h3',this.t('segments')),segmentTable(segments,this.language,this.currency,record.timezone));
-    if(record.end_reason==='source_unavailable')this.content.append(el('p',this.t('ended_source_unavailable')));
-    const history=el('details');history.append(el('summary',`${this.t('revisions')} (${revisions?.length||0})`));
-    for(const revision of revisions||[]){const item=el('div',null,{class:'point'}),r=revision.record;item.append(el('p',`${this.t('revision')} ${r.revision} · ${(r.identity_name??this.identityName(r.identity_id))} · ${tr(r.status,this.language)}`),summaryView(r,this.currency,this.language),el('p',r.note||''));history.append(item);}this.content.append(history);
+    const {record}=this.detail;this.record=record;
+    this.content.append(el('p',`${this.pointName(record.point_id)} · ${this.identityName(record.identity_id)}`,{class:'muted'}),recordOverview(record,this.currency,this.language),billingDetails(this.detail,this.language,this.currency));
+    this.historySection=el('details',null,{class:'record-section'});this.historyBox=el('div',null,{class:'record-history stack'});
+    this.historySection.append(el('summary',this.t('recordHistory')),this.historyBox);
+    this.historySection.addEventListener('toggle',()=>{if(this.historySection.open)this.loadHistory();});
+    this.renderHistory();this.content.append(this.historySection);
     const actions=el('div',null,{class:'row dialog-actions'});
     if(record.status!=='void')actions.append(button(this.t('reassign'),()=>{this.mode='reassign';this.render();}));
     if(record.status==='ended')actions.append(button(this.t('edit'),()=>{this.mode='edit';this.render();}),button(this.t('void'),()=>{this.mode='void';this.render();},false,'danger'));this.content.append(actions);
+  }
+  loadHistory(){
+    if(this.closed||this.historyPending||this.historyData?.revision===this.record.revision)return;
+    this.historyPending=true;this.historyError=null;this.renderHistory();
+    return this.latest.run('history',()=>this.call({type:'charge_tally/record_history',record_id:this.record.id,point_id:this.record.point_id}),value=>{this.historyPending=false;this.historyData={...value,revision:this.record.revision};this.renderHistory();},error=>{this.historyPending=false;this.historyError=error;this.renderHistory();});
+  }
+  renderHistory(){
+    this.historyBox.replaceChildren();
+    if(this.historyPending){this.historyBox.append(el('p',this.t('loading'),{role:'status'}));return;}
+    if(this.historyError){this.historyBox.append(el('p',errorMessage(this.historyError,this.language),{role:'alert'}),button(this.t('retry'),()=>this.loadHistory()));return;}
+    if(!this.historyData)return;
+    const entries=historyEntries(this.historyData.records,this.currency,this.language,id=>this.identityName(id)),list=el('ol');
+    for(const changes of entries){const item=el('li');for(const text of changes)item.append(el('p',text));list.append(item);}
+    this.historyBox.append(entries.length?list:el('p',this.t('historyEmpty')));
   }
   identityOptions(){const available=this.identities.filter(i=>i.active!==false);if(this.record&&!available.some(i=>i.id===this.record.identity_id)){const old=this.identities.find(i=>i.id===this.record.identity_id);available.push(old||{id:this.record.identity_id,name:this.identityName(this.record.identity_id)});}return available;}
   renderAction(){
@@ -95,7 +110,7 @@ export class RecordDialog {
   renderPreview(){
     const p=this.preview,box=el('div',null,{class:'preview stack'});box.append(el('h3',this.t('impact')));
     if(this.record)box.append(el('p',this.t('before')),summaryView(this.record,this.currency,this.language));
-    box.append(el('p',this.t('after')),summaryView(p.record,this.currency,this.language),el('p',`${this.pointName(p.record.point_id)} · ${this.identityName(p.record.identity_id)}`),el('p',`${dateText(p.record.start,p.record.timezone)} → ${dateText(p.record.end,p.record.timezone)}`),el('p',`${this.t('source')}: ${tr(p.record.source==='manual'?'manual_source':p.record.source,this.language)}`),el('p',quality(p.record.quality,this.language),{class:'quality'}),segmentTable(p.segments,this.language,this.currency,p.record.timezone));
+    box.append(el('p',this.t('after')),el('p',`${this.pointName(p.record.point_id)} · ${this.identityName(p.record.identity_id)}`),recordOverview(p.record,this.currency,this.language),billingDetails(p,this.language,this.currency));
     box.append(el('h3',this.t('coverage')));
     if(p.coverage?.length)for(const span of p.coverage)box.append(el('p',`${span.start} → ${span.end} · ${quality(span.quality,this.language)}`));else box.append(el('p',this.t('noCoverage')));
     box.append(el('p',`${this.t('overlaps')}: ${p.overlaps?.join(', ')||this.t('none')}`));if(p.overlaps?.length)this.fail({code:'overlap'});

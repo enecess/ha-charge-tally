@@ -9,7 +9,7 @@ Track charging energy and cost by charging point and identity in Home Assistant,
 - Use static, dynamic or daily time-of-use prices, including zero and negative prices.
 - Detect charging automatically, or start and end records from the card or Home Assistant automations.
 - View live charging, statistics for today, this month, this year, all time or a custom range, and charts grouped by range.
-- Add history, edit ended records, change identities, void incorrect records, and inspect accounting segments and revision history.
+- Add history, edit ended records, change identities, void incorrect records, and inspect fee details and record history.
 - Manage archived charging points and identities, and permanently clear unneeded ledger data.
 
 Use **Settings → Devices & services → Charge Tally** for configuration and the **Charge Tally** dashboard card for records. The card contains several sections on one page; details and editing open in dialogs.
@@ -22,7 +22,7 @@ Only charging controls are expanded when the page opens. Statistics and records 
 
 Charts group Today by hour, This month by day, This year by month, and Total by year. For a custom range, the difference between the local calendar dates determines grouping: up to 2 days uses hours, up to 90 days uses days, up to 730 days uses months, and longer ranges use years. Buckets follow the ledger timezone, including daylight-saving transitions. Energy and known-cost charts use the same range as the summary; unknown cost remains unknown.
 
-Billing segments in previews and record details merge adjacent intervals with the same billing basis, price and quality. They describe the bill, not individual meter reports. Original sampling details remain the basis of time-range statistics. Modification history saves snapshots when a record starts, ends or is explicitly changed (including reassignment or voiding); routine samples update the current record without adding a snapshot each time. Revision numbers can therefore have gaps.
+Fee details in previews and record details group consecutive periods with the same price and billing basis. Sampling-quality changes do not split a price period; real energy gaps remain separate notices. Original sampling details remain the basis of time-range statistics. Record history loads when expanded and describes business changes between saved snapshots. Routine samples do not create an entry each time. Historical operation times and actors are not available.
 
 Removing a charging point configuration retains its unfinished records. To clear them, open the main integration's **Configure → Manage archived data → Archived charging points**, select the removed point, review the unfinished count and affected data, then explicitly confirm permanent deletion. Canceling confirmation preserves the records. Cleanup includes the point's records, revisions, samples and prices; it does not remove HA recorder data or backups.
 
@@ -214,7 +214,7 @@ If necessary, open **Resources** from the **Settings → Dashboards** menu. Enab
 
 | Field | Value |
 | --- | --- |
-| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-10` |
+| URL | `/charge_tally/charge-tally-card.js?v=0.1.2-12` |
 | Resource type | **JavaScript module** |
 
 Update an existing entry for that path rather than duplicating it. If you manage resources in YAML, register this URL and module type there; do not install a second card copy. See the [Home Assistant dashboard documentation](https://www.home-assistant.io/dashboards/dashboards/).
@@ -297,15 +297,15 @@ Point cumulative energy and its Utility Meter helpers still reflect meter increm
 
 Before pausing with the native **Detection** switch, finish active records and pending confirmation. If thresholds are not configured, open **Configure charging point** first.
 
-### View details and revisions
+### View record details and history
 
-Details include ownership, energy, cost, boundaries, accounting timezone, **Status**, **Source**, **Revision**, note and quality.
+Details show ownership, energy, cost, a compact date range and duration, accounting timezone, status, source and any note. One main notice explains missing energy, missing prices or a pending final sample. An unknown cost is not shown as zero; a manual cost remains the specified total even when measurement coverage is incomplete.
 
-- **Accounting segments** shows time, energy, cost and **Data quality** for each segment, useful at midnight boundaries or price changes.
-- **Revision history** expands to previous identities, states, amounts and notes. It is an audit trail, with no rollback button.
+- **Fee details** starts collapsed. Expand it to see chronological price periods with energy and cost, separate gap notices and shared sampling explanations. Dates are grouped; more than 12 periods can be expanded. A rounding note appears only when displayed items differ from the displayed total. Manual fees show one total and measured energy coverage; manually entered energy does not imply measurement coverage.
+- **Record history** starts collapsed and loads on demand. It shows changes to identities, states, amounts, time ranges and notes without internal revision counters. A failed history read can be retried without reopening the details. There is no rollback button.
 - Active records allow **Change record identity**; only ended records show **Edit record** and **Void record**.
 
-> Screenshot placeholder 12: An ended record, accounting segments, revision history and actions.
+> Screenshot placeholder 12: An ended record with expandable fee details, record history and actions.
 
 ### Correct an identity
 
@@ -323,7 +323,7 @@ On an ended record choose **Void record**, review, then **Confirm void**. It lea
 2. Enter **Start** and **End (exclusive)** dates/times; end must follow start.
 3. Enter or leave blank manual energy and choose the cost basis below.
 4. Optionally add a **Note**, up to 2000 characters.
-5. Choose **Preview changes**. In **Preview · review before saving**, review amounts, segments, quality and **Measurement coverage**. Edits also show **Before / After**.
+5. Choose **Preview changes**. In **Preview · review before saving**, review amounts, **Fee details** and **Measurement coverage**. Edits also show **Before / After**.
 6. With no overlaps, choose **Save preview**. Form changes require another preview; **Close** does not save.
 
 | Field or option | Behavior |

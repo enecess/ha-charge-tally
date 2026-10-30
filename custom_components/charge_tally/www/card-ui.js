@@ -1,6 +1,6 @@
-import {formatCost,formatDecimal,localInput} from './card-state.js?v=0.1.2-11';
-import {tr} from './card-i18n.js?v=0.1.2-11';
-import {SelectControl} from './card-controls.js?v=0.1.2-11';
+import {formatCost,formatDecimal,localInput,recordCostState} from './card-state.js?v=0.1.2-12';
+import {tr} from './card-i18n.js?v=0.1.2-12';
+import {SelectControl} from './card-controls.js?v=0.1.2-12';
 
 export function el(tag,text,attributes={}) {
   const node=document.createElement(tag);if(text!=null)node.textContent=text;
@@ -35,6 +35,53 @@ export function metric(label,value){const node=el('div',null,{class:'metric'});n
 export function quality(flags,language,context={}){return (flags||[]).map(flag=>tr(flag==='estimated'&&context.kind==='segment'?((flags.includes('manual')||context.cost_basis==='manual')?'estimateManual':'estimateSampling'):flag,language)).join(' · ');}
 export function summaryView(summary,currency,language){const node=el('div',null,{class:'grid'});node.append(metric(tr('energy',language),`${formatDecimal(summary?.energy_kwh,language)} kWh`),metric(tr('cost',language),formatCost(summary,currency,language)));return node;}
 export function dateText(value,timezone){if(!value)return '—';try{return localInput(value,timezone).replace('T',' ');}catch{return value;}}
+export function recordOverview(record,currency,language){
+  const view=el('div',null,{class:'stack record-overview'}),metrics=el('div',null,{class:'record-metrics'}),cost=recordCostState(record,currency,language);
+  const energy=metric(tr('energy',language),'');energy.children[1].append(el('span',formatDecimal(record.energy_kwh,language)),el('small',' kWh',{class:'record-unit'}));
+  metrics.append(energy,metric(tr(cost.label,language),cost.value));view.append(metrics);
+  const start=localInput(record.start,record.timezone),end=record.end?localInput(record.end,record.timezone):null;
+  const minutes=Math.max(0,Math.round(((record.end?Date.parse(record.end):Date.now())-Date.parse(record.start))/60000));
+  const range=end?(start.slice(0,10)===end.slice(0,10)?`${start.slice(0,10)} · ${start.slice(11,16)}–${end.slice(11,16)}`:`${start.slice(0,10)} ${start.slice(11,16)} – ${end.slice(0,10)} ${end.slice(11,16)}`):`${start.slice(0,10)} · ${start.slice(11,16)}–…`;
+  view.append(el('p',`${range} · ${tr('durationCompact',language,{hours:Math.floor(minutes/60),minutes:minutes%60})}`),el('p',`${tr(record.status,language)} · ${tr(record.source==='manual'?'manual_source':record.source,language)} · ${record.timezone}`,{class:'muted record-context'}));
+  if(record.note)view.append(el('p',record.note));
+  if(cost.issue)view.append(el('p',tr(cost.issue==='energyMissing'&&(record.quality||[]).includes('reset')?'energyMissingReset':cost.issue,language),{class:'record-issue'}));
+  else if(record.end_reason==='source_unavailable')view.append(el('p',tr('ended_source_unavailable',language),{class:'record-issue'}));
+  return view;
+}
+export function billingDetails(detail,language,currency){
+  const {record}=detail,section=el('details',null,{class:'record-section'}),body=el('div',null,{class:'billing-details stack'});
+  section.append(el('summary',tr('feeDetails',language)),body);
+  const manual=(record.manual_fee_override||record.manual_override)&&Object.hasOwn(record,'manual_cost');
+  if(manual)body.append(el('p',record.manual_cost==null?tr('manualAmountMissing',language):`${tr('manualAmount',language)}: ${recordCostState(record,currency,language).value}`));
+  if(record.manual_override){
+    body.append(el('p',tr('manualEnergyExplanation',language)));
+    return section;
+  }
+  const missing=(record.quality_spans||[]).filter(span=>span.quality.includes('missing_energy'));
+  // Fee allocations include unmeasured zero-energy spans; only raw measured parts
+  // can establish measurement coverage. Never use this view for accounting.
+  const periods=manual?(detail.segments||[]).filter(part=>!part.quality?.includes('missing_energy')):(detail.billing_periods??detail.segments??[]);
+  const entries=[...periods.map(period=>({period,start:period.start})),...missing.map(gap=>({gap,start:gap.start}))].sort((a,b)=>Date.parse(a.start)-Date.parse(b.start));
+  let date,shown=0;const hidden=[];
+  for(const entry of entries){
+    const part=entry.period||entry.gap,currentDate=localInput(part.start,record.timezone).slice(0,10),range=`${localInput(part.start,record.timezone).slice(11)}–${localInput(part.end,record.timezone).slice(11)}`;
+    if(currentDate!==date){const heading=el('p',currentDate,{class:'billing-date muted'});body.append(heading);if(shown>=12)hidden.push(heading);date=currentDate;}
+    if(entry.gap){const gap=el('p',`${range} · ${tr('dataGap',language,{seconds:Math.max(1,Math.round((Date.parse(part.end)-Date.parse(part.start))/1000))})}`,{class:'billing-gap muted'});body.append(gap);if(shown>=12)hidden.push(gap);continue;}
+    const row=el('div',null,{class:`billing-period${manual?' measurement-period':''}`});row.append(el('span',range,{class:'billing-range'}));
+    const values=manual?[[tr('energy',language),`${formatDecimal(part.energy_kwh,language)} kWh`]]:[[`${currency}/kWh`,part.unit_price==null?tr('price_unknown',language):formatDecimal(part.unit_price,language,6)],[tr('energy',language),`${formatDecimal(part.energy_kwh,language)} kWh`],[tr('cost',language),part.cost==null?tr('amountMissing',language):`${currency} ${formatDecimal(part.cost,language,2,2)}`]];
+    for(const [label,value]of values){const cell=el('span',null,{class:'billing-value'});cell.append(el('small',label),el('span',value));row.append(cell);}body.append(row);if(shown++>=12)hidden.push(row);
+  }
+  if(!periods.length&&!missing.length)body.append(el('p',tr('noCoverage',language)));
+  if(hidden.length){const more=el('details',null,{class:'more-periods'});more.append(el('summary',tr('showAllPeriods',language)),...hidden);body.append(more);}
+  const explanations=[];
+  if((record.quality||[]).some(flag=>['estimated','unavailable'].includes(flag)))explanations.push(tr('samplingExplanation',language));
+  if((record.quality||[]).some(flag=>['missing_price','price_unknown'].includes(flag))&&!manual)explanations.push(tr('priceMissing',language));
+  if(record.end_reason==='source_unavailable'&&recordCostState(record,currency,language).issue)explanations.push(tr('ended_source_unavailable',language));
+  const rounded=(value,digits)=>BigInt(formatDecimal(value,'en',digits,digits).replace(/[,.]/g,''));
+  if(periods.length&&[['energy_kwh',3],...(!manual&&periods.every(part=>part.cost!=null)?[['cost',2]]:[])].some(([key,digits])=>periods.reduce((sum,part)=>sum+rounded(part[key],digits),0n)!==rounded(record[key==='cost'?'known_cost':key],digits)))explanations.push(tr('roundingExplanation',language));
+  if(explanations.length)body.append(el('p',explanations.join(' '),{class:'quality'}));
+  return section;
+}
 export function segmentTable(segments,language,currency,timezone="UTC"){
   const wrap=el('div',null,{class:'table-wrap'}),table=el('table'),head=el('tr');
   for(const label of ['from','energy','cost','quality'])head.append(el('th',tr(label,language),{scope:'col'}));table.append(head);

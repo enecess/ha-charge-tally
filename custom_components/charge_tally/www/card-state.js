@@ -1,4 +1,4 @@
-import {tr,locale} from './card-i18n.js?v=0.1.2-11';
+import {tr,locale} from './card-i18n.js?v=0.1.2-12';
 const numberFormats=new Map();
 export function formatDecimal(value,language='en',digits=3,minimum=0){
   if(value==null)return '—';
@@ -13,6 +13,44 @@ export function formatDecimal(value,language='en',digits=3,minimum=0){
 export function formatCost(summary, currency = '', language = 'en') {
   const value = `${currency} ${formatDecimal(summary?.known_cost,language,2,2)}`.trim();
   return summary?.cost_complete === true ? value : tr('costIncomplete',language,{value});
+}
+// Record presentation explains completeness without changing accounting flags.
+export function recordCostState(record,currency,language){
+  const manual=(record.manual_fee_override||record.manual_override)&&Object.hasOwn(record,'manual_cost');
+  const missing=(record.quality||[]).includes('missing_energy');
+  const permanent=(record.quality_spans||[]).some(span=>span.quality.includes('missing_energy')&&!span.quality.includes('pending_settlement'));
+  const loss=permanent||(missing&&!(record.quality||[]).includes('pending_settlement'));
+  const known=manual?record.manual_cost!=null:record.has_known_cost!==false&&record.known_cost!=null;
+  return {
+    label:manual&&known?'manualAmount':!known?'cost':record.status==='active'?'currentCost':record.cost_complete?'cost':'calculatedCost',
+    issue:manual&&missing?'energyMissingManual':loss?'energyMissing':!known?'amountMissing':!manual&&missing?'waitingFinalSample':!manual&&(record.quality||[]).some(flag=>['missing_price','price_unknown'].includes(flag))?'priceMissing':null,
+    value:known?`${currency} ${formatDecimal(manual?record.manual_cost:record.known_cost,language,2,2)}`.trim():tr('amountMissing',language),
+  };
+}
+// Compare validated decimal values exactly, including exponent notation.
+function decimalKey(value){
+  if(value==null)return null;
+  const [coefficient,exponent='0']=String(value).toLowerCase().split('e');
+  const digits=coefficient.replace(/^[+-]/,'').replace('.','');
+  const significant=digits.replace(/^0+/,'').replace(/0+$/,'');
+  if(!significant)return '0';
+  return `${coefficient.startsWith('-')?'-':''}${significant}e${BigInt(exponent)-BigInt(coefficient.split('.')[1]?.length||0)+BigInt(digits.length-digits.replace(/0+$/,'').length)}`;
+}
+export function historyEntries(records,currency,language,identityName){
+  return records.flatMap((record,index)=>{
+    if(index===0)return [[tr('historyCreated',language)]];
+    const previous=records[index-1],changes=[];
+    if(record.status!==previous.status)changes.push(tr('historyStatus',language,{value:tr(record.status,language)}));
+    if(record.identity_id!==previous.identity_id)changes.push(`${tr('assignedIdentity',language)}: ${previous.identity_name??identityName(previous.identity_id)} → ${record.identity_name??identityName(record.identity_id)}`);
+    if(decimalKey(record.energy_kwh)!==decimalKey(previous.energy_kwh))changes.push(formatDecimal(record.energy_kwh,language)!==formatDecimal(previous.energy_kwh,language)?`${tr('energy',language)}: ${formatDecimal(previous.energy_kwh,language)} → ${formatDecimal(record.energy_kwh,language)} kWh`:tr('historyAmountUpdated',language,{field:tr('energy',language)}));
+    const before=recordCostState(previous,currency,language).value,after=recordCostState(record,currency,language).value;
+    if(before!==after)changes.push(`${tr('cost',language)}: ${before} → ${after}`);
+    else if(decimalKey(record.manual_cost??record.known_cost)!==decimalKey(previous.manual_cost??previous.known_cost))changes.push(tr('historyAmountUpdated',language,{field:tr('cost',language)}));
+    if(record.note!==previous.note)changes.push(`${tr('note',language)}: ${record.note||tr('none',language)}`);
+    if(record.start!==previous.start||(record.end!==previous.end&&!(previous.end==null&&record.status!==previous.status)))changes.push(tr('historyTimeChanged',language));
+    if(record.source!==previous.source||record.manual_override!==previous.manual_override||record.manual_fee_override!==previous.manual_fee_override)changes.push(tr('historyBasisChanged',language));
+    return changes.length?[changes]:[];
+  });
 }
 export function localInput(instant, timezone) {
   const parts = new Intl.DateTimeFormat('en-CA', {timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(new Date(instant));
